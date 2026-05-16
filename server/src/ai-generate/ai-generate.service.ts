@@ -251,7 +251,7 @@ export class AiGenerateService {
       try {
         const enriched = {
           ...q,
-          questionId: q.questionId || `AI_${dto.provider}_${jobId.slice(0, 6)}_${i}`,
+          questionId: `AI_${uuidv4()}`,
           subject: q.subject || dto.subject,
           topic: q.topic || dto.topic,
           subTopic: q.subTopic || dto.subTopic || null,

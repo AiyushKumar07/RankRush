@@ -37,6 +37,11 @@ export class QuestionsService {
       throw new BadRequestException('quizBank must be a non-empty array');
     }
 
+    // Ensure all questions have a unique questionId before validation (overwrite any provided)
+    quizBank.forEach((q) => {
+      q.questionId = uuidv4();
+    });
+
     const batchId = uuidv4();
     const validationErrors = QuestionValidator.validateBatch(quizBank);
     const errorIds = new Set(validationErrors.map((e) => e.questionId));

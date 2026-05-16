@@ -257,7 +257,7 @@ export default function QuestionEditor({ question, onSave, onCancel }) {
             </label>
           ))}
         </div>
-        <div><label className={labelCls}>Question ID</label><input type="text" value={data.questionId || ''} onChange={(e) => set('questionId', e.target.value)} className={inputCls} /></div>
+        <div><label className={labelCls}>Question ID</label><input type="text" value={data.questionId || ''} readOnly disabled className={inputCls + " opacity-50 cursor-not-allowed"} /></div>
       </fieldset>
 
       {/* ── Actions ── */}
