@@ -25,6 +25,52 @@ export class OptionDto {
   imageUrl?: string;
 }
 
+export class MatchPairDto {
+  @IsString()
+  left: string;
+
+  @IsString()
+  right: string;
+}
+
+export class SubQuestionDto {
+  @IsString()
+  question: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OptionDto)
+  options: OptionDto[];
+
+  @IsArray()
+  @IsString({ each: true })
+  correctAnswer: string[];
+}
+
+export class CaseStudyDto {
+  @IsOptional()
+  @IsString()
+  passage?: string;
+
+  @IsOptional()
+  @IsString()
+  passageImageUrl?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SubQuestionDto)
+  subQuestions: SubQuestionDto[];
+}
+
+export class AnswerExplanationDto {
+  @IsOptional()
+  @IsString()
+  correctExplanation?: string;
+
+  @IsOptional()
+  incorrectExplanation?: any;
+}
+
 export class UploadQuizBankDto {
   @IsArray()
   @ArrayMinSize(1)
@@ -58,9 +104,21 @@ export class UpdateQuestionDto {
   @IsOptional() @IsString() assertionStatement?: string;
   @IsOptional() @IsString() reasonStatement?: string;
   @IsOptional() @IsString() questionImageUrl?: string;
-  @IsOptional() @IsArray() matchPairs?: any[];
-  @IsOptional() caseStudy?: any;
-  @IsOptional() answerExplanation?: any;
+  @IsOptional() 
+  @IsArray() 
+  @ValidateNested({ each: true })
+  @Type(() => MatchPairDto)
+  matchPairs?: MatchPairDto[];
+
+  @IsOptional() 
+  @ValidateNested()
+  @Type(() => CaseStudyDto)
+  caseStudy?: CaseStudyDto;
+
+  @IsOptional() 
+  @ValidateNested()
+  @Type(() => AnswerExplanationDto)
+  answerExplanation?: AnswerExplanationDto;
   @IsOptional() @IsBoolean() isDiagramBased?: boolean;
   @IsOptional() @IsBoolean() isCaseBased?: boolean;
   @IsOptional() @IsBoolean() isNcertLineBased?: boolean;
