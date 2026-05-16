@@ -5,6 +5,7 @@ import { PERMISSIONS_KEY } from '../../common/decorators/permissions.decorator.j
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
   [Role.ADMIN]: ['*'],
+  [Role.STUDENT]: [],
 };
 
 @Injectable()
