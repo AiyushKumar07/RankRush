@@ -17,11 +17,11 @@ export const QUESTION_TYPES = {
 };
 
 export const STATUS_COLORS = {
-  DRAFT: { bg: 'bg-gray-500/10', text: 'text-gray-400', dot: 'bg-gray-400' },
-  PENDING_REVIEW: { bg: 'bg-amber-500/10', text: 'text-amber-400', dot: 'bg-amber-400' },
-  APPROVED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', dot: 'bg-emerald-400' },
-  REJECTED: { bg: 'bg-red-500/10', text: 'text-red-400', dot: 'bg-red-400' },
-  PUBLISHED: { bg: 'bg-accent-500/10', text: 'text-accent-400', dot: 'bg-accent-400' },
+  DRAFT: { bg: 'bg-gray-500/[0.08]', text: 'text-gray-400', dot: 'bg-gray-400', border: 'border-gray-500/15' },
+  PENDING_REVIEW: { bg: 'bg-amber-500/[0.08]', text: 'text-amber-400', dot: 'bg-amber-400', border: 'border-amber-500/15' },
+  APPROVED: { bg: 'bg-emerald-500/[0.08]', text: 'text-emerald-400', dot: 'bg-emerald-400', border: 'border-emerald-500/15' },
+  REJECTED: { bg: 'bg-red-500/[0.08]', text: 'text-red-400', dot: 'bg-red-400', border: 'border-red-500/15' },
+  PUBLISHED: { bg: 'bg-accent-500/[0.08]', text: 'text-accent-400', dot: 'bg-accent-400', border: 'border-accent-500/15' },
 };
 
 export const DIFFICULTY_COLORS = {

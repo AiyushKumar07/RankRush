@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
-import { RegisterDto, LoginDto } from './dto/auth.dto.js';
+import { RegisterDto, LoginDto, StudentSignupDto } from './dto/auth.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -119,5 +119,45 @@ export class AuthService {
     });
 
     return { data: { users } };
+  }
+
+  private generateStudentUserId(email: string): string {
+    const localPart = email.split('@')[0];
+    const last4 = localPart.slice(-4);
+    return `RankRush@${last4}`;
+  }
+
+  private generateRandomPassword(length = 12): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  }
+
+  async studentSignup(dto: StudentSignupDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException('Email already registered');
+
+    const userId = this.generateStudentUserId(dto.email);
+    const rawPassword = this.generateRandomPassword();
+    const hashed = await bcrypt.hash(rawPassword, 12);
+
+    await this.prisma.user.create({
+      data: {
+        name: userId,
+        email: dto.email,
+        password: hashed,
+        role: 'STUDENT',
+      },
+    });
+
+    return {
+      message: 'You\'re on the early access list! We\'ll notify you when RankRush launches.',
+      data: { userId },
+    };
   }
 }

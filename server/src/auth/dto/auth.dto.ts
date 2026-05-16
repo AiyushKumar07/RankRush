@@ -25,6 +25,11 @@ export class RegisterDto {
   role?: Role;
 }
 
+export class StudentSignupDto {
+  @IsEmail()
+  email: string;
+}
+
 export class LoginDto {
   @IsEmail()
   email: string;

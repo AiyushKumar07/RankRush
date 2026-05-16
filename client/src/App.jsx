@@ -4,14 +4,16 @@ import { AuthProvider } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import ComingSoonPage from './pages/ComingSoonPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route element={<AppLayout />}>
+          <Route path="/" element={<ComingSoonPage />} />
+          <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin" element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -20,15 +22,17 @@ export default function App() {
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'rgba(15, 18, 32, 0.95)',
-              color: '#c0c6dc',
-              border: '1px solid rgba(108, 92, 231, 0.15)',
-              borderRadius: '12px',
-              backdropFilter: 'blur(20px)',
+              background: 'rgba(19, 24, 48, 0.85)',
+              color: '#bec5de',
+              border: '1px solid rgba(124, 107, 245, 0.12)',
+              borderRadius: '16px',
+              backdropFilter: 'blur(24px) saturate(1.5)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
               fontSize: '13px',
+              fontWeight: '500',
             },
-            success: { iconTheme: { primary: '#10b981', secondary: '#0a0c14' } },
-            error: { iconTheme: { primary: '#ef4444', secondary: '#0a0c14' } },
+            success: { iconTheme: { primary: '#10b981', secondary: '#070a12' } },
+            error: { iconTheme: { primary: '#ef4444', secondary: '#070a12' } },
           }}
         />
       </AuthProvider>

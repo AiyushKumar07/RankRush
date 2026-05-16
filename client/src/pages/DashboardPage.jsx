@@ -109,7 +109,6 @@ export default function DashboardPage() {
 
   const handleSaveEdit = async (rawData) => {
     try {
-      // Strip server-managed / read-only fields
       const {
         _id, id, createdAt, updatedAt, uploadedBy, reviewedBy, approvedBy, publishedBy,
         status, version, previousVersions, contentHash, uploadBatchId, reviewComment, metadata,
@@ -122,11 +121,10 @@ export default function DashboardPage() {
       });
       toast.success('Question updated');
       setEditModal(false);
-      // Reload updated question into detail view
       try {
         const res = await questionsAPI.getById(selectedQuestion._id);
         setSelectedQuestion(res.data.question);
-      } catch (_) { /* detail refresh failed, close */ }
+      } catch (_) { /* detail refresh failed */ }
       loadQuestions(pagination.page);
     } catch (err) {
       toast.error(err?.message || 'Update failed');
@@ -146,89 +144,155 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard & Questions</h1>
-          <p className="text-sm text-dark-400 mt-1">Manage all your questions in one place</p>
+          <motion.h1
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="text-2xl font-bold text-white tracking-tight"
+          >
+            Dashboard & Questions
+          </motion.h1>
+          <motion.p
+            className="text-sm text-dark-400 mt-1.5 flex items-center gap-2"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            Manage all your questions in one place
+            <motion.span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"
+              animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          </motion.p>
         </div>
-        <div className="flex gap-2">
+        <motion.div
+          className="flex gap-3"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Button variant="secondary" icon={Sparkles} onClick={() => setAiGenerateOpen(true)}>
             AI Generate
           </Button>
           <Button icon={UploadIcon} onClick={() => setUploadModalOpen(true)}>
             Upload Questions
           </Button>
-        </div>
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={FileQuestion} label="Total Questions" value={stats?.overview?.totalQuestions || 0} color="accent" />
-        <StatCard icon={Activity} label="Drafts" value={stats?.overview?.drafts || 0} color="amber" />
-        <StatCard icon={CheckSquare} label="Published" value={stats?.overview?.published || 0} color="emerald" />
-        <StatCard icon={BarChart3} label="This Week" value={stats?.overview?.weeklyUploads || 0} color="cyan" />
-      </div>
+      {/* Stat cards */}
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: { transition: { staggerChildren: 0.1 } },
+        }}
+      >
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+          <StatCard icon={FileQuestion} label="Total Questions" value={stats?.overview?.totalQuestions || 0} color="accent" />
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+          <StatCard icon={Activity} label="Drafts" value={stats?.overview?.drafts || 0} color="amber" />
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+          <StatCard icon={CheckSquare} label="Published" value={stats?.overview?.published || 0} color="emerald" />
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+          <StatCard icon={BarChart3} label="This Week" value={stats?.overview?.weeklyUploads || 0} color="cyan" />
+        </motion.div>
+      </motion.div>
 
+      {/* Search & filters row */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search questions, topics, chapters..."
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 pl-10 pr-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent-500/50 focus:outline-none focus:ring-1 focus:ring-accent-500/30 transition-all"
+            className="w-full rounded-xl glass-input pl-11 pr-4 py-3 text-sm text-white placeholder-dark-500 focus:outline-none"
           />
         </div>
         <Button variant="secondary" icon={Filter} onClick={() => setShowFilters(!showFilters)}>
           Filters
           {Object.keys(filters).length > 0 && (
-            <span className="ml-1 rounded-full bg-accent-500/20 px-1.5 py-0.5 text-[10px] text-accent-400">{Object.keys(filters).length}</span>
+            <span className="ml-1.5 rounded-full bg-accent-500/20 border border-accent-500/15 px-2 py-0.5 text-[10px] font-semibold text-accent-400">
+              {Object.keys(filters).length}
+            </span>
           )}
         </Button>
       </div>
 
+      {/* Filter panel */}
       <AnimatePresence>
         {showFilters && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="glass-card rounded-xl p-4 overflow-hidden">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <FilterSelect label="Status" value={filters.status || ''} onChange={(v) => setFilters(f => v ? { ...f, status: v } : (function() { const newF = { ...f }; delete newF.status; return newF; })())} options={Object.values(WORKFLOW_STATES).map(s => ({ value: s, label: s.replace(/_/g, ' ') }))} />
-              <FilterSelect label="Type" value={filters.questionType || ''} onChange={(v) => setFilters(f => v ? { ...f, questionType: v } : (function() { const newF = { ...f }; delete newF.questionType; return newF; })())} options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
-              <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={(v) => setFilters(f => v ? { ...f, difficulty: v } : (function() { const newF = { ...f }; delete newF.difficulty; return newF; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
-              <div className="flex items-end">
-                <Button variant="ghost" size="sm" icon={X} onClick={() => setFilters({})}>Clear All</Button>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="glass-card rounded-2xl p-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <FilterSelect label="Status" value={filters.status || ''} onChange={(v) => setFilters(f => v ? { ...f, status: v } : (() => { const n = { ...f }; delete n.status; return n; })())} options={Object.values(WORKFLOW_STATES).map(s => ({ value: s, label: s.replace(/_/g, ' ') }))} />
+                <FilterSelect label="Type" value={filters.questionType || ''} onChange={(v) => setFilters(f => v ? { ...f, questionType: v } : (() => { const n = { ...f }; delete n.questionType; return n; })())} options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
+                <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={(v) => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
+                <div className="flex items-end">
+                  <Button variant="ghost" size="sm" icon={X} onClick={() => setFilters({})}>Clear All</Button>
+                </div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {selectedIds.size > 0 && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3">
-          <span className="text-sm text-accent-400 font-medium">{selectedIds.size} selected</span>
-          <div className="flex gap-2 ml-auto">
-            <Button size="sm" variant="success" onClick={() => handleBulkAction('PUBLISHED')}>Publish All</Button>
-            <Button size="sm" variant="secondary" onClick={() => handleBulkAction('DRAFT')}>Move to Drafts</Button>
-            <Button size="sm" variant="danger" onClick={() => handleBulkAction('REJECTED')}>Reject All</Button>
-            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Deselect</Button>
-          </div>
-        </motion.div>
-      )}
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="glass-card rounded-2xl px-5 py-3.5 flex items-center gap-3"
+          >
+            <span className="text-sm text-accent-300 font-semibold">{selectedIds.size} selected</span>
+            <div className="flex gap-2 ml-auto">
+              <Button size="sm" variant="success" onClick={() => handleBulkAction('PUBLISHED')}>Publish All</Button>
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('DRAFT')}>Move to Drafts</Button>
+              <Button size="sm" variant="danger" onClick={() => handleBulkAction('REJECTED')}>Reject All</Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Deselect</Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      {/* Question list */}
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="glass-card rounded-xl p-5 animate-pulse"><div className="h-4 bg-dark-700 rounded w-3/4 mb-3" /><div className="h-3 bg-dark-700 rounded w-1/2" /></div>
+            <div key={i} className="glass-card rounded-2xl p-5 animate-pulse">
+              <div className="h-4 bg-dark-700/40 rounded-lg w-3/4 mb-3" />
+              <div className="h-3 bg-dark-700/30 rounded-lg w-1/2" />
+            </div>
           ))}
         </div>
       ) : questions.length === 0 ? (
         <EmptyState icon={FileQuestion} title="No questions found" description="Upload a JSON file to get started, or adjust your filters." />
       ) : (
         <>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" icon={CheckSquare} onClick={handleSelectAll}>
               {selectedIds.size === questions.length ? 'Deselect All' : 'Select All'}
             </Button>
+            <span className="text-xs text-dark-500">{pagination.total} questions</span>
           </div>
           <div className="space-y-3">
             <AnimatePresence>
@@ -237,12 +301,26 @@ export default function DashboardPage() {
               ))}
             </AnimatePresence>
           </div>
+
+          {/* Pagination */}
           {pagination.pages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">
               {Array.from({ length: Math.min(pagination.pages, 7) }, (_, i) => {
                 const page = i + 1;
                 return (
-                  <button key={page} onClick={() => loadQuestions(page)} className={`h-8 w-8 rounded-lg text-xs font-medium transition-all ${page === pagination.page ? 'bg-accent-500 text-white' : 'text-dark-400 hover:bg-dark-700'}`}>{page}</button>
+                  <motion.button
+                    key={page}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => loadQuestions(page)}
+                    className={`h-9 w-9 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                      page === pagination.page
+                        ? 'bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-lg shadow-accent-500/25'
+                        : 'glass-frosted text-dark-400 hover:text-white'
+                    }`}
+                  >
+                    {page}
+                  </motion.button>
                 );
               })}
             </div>
@@ -250,6 +328,7 @@ export default function DashboardPage() {
         </>
       )}
 
+      {/* Modals */}
       <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Question Details" maxWidth="max-w-3xl">
         <QuestionDetail question={selectedQuestion} onStatusChange={handleStatusChange} onEdit={handleEdit} userRole={user?.role} />
       </Modal>
@@ -268,13 +347,17 @@ export default function DashboardPage() {
 function FilterSelect({ label, value, onChange, options }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-dark-400 mb-1 uppercase tracking-wider">{label}</label>
+      <label className="block text-[11px] font-semibold text-dark-400 mb-2 uppercase tracking-wider">{label}</label>
       <div className="relative">
-        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full appearance-none rounded-lg border border-dark-600/50 bg-dark-800/50 px-3 py-2 pr-8 text-xs text-white focus:border-accent-500/50 focus:outline-none">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none rounded-xl glass-input px-4 py-2.5 pr-9 text-xs text-white focus:outline-none"
+        >
           <option value="">All</option>
           {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-500 pointer-events-none" />
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-500 pointer-events-none" />
       </div>
     </div>
   );

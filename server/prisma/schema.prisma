@@ -10,6 +10,7 @@ datasource db {
 // ─── User ────────────────────────────────────────────────────────────
 enum Role {
   ADMIN
+  STUDENT
 }
 
 model User {

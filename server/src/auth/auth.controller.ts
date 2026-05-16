@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { AuthService } from './auth.service.js';
-import { RegisterDto, LoginDto } from './dto/auth.dto.js';
+import { RegisterDto, LoginDto, StudentSignupDto } from './dto/auth.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
@@ -14,6 +14,11 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Post('student-signup')
+  studentSignup(@Body() dto: StudentSignupDto) {
+    return this.authService.studentSignup(dto);
   }
 
   @Post('login')

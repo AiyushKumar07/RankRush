@@ -1,16 +1,79 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Zap, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Zap, LogIn, Eye, EyeOff, Shield, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import toast from 'react-hot-toast';
+
+function FloatingParticles() {
+  const particles = Array.from({ length: 30 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: Math.random() * 3 + 1,
+    duration: Math.random() * 20 + 15,
+    delay: Math.random() * 5,
+  }));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute rounded-full bg-accent-400/20"
+          style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size }}
+          animate={{
+            y: [0, -30, 10, -20, 0],
+            x: [0, 10, -10, 5, 0],
+            opacity: [0.2, 0.6, 0.3, 0.7, 0.2],
+          }}
+          transition={{ duration: p.duration, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function OrbitingDots() {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full"
+          style={{
+            background: i % 2 === 0 ? 'rgba(124,107,245,0.6)' : 'rgba(0,232,198,0.5)',
+            boxShadow: i % 2 === 0 ? '0 0 6px rgba(124,107,245,0.4)' : '0 0 6px rgba(0,232,198,0.4)',
+          }}
+          animate={{
+            x: [Math.cos((i * Math.PI) / 3) * 220, Math.cos((i * Math.PI) / 3 + Math.PI) * 220],
+            y: [Math.sin((i * Math.PI) / 3) * 220, Math.sin((i * Math.PI) / 3 + Math.PI) * 220],
+            opacity: [0.3, 0.8, 0.3],
+          }}
+          transition={{ duration: 12 + i * 2, repeat: Infinity, ease: 'linear' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ScanLine() {
+  return (
+    <motion.div
+      className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent-400/40 to-transparent pointer-events-none"
+      animate={{ top: ['0%', '100%'] }}
+      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+    />
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -20,7 +83,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Welcome back!');
-      navigate('/');
+      navigate('/admin');
     } catch (err) {
       toast.error(err?.message || 'Login failed');
     } finally {
@@ -28,101 +91,231 @@ export default function LoginPage() {
     }
   };
 
-  const demoAccounts = [
-    { label: 'Super Admin', email: 'admin@rankrush.io', password: 'Admin@1234' },
-    { label: 'Reviewer', email: 'reviewer@rankrush.io', password: 'Reviewer@1234' },
-    { label: 'Moderator', email: 'moderator@rankrush.io', password: 'Moderator@1234' },
-    { label: 'Publisher', email: 'publisher@rankrush.io', password: 'Publisher@1234' },
-  ];
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-dark-950 grid-bg p-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl" />
+    <div className="relative flex min-h-screen items-center justify-center bg-dark-950 overflow-hidden p-4">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{ x: [0, 40, -20, 0], y: [0, -30, 20, 0], scale: [1, 1.1, 0.9, 1] }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-[15%] left-[20%] w-[500px] h-[500px] rounded-full bg-accent-500/[0.07] blur-[120px]"
+        />
+        <motion.div
+          animate={{ x: [0, -30, 20, 0], y: [0, 40, -20, 0], scale: [1, 0.95, 1.08, 1] }}
+          transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-[10%] right-[15%] w-[400px] h-[400px] rounded-full bg-neon-cyan/[0.05] blur-[100px]"
+        />
+        <motion.div
+          animate={{ x: [0, 20, -30, 0], y: [0, -20, 30, 0] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-[50%] right-[30%] w-[300px] h-[300px] rounded-full bg-neon-purple/[0.04] blur-[100px]"
+        />
       </div>
 
+      {/* Floating particles */}
+      <FloatingParticles />
+
+      {/* Orbiting dots around center */}
+      <OrbitingDots />
+
+      {/* Grid overlay */}
+      <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
+
+      {/* Animated corner accents */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative w-full max-w-md"
+        className="absolute top-8 left-8 w-16 h-16 border-l-2 border-t-2 border-accent-500/20 rounded-tl-2xl pointer-events-none"
+        animate={{ opacity: [0.3, 0.7, 0.3] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute bottom-8 right-8 w-16 h-16 border-r-2 border-b-2 border-neon-cyan/20 rounded-br-2xl pointer-events-none"
+        animate={{ opacity: [0.3, 0.7, 0.3] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 40, rotateX: 10 }}
+        animate={{ opacity: 1, y: 0, rotateX: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-[420px]"
+        style={{ perspective: '1200px' }}
       >
-        <div className="glass-card rounded-3xl p-8 glow-accent">
-          <div className="flex flex-col items-center mb-8">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-500/20 mb-4">
-              <Zap className="h-7 w-7 text-accent-400" />
-            </div>
-            <h1 className="text-2xl font-bold gradient-text">RankRush</h1>
-            <p className="text-sm text-dark-400 mt-1">Biology Quiz Bank Admin Panel</p>
-          </div>
+        {/* Main glass card */}
+        <div className="relative glass-card rounded-3xl p-8 glow-accent inner-shine overflow-hidden">
+          {/* Scanning line across card */}
+          <ScanLine />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-dark-300 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent-500/50 focus:outline-none focus:ring-1 focus:ring-accent-500/30 transition-all"
-                placeholder="admin@rankrush.io"
-                required
+          {/* Animated border glow */}
+          <motion.div
+            className="absolute inset-0 rounded-3xl pointer-events-none"
+            style={{ padding: '1px' }}
+            animate={{
+              boxShadow: [
+                'inset 0 0 0 1px rgba(124,107,245,0.1)',
+                'inset 0 0 0 1px rgba(0,232,198,0.15)',
+                'inset 0 0 0 1px rgba(196,113,245,0.12)',
+                'inset 0 0 0 1px rgba(124,107,245,0.1)',
+              ],
+            }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          {/* Top edge shine */}
+          <motion.div
+            className="absolute top-0 h-px bg-gradient-to-r from-transparent via-accent-400/30 to-transparent"
+            animate={{ left: ['-30%', '100%'], right: ['100%', '-30%'] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          {/* Logo */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="flex flex-col items-center mb-8"
+          >
+            <div className="relative mb-4">
+              <div className="absolute inset-0 rounded-2xl bg-accent-500/20 blur-xl animate-pulse-glow" />
+              {/* Orbiting ring around logo */}
+              <motion.div
+                className="absolute -inset-3 rounded-2xl border border-accent-400/10"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                style={{ borderStyle: 'dashed' }}
               />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500/30 to-accent-700/30 border border-accent-400/20">
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Zap className="h-8 w-8 text-accent-300" />
+                </motion.div>
+              </div>
             </div>
+            <motion.h1
+              className="text-3xl font-bold gradient-text tracking-tight"
+              animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ backgroundSize: '200% 200%' }}
+            >
+              RankRush
+            </motion.h1>
+            <motion.p
+              className="text-sm text-dark-400 mt-1.5 flex items-center gap-1.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <motion.span
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <Shield className="h-3 w-3" />
+              </motion.span>
+              Quiz Bank Admin Panel
+            </motion.p>
+          </motion.div>
 
-            <div>
-              <label className="block text-xs font-medium text-dark-300 mb-1.5">Password</label>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <label className="block text-xs font-medium text-dark-300 mb-2 uppercase tracking-wider">Email</label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  className="w-full rounded-xl glass-input px-4 py-3 text-sm text-white placeholder-dark-500 focus:outline-none transition-all"
+                  placeholder="admin@rankrush.io"
+                  required
+                />
+                {focusedField === 'email' && (
+                  <motion.div
+                    layoutId="inputFocus"
+                    className="absolute inset-0 rounded-xl border border-accent-400/30 pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <label className="block text-xs font-medium text-dark-300 mb-2 uppercase tracking-wider">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-4 py-2.5 pr-10 text-sm text-white placeholder-dark-500 focus:border-accent-500/50 focus:outline-none focus:ring-1 focus:ring-accent-500/30 transition-all"
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  className="w-full rounded-xl glass-input px-4 py-3 pr-11 text-sm text-white placeholder-dark-500 focus:outline-none transition-all"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-200 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-500 hover:text-accent-400 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
+                {focusedField === 'password' && (
+                  <motion.div
+                    layoutId="inputFocus"
+                    className="absolute inset-0 rounded-xl border border-accent-400/30 pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )}
               </div>
-            </div>
+            </motion.div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              icon={LogIn}
-              loading={loading}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
             >
-              Sign In
-            </Button>
+              <Button
+                type="submit"
+                className="w-full"
+                icon={LogIn}
+                loading={loading}
+              >
+                Sign In
+              </Button>
+            </motion.div>
           </form>
 
-          <div className="mt-6">
-            <p className="text-center text-[11px] text-dark-500 mb-3 uppercase tracking-wider">
-              Demo Accounts
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => {
-                    setEmail(acc.email);
-                    setPassword(acc.password);
-                  }}
-                  className="rounded-lg border border-dark-600/30 bg-dark-800/30 px-3 py-2 text-left hover:border-accent-500/30 transition-colors group"
-                >
-                  <p className="text-xs font-medium text-dark-200 group-hover:text-accent-400 transition-colors">
-                    {acc.label}
-                  </p>
-                  <p className="text-[10px] text-dark-500 truncate">{acc.email}</p>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Security footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+            className="mt-6 flex items-center justify-center gap-2"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Lock className="h-3 w-3 text-dark-500" />
+            </motion.div>
+            <p className="text-[11px] text-dark-500">Secured with end-to-end encryption</p>
+          </motion.div>
         </div>
       </motion.div>
     </div>

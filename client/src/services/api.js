@@ -17,7 +17,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('rankrush_token');
       localStorage.removeItem('rankrush_user');
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
     }
     return Promise.reject(error.response?.data || error);
   }
@@ -26,6 +26,7 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
+  studentSignup: (data) => api.post('/auth/student-signup', data),
   getProfile: () => api.get('/auth/profile'),
   getUsers: () => api.get('/auth/users'),
 };
