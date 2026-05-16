@@ -8,7 +8,8 @@ import { PromptBuilder } from './prompt-builder.js';
 
 export class GeminiProvider implements AiProviderInterface {
   readonly name = 'GEMINI';
-  private defaultModel = 'gemini-2.0-flash';
+  private defaultModel =
+    process.env.GEMINI_DEFAULT_MODEL || 'gemini-3-flash-preview';
 
   get isConfigured(): boolean {
     return !!process.env.GEMINI_API_KEY;
@@ -24,7 +25,9 @@ export class GeminiProvider implements AiProviderInterface {
     try {
       const client = new GoogleGenerativeAI(apiKey);
       // Try to list models as a verification step
-      const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = client.getGenerativeModel({
+        model: this.defaultModel,
+      });
       await model.generateContent('Say "ok"');
       return { valid: true };
     } catch (e: any) {
@@ -32,17 +35,22 @@ export class GeminiProvider implements AiProviderInterface {
     }
   }
 
-  async listModels(apiKey: string): Promise<{ models: { id: string; name: string }[] }> {
+  async listModels(
+    apiKey: string,
+  ): Promise<{ models: { id: string; name: string }[] }> {
     // Gemini SDK doesn't expose a model list API directly; use the REST endpoint
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Failed to fetch models');
+      if (!res.ok)
+        throw new Error(data.error?.message || 'Failed to fetch models');
 
       const models = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .filter((m: any) =>
+          m.supportedGenerationMethods?.includes('generateContent'),
+        )
         .map((m: any) => ({
           id: m.name.replace('models/', ''),
           name: m.displayName || m.name.replace('models/', ''),
@@ -53,7 +61,11 @@ export class GeminiProvider implements AiProviderInterface {
     }
   }
 
-  async generate(request: AiGenerationRequest, apiKey?: string, modelId?: string): Promise<AiGenerationResponse> {
+  async generate(
+    request: AiGenerationRequest,
+    apiKey?: string,
+    modelId?: string,
+  ): Promise<AiGenerationResponse> {
     const startTime = Date.now();
     const client = this.makeClient(apiKey);
     const modelName = modelId || this.defaultModel;
@@ -84,7 +96,9 @@ export class GeminiProvider implements AiProviderInterface {
       const parsed = JSON.parse(content);
       questions = Array.isArray(parsed) ? parsed : parsed.questions || [parsed];
     } catch {
-      throw new Error(`Gemini returned invalid JSON: ${content.substring(0, 200)}`);
+      throw new Error(
+        `Gemini returned invalid JSON: ${content.substring(0, 200)}`,
+      );
     }
 
     const usage = response.usageMetadata;

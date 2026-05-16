@@ -8,7 +8,8 @@ import { PromptBuilder } from './prompt-builder.js';
 
 export class ClaudeProvider implements AiProviderInterface {
   readonly name = 'CLAUDE';
-  private defaultModel = 'claude-sonnet-4-20250514';
+  private defaultModel =
+    process.env.CLAUDE_DEFAULT_MODEL || 'claude-sonnet-4-20250514';
 
   get isConfigured(): boolean {
     return !!process.env.ANTHROPIC_API_KEY;
@@ -34,7 +35,9 @@ export class ClaudeProvider implements AiProviderInterface {
     }
   }
 
-  async listModels(apiKey: string): Promise<{ models: { id: string; name: string }[] }> {
+  async listModels(
+    apiKey: string,
+  ): Promise<{ models: { id: string; name: string }[] }> {
     try {
       const client = new Anthropic({ apiKey });
       const response = await client.models.list({ limit: 100 });
@@ -56,7 +59,11 @@ export class ClaudeProvider implements AiProviderInterface {
     }
   }
 
-  async generate(request: AiGenerationRequest, apiKey?: string, model?: string): Promise<AiGenerationResponse> {
+  async generate(
+    request: AiGenerationRequest,
+    apiKey?: string,
+    model?: string,
+  ): Promise<AiGenerationResponse> {
     const startTime = Date.now();
     const client = this.makeClient(apiKey);
     const modelName = model || this.defaultModel;
@@ -87,7 +94,9 @@ export class ClaudeProvider implements AiProviderInterface {
       const parsed = JSON.parse(content);
       questions = Array.isArray(parsed) ? parsed : parsed.questions || [parsed];
     } catch {
-      throw new Error(`Claude returned invalid JSON: ${content.substring(0, 200)}`);
+      throw new Error(
+        `Claude returned invalid JSON: ${content.substring(0, 200)}`,
+      );
     }
 
     return {
