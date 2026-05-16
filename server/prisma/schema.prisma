@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────
+enum Role {
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(ADMIN)
+  avatar       String?
+  isActive     Boolean  @default(true)
+  lastLogin    DateTime?
+  refreshToken String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs     AuditLog[]
+  uploadBatches UploadBatch[]
+
+  @@index([role])
+}
+
+// ─── Question ────────────────────────────────────────────────────────
+enum WorkflowStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum QuestionType {
+  MCQ
+  MULTI_CORRECT
+  ASSERTION_REASON
+  CASE_BASED
+  MATCH_THE_FOLLOWING
+  TRUE_FALSE
+  DIAGRAM_BASED
+}
+
+enum Difficulty {
+  Easy
+  Medium
+  Hard
+  Expert
+}
+
+type Option {
+  id       String
+  text     String
+  imageUrl String?
+}
+
+type MatchPair {
+  left  String
+  right String
+}
+
+type SubQuestion {
+  question      String
+  options       Option[]
+  correctAnswer String[]
+}
+
+type CaseStudy {
+  passage         String?
+  passageImageUrl String?
+  subQuestions     SubQuestion[]
+}
+
+type AnswerExplanation {
+  correctExplanation   String?
+  incorrectExplanation Json?
+}
+
+type PreviousVersion {
+  version      Int
+  data         Json
+  changedBy    String
+  changedAt    DateTime
+  changeReason String?
+}
+
+model Question {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  questionId String   @unique
+
+  examType String[]
+  class    String
+  subject  String
+  unit     String?
+  chapter  String
+  topic    String
+  subTopic String?
+
+  questionType QuestionType
+  difficulty   Difficulty
+
+  question         String
+  questionImageUrl String?
+
+  options    Option[]
+  matchPairs MatchPair[]
+  caseStudy  CaseStudy?
+
+  assertionStatement String?
+  reasonStatement    String?
+
+  correctAnswer     String[]
+  answerExplanation AnswerExplanation?
+
+  PYQ_tags             String[]
+  estimatedTimeSeconds Int     @default(60)
+  marks                Float   @default(1)
+  negativeMarks        Float   @default(0)
+
+  isDiagramBased       Boolean  @default(false)
+  isCaseBased          Boolean  @default(false)
+  isNcertLineBased     Boolean  @default(false)
+  commonMisconceptions String[]
+
+  status           WorkflowStatus    @default(DRAFT)
+  version          Int               @default(1)
+  previousVersions PreviousVersion[]
+
+  uploadedBy  String? @db.ObjectId
+  reviewedBy  String? @db.ObjectId
+  approvedBy  String? @db.ObjectId
+  publishedBy String? @db.ObjectId
+
+  reviewComment String?
+  uploadBatchId String?
+  contentHash   String?
+
+  metadata Json?
+  tags     String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subject])
+  @@index([chapter])
+  @@index([topic])
+  @@index([questionType])
+  @@index([difficulty])
+  @@index([status])
+  @@index([uploadedBy])
+  @@index([contentHash])
+  @@index([uploadBatchId])
+  @@index([status, questionType])
+  @@index([subject, chapter, topic])
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  BULK_UPLOAD
+  BULK_APPROVE
+  BULK_REJECT
+  LOGIN
+  LOGOUT
+}
+
+model AuditLog {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  action     AuditAction
+  entityType String
+  entityId   String?
+
+  performedBy     String @db.ObjectId
+  performedByUser User   @relation(fields: [performedBy], references: [id])
+
+  details       Json?
+  previousState Json?
+  newState      Json?
+  ipAddress     String?
+  userAgent     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([performedBy])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// ─── Upload Batch ────────────────────────────────────────────────────
+enum BatchStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+type ValidationError {
+  questionId String?
+  index      Int
+  errors     String[]
+}
+
+model UploadBatch {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  batchId  String @unique
+  fileName String
+
+  uploadedBy     String @db.ObjectId
+  uploadedByUser User   @relation(fields: [uploadedBy], references: [id])
+
+  totalQuestions     Int @default(0)
+  validQuestions     Int @default(0)
+  invalidQuestions   Int @default(0)
+  duplicateQuestions Int @default(0)
+
+  validationErrors ValidationError[]
+  status           BatchStatus       @default(PROCESSING)
+  questionIds      String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([uploadedBy])
+}

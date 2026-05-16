@@ -1,0 +1,505 @@
+{
+    "quizBank": [
+        {
+            "questionId": "BIO-C10-CH1-001",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Introduction to Life Processes",
+            "questionType": "MCQ",
+            "difficulty": "Easy",
+            "question": "Which of the following is NOT considered a basic life process required to maintain life in organisms?",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "Nutrition"
+                },
+                {
+                    "id": "B",
+                    "text": "Respiration"
+                },
+                {
+                    "id": "C",
+                    "text": "Reproduction"
+                },
+                {
+                    "id": "D",
+                    "text": "Excretion"
+                }
+            ],
+            "correctAnswer": [
+                "C"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "Reproduction is essential for the continuity of species but is NOT a basic life process required to maintain an individual organism's life. The basic life processes are nutrition, respiration, transportation, and excretion."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-002",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Nutrition",
+            "subTopic": "Autotrophic Nutrition",
+            "questionType": "MCQ",
+            "difficulty": "Medium",
+            "question": "The site of photosynthesis in green plants is the chloroplast. Which pigment present in chloroplasts is responsible for trapping solar energy?",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "Carotene"
+                },
+                {
+                    "id": "B",
+                    "text": "Xanthophyll"
+                },
+                {
+                    "id": "C",
+                    "text": "Chlorophyll"
+                },
+                {
+                    "id": "D",
+                    "text": "Anthocyanin"
+                }
+            ],
+            "correctAnswer": [
+                "C"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "Chlorophyll is the green pigment present in the chloroplasts that absorbs sunlight and converts it into chemical energy during photosynthesis."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-003",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Respiration",
+            "subTopic": "Anaerobic Respiration",
+            "questionType": "MULTI_CORRECT",
+            "difficulty": "Hard",
+            "question": "Which of the following are correct statements about anaerobic respiration?",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "It takes place in the absence of oxygen"
+                },
+                {
+                    "id": "B",
+                    "text": "It produces a large amount of ATP compared to aerobic respiration"
+                },
+                {
+                    "id": "C",
+                    "text": "In yeast, it produces ethanol and carbon dioxide"
+                },
+                {
+                    "id": "D",
+                    "text": "In human muscles, it leads to the formation of lactic acid during vigorous exercise"
+                }
+            ],
+            "correctAnswer": [
+                "A",
+                "C",
+                "D"
+            ],
+            "marks": 2,
+            "negativeMarks": 0.5,
+            "answerExplanation": {
+                "correctExplanation": "Anaerobic respiration occurs without oxygen. In yeast, it yields ethanol + CO2 (fermentation), and in human muscle cells under low oxygen (vigorous exercise), it produces lactic acid causing cramps. However, it produces only 2 ATP molecules — much LESS than aerobic respiration (which yields ~38 ATP), so option B is incorrect."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-004",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Transportation",
+            "subTopic": "Transportation in Plants",
+            "questionType": "ASSERTION_REASON",
+            "difficulty": "Medium",
+            "question": "Read the Assertion (A) and Reason (R) carefully and select the most appropriate option.",
+            "assertionStatement": "Transpiration helps in the upward movement of water and minerals from roots to leaves in plants.",
+            "reasonStatement": "Loss of water from the leaves creates a suction pull (transpiration pull) that draws water up through the xylem.",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "Both A and R are true, and R is the correct explanation of A"
+                },
+                {
+                    "id": "B",
+                    "text": "Both A and R are true, but R is NOT the correct explanation of A"
+                },
+                {
+                    "id": "C",
+                    "text": "A is true but R is false"
+                },
+                {
+                    "id": "D",
+                    "text": "A is false but R is true"
+                }
+            ],
+            "correctAnswer": [
+                "A"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "Both statements are true and R correctly explains A. Transpiration from leaves creates a negative pressure (suction) that pulls water up the xylem from the roots — this is called the transpiration pull, the major driving force for ascent of sap in tall plants."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-005",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Nutrition",
+            "subTopic": "Human Digestive System",
+            "questionType": "MATCH_THE_FOLLOWING",
+            "difficulty": "Medium",
+            "question": "Match the digestive juices/enzymes in Column I with their respective sites of secretion in Column II.",
+            "matchPairs": [
+                {
+                    "left": "A. Saliva (Salivary Amylase)",
+                    "right": "1. Stomach"
+                },
+                {
+                    "left": "B. Pepsin (Gastric Juice)",
+                    "right": "2. Mouth"
+                },
+                {
+                    "left": "C. Bile",
+                    "right": "3. Pancreas"
+                },
+                {
+                    "left": "D. Trypsin",
+                    "right": "4. Liver"
+                }
+            ],
+            "options": [
+                {
+                    "id": "opt1",
+                    "text": "A-2, B-1, C-4, D-3"
+                },
+                {
+                    "id": "opt2",
+                    "text": "A-1, B-2, C-3, D-4"
+                },
+                {
+                    "id": "opt3",
+                    "text": "A-2, B-1, C-3, D-4"
+                },
+                {
+                    "id": "opt4",
+                    "text": "A-3, B-4, C-1, D-2"
+                }
+            ],
+            "correctAnswer": [
+                "opt1"
+            ],
+            "marks": 2,
+            "negativeMarks": 0.5,
+            "answerExplanation": {
+                "correctExplanation": "Salivary amylase is secreted in the mouth by salivary glands; pepsin is secreted in the stomach by gastric glands; bile is produced by the liver; trypsin is secreted by the pancreas in pancreatic juice."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-006",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Excretion",
+            "subTopic": "Human Excretory System",
+            "questionType": "TRUE_FALSE",
+            "difficulty": "Easy",
+            "question": "The basic structural and functional unit of the kidney is the nephron.",
+            "options": [
+                {
+                    "id": "True",
+                    "text": "True"
+                },
+                {
+                    "id": "False",
+                    "text": "False"
+                }
+            ],
+            "correctAnswer": [
+                "True"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "True. Each kidney contains about a million nephrons, which are the structural and functional units responsible for filtering blood and forming urine."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-007",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Transportation",
+            "subTopic": "Human Circulatory System",
+            "questionType": "TRUE_FALSE",
+            "difficulty": "Medium",
+            "question": "Arteries always carry oxygenated blood and veins always carry deoxygenated blood in the human body.",
+            "options": [
+                {
+                    "id": "True",
+                    "text": "True"
+                },
+                {
+                    "id": "False",
+                    "text": "False"
+                }
+            ],
+            "correctAnswer": [
+                "False"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "False. This is a common misconception. The pulmonary artery carries deoxygenated blood from the heart to the lungs, while the pulmonary vein carries oxygenated blood from the lungs back to the heart. So the rule 'arteries = oxygenated' is not universal."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-008",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Nutrition",
+            "subTopic": "Photosynthesis",
+            "questionType": "CASE_BASED",
+            "difficulty": "Medium",
+            "question": "Read the passage carefully and answer the sub-questions that follow.",
+            "isCaseBased": true,
+            "caseStudy": {
+                "passage": "Photosynthesis is the process by which green plants synthesize their own food using carbon dioxide and water in the presence of sunlight and chlorophyll. The process can be summarized as: 6CO2 + 12H2O → C6H12O6 + 6O2 + 6H2O. The process takes place mainly in the chloroplasts of leaf cells. Tiny pores called stomata, present on the surface of leaves, allow exchange of gases. The opening and closing of stomata is regulated by guard cells. Photosynthesis involves several events: absorption of light energy by chlorophyll, conversion of light energy to chemical energy and splitting of water into hydrogen and oxygen, and finally reduction of carbon dioxide to carbohydrates.",
+                "subQuestions": [
+                    {
+                        "question": "1. Which of the following is a raw material required for photosynthesis?",
+                        "options": [
+                            {
+                                "id": "A",
+                                "text": "Oxygen"
+                            },
+                            {
+                                "id": "B",
+                                "text": "Glucose"
+                            },
+                            {
+                                "id": "C",
+                                "text": "Carbon dioxide"
+                            },
+                            {
+                                "id": "D",
+                                "text": "Nitrogen"
+                            }
+                        ],
+                        "correctAnswer": [
+                            "C"
+                        ]
+                    },
+                    {
+                        "question": "2. The exchange of gases through leaves takes place through:",
+                        "options": [
+                            {
+                                "id": "A",
+                                "text": "Cuticle"
+                            },
+                            {
+                                "id": "B",
+                                "text": "Stomata"
+                            },
+                            {
+                                "id": "C",
+                                "text": "Xylem"
+                            },
+                            {
+                                "id": "D",
+                                "text": "Phloem"
+                            }
+                        ],
+                        "correctAnswer": [
+                            "B"
+                        ]
+                    },
+                    {
+                        "question": "3. The opening and closing of stomata is controlled by:",
+                        "options": [
+                            {
+                                "id": "A",
+                                "text": "Epidermal cells"
+                            },
+                            {
+                                "id": "B",
+                                "text": "Guard cells"
+                            },
+                            {
+                                "id": "C",
+                                "text": "Mesophyll cells"
+                            },
+                            {
+                                "id": "D",
+                                "text": "Companion cells"
+                            }
+                        ],
+                        "correctAnswer": [
+                            "B"
+                        ]
+                    },
+                    {
+                        "question": "4. Which gas is released as a by-product during photosynthesis?",
+                        "options": [
+                            {
+                                "id": "A",
+                                "text": "Carbon dioxide"
+                            },
+                            {
+                                "id": "B",
+                                "text": "Nitrogen"
+                            },
+                            {
+                                "id": "C",
+                                "text": "Oxygen"
+                            },
+                            {
+                                "id": "D",
+                                "text": "Hydrogen"
+                            }
+                        ],
+                        "correctAnswer": [
+                            "C"
+                        ]
+                    }
+                ]
+            },
+            "correctAnswer": [
+                "C",
+                "B",
+                "B",
+                "C"
+            ],
+            "marks": 4,
+            "negativeMarks": 0,
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-009",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Transportation",
+            "subTopic": "Human Heart",
+            "questionType": "DIAGRAM_BASED",
+            "difficulty": "Medium",
+            "question": "In the given diagram of the human heart, identify the chamber labelled 'X' which receives oxygenated blood from the lungs through the pulmonary veins.",
+            "isDiagramBased": true,
+            "questionImageUrl": "https://example.com/images/class10/human_heart_labelled.png",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "Right Atrium"
+                },
+                {
+                    "id": "B",
+                    "text": "Right Ventricle"
+                },
+                {
+                    "id": "C",
+                    "text": "Left Atrium"
+                },
+                {
+                    "id": "D",
+                    "text": "Left Ventricle"
+                }
+            ],
+            "correctAnswer": [
+                "C"
+            ],
+            "marks": 2,
+            "negativeMarks": 0.5,
+            "answerExplanation": {
+                "correctExplanation": "The left atrium (left auricle) receives oxygenated blood from the lungs via the pulmonary veins. From there, blood passes into the left ventricle, which pumps it to the rest of the body through the aorta."
+            },
+            "status": "PUBLISHED"
+        },
+        {
+            "questionId": "BIO-C10-CH1-010",
+            "examType": [
+                "CBSE"
+            ],
+            "class": "10",
+            "subject": "Biology",
+            "chapter": "Life Processes",
+            "topic": "Excretion",
+            "subTopic": "Excretion in Plants",
+            "questionType": "MCQ",
+            "difficulty": "Hard",
+            "question": "Plants get rid of excess water by a process called transpiration. Which of the following is NOT a method used by plants for excretion of waste products?",
+            "options": [
+                {
+                    "id": "A",
+                    "text": "Storing waste in old xylem (resins and gums)"
+                },
+                {
+                    "id": "B",
+                    "text": "Excreting waste into the soil through roots"
+                },
+                {
+                    "id": "C",
+                    "text": "Removing waste through specialized excretory organs like kidneys"
+                },
+                {
+                    "id": "D",
+                    "text": "Losing waste-containing leaves through leaf fall"
+                }
+            ],
+            "correctAnswer": [
+                "C"
+            ],
+            "marks": 1,
+            "negativeMarks": 0.25,
+            "answerExplanation": {
+                "correctExplanation": "Plants do NOT have specialized excretory organs like kidneys. Instead, they use methods such as storing wastes in vacuoles, in resins/gums of old xylem, releasing wastes into the soil through roots, and shedding leaves containing accumulated wastes."
+            },
+            "status": "PUBLISHED"
+        }
+    ]
+}

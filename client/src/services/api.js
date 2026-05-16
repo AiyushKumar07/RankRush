@@ -1,0 +1,53 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '/api',
+  headers: { 'Content-Type': 'application/json' },
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('rankrush_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('rankrush_token');
+      localStorage.removeItem('rankrush_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error.response?.data || error);
+  }
+);
+
+export const authAPI = {
+  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/auth/register', data),
+  getProfile: () => api.get('/auth/profile'),
+  getUsers: () => api.get('/auth/users'),
+};
+
+export const questionsAPI = {
+  upload: (data) => api.post('/questions/upload', data),
+  getAll: (params) => api.get('/questions', { params }),
+  getById: (id) => api.get(`/questions/${id}`),
+  update: (id, data) => api.put(`/questions/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/questions/${id}/status`, data),
+  bulkUpdateStatus: (data) => api.post('/questions/bulk-status', data),
+  delete: (id) => api.delete(`/questions/${id}`),
+  getFilters: () => api.get('/questions/filters'),
+  uploadImage: (formData) => api.post('/questions/image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+};
+
+export const analyticsAPI = {
+  getDashboard: () => api.get('/analytics/dashboard'),
+  getUploads: (params) => api.get('/analytics/uploads', { params }),
+  getAuditLogs: (params) => api.get('/analytics/audit-logs', { params }),
+};
+
+export default api;
