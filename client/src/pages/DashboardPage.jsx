@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, ChevronDown, CheckSquare, X, FileQuestion, Upload as UploadIcon, BarChart3, Activity } from 'lucide-react';
+import { Search, Filter, ChevronDown, CheckSquare, X, FileQuestion, Upload as UploadIcon, BarChart3, Activity, Sparkles } from 'lucide-react';
 import { questionsAPI, analyticsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import QuestionCard from '../components/questions/QuestionCard';
 import QuestionDetail from '../components/questions/QuestionDetail';
 import QuestionEditor from '../components/questions/QuestionEditor';
 import UploadModal from '../components/upload/UploadModal';
+import AiGenerateModal from '../components/ai-generate/AiGenerateModal';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import EmptyState from '../components/common/EmptyState';
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [editModal, setEditModal] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [aiGenerateOpen, setAiGenerateOpen] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -150,9 +152,14 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard & Questions</h1>
           <p className="text-sm text-dark-400 mt-1">Manage all your questions in one place</p>
         </div>
-        <Button icon={UploadIcon} onClick={() => setUploadModalOpen(true)}>
-          Upload Questions
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" icon={Sparkles} onClick={() => setAiGenerateOpen(true)}>
+            AI Generate
+          </Button>
+          <Button icon={UploadIcon} onClick={() => setUploadModalOpen(true)}>
+            Upload Questions
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -252,6 +259,8 @@ export default function DashboardPage() {
       </Modal>
 
       <UploadModal isOpen={uploadModalOpen} onClose={() => setUploadModalOpen(false)} onSuccess={() => { loadQuestions(); loadStats(); }} />
+
+      <AiGenerateModal isOpen={aiGenerateOpen} onClose={() => setAiGenerateOpen(false)} onSuccess={() => { loadQuestions(); loadStats(); }} />
     </div>
   );
 }

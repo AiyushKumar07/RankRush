@@ -50,4 +50,15 @@ export const analyticsAPI = {
   getAuditLogs: (params) => api.get('/analytics/audit-logs', { params }),
 };
 
+export const aiGenerateAPI = {
+  generate: (data) => api.post('/ai-generate', data),
+  retry: (jobId, encryptedApiKey) => api.post('/ai-generate/retry', { jobId, encryptedApiKey }),
+  getProviders: () => api.get('/ai-generate/providers'),
+  getJobs: (params) => api.get('/ai-generate/jobs', { params }),
+  getJob: (jobId) => api.get(`/ai-generate/jobs/${jobId}`),
+  verifyKey: (provider, apiKey) => api.post('/ai-generate/verify-key', { provider, apiKey }),
+  encryptKey: (apiKey) => api.post('/ai-generate/encrypt-key', { apiKey }),
+  listModels: (provider, apiKey) => api.post('/ai-generate/models', { provider, apiKey }),
+};
+
 export default api;

@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { QuestionsModule } from './questions/questions.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { AiGenerateModule } from './ai-generate/ai-generate.module.js';
 import { HealthController } from './health.controller.js';
 
 @Module({
@@ -20,6 +21,7 @@ import { HealthController } from './health.controller.js';
     QuestionsModule,
     AnalyticsModule,
     AuditModule,
+    AiGenerateModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -165,6 +165,91 @@ model Question {
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────
+// ─── AI Generation ──────────────────────────────────────────────────
+enum AiProvider {
+  OPENAI
+  GEMINI
+  CLAUDE
+}
+
+enum AiJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+model AiGenerationJob {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  jobId     String      @unique
+
+  provider       AiProvider
+  status         AiJobStatus  @default(PENDING)
+
+  // Request config
+  subject        String
+  topic          String
+  subTopic       String?
+  questionTypes  Json         // [{ type: "MCQ", count: 5 }, ...]
+  difficulty     Difficulty?
+  className      String?
+  examType       String[]
+  additionalInstructions String?
+
+  // Results
+  totalRequested    Int        @default(0)
+  totalGenerated    Int        @default(0)
+  totalFailed       Int        @default(0)
+  generatedQuestionIds String[]
+  errors             Json?
+
+  // Retry
+  retryCount     Int        @default(0)
+  maxRetries     Int        @default(3)
+  parentJobId    String?
+
+  requestedBy    String     @db.ObjectId
+  completedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  providerLogs AiProviderLog[]
+
+  @@index([provider])
+  @@index([status])
+  @@index([requestedBy])
+  @@index([createdAt])
+}
+
+model AiProviderLog {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+
+  jobId    String @db.ObjectId
+  job      AiGenerationJob @relation(fields: [jobId], references: [id])
+
+  provider       AiProvider
+  model          String
+  promptTokens   Int        @default(0)
+  completionTokens Int      @default(0)
+  totalTokens    Int        @default(0)
+  estimatedCost  Float      @default(0)
+  latencyMs      Int        @default(0)
+
+  requestPayload  Json?
+  responsePayload Json?
+  errorMessage    String?
+  success         Boolean    @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────
 enum AuditAction {
   CREATE
   UPDATE
@@ -173,6 +258,7 @@ enum AuditAction {
   BULK_UPLOAD
   BULK_APPROVE
   BULK_REJECT
+  AI_GENERATE
   LOGIN
   LOGOUT
 }
