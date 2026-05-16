@@ -105,18 +105,29 @@ export default function DashboardPage() {
     setEditModal(true);
   };
 
-  const handleSaveEdit = async (data) => {
+  const handleSaveEdit = async (rawData) => {
     try {
+      // Strip server-managed / read-only fields
+      const {
+        _id, id, createdAt, updatedAt, uploadedBy, reviewedBy, approvedBy, publishedBy,
+        status, version, previousVersions, contentHash, uploadBatchId, reviewComment, metadata,
+        ...editableFields
+      } = rawData;
+
       await questionsAPI.update(selectedQuestion._id, {
-        ...data,
+        ...editableFields,
         changeReason: 'Admin edit',
       });
       toast.success('Question updated');
       setEditModal(false);
-      setDetailOpen(false);
+      // Reload updated question into detail view
+      try {
+        const res = await questionsAPI.getById(selectedQuestion._id);
+        setSelectedQuestion(res.data.question);
+      } catch (_) { /* detail refresh failed, close */ }
       loadQuestions(pagination.page);
     } catch (err) {
-      toast.error('Update failed');
+      toast.error(err?.message || 'Update failed');
       console.error(err);
     }
   };

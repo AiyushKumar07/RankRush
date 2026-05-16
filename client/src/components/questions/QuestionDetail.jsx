@@ -66,7 +66,7 @@ export default function QuestionDetail({ question, onStatusChange, onEdit, userR
             </div>
           </div>
           <div className="flex gap-2">
-            {canEdit && question.status !== 'PUBLISHED' && (
+            {canEdit && (
               <Button variant="secondary" size="sm" onClick={onEdit}>
                 Edit
               </Button>

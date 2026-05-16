@@ -1,227 +1,268 @@
 import { useState, useRef } from 'react';
-import { X, Image as ImageIcon } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, Trash2 } from 'lucide-react';
 import Button from '../common/Button';
 import { questionsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { TYPE_LABELS } from '../../utils/constants';
+
+const inputCls = 'w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50 focus:outline-none';
+const labelCls = 'block text-xs font-medium text-dark-300 mb-1.5';
+
+function TagInput({ label, value = [], onChange, placeholder }) {
+  const [input, setInput] = useState('');
+  const add = () => {
+    const trimmed = input.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInput('');
+  };
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {value.map((t, i) => (
+          <span key={i} className="flex items-center gap-1 rounded-lg bg-dark-700 px-2 py-1 text-xs text-dark-200">
+            {t}
+            <button onClick={() => onChange(value.filter((_, j) => j !== i))} className="text-dark-500 hover:text-red-400"><X className="h-3 w-3" /></button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} placeholder={placeholder || 'Type and press Enter'} className={inputCls} />
+        <Button variant="secondary" size="sm" onClick={add} type="button">Add</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function QuestionEditor({ question, onSave, onCancel }) {
   const [data, setData] = useState({ ...question });
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleChange = (field, value) => {
-    setData((prev) => ({ ...prev, [field]: value }));
-  };
+  const set = (field, value) => setData((prev) => ({ ...prev, [field]: value }));
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append('file', file);
-
     setUploading(true);
     try {
       const res = await questionsAPI.uploadImage(formData);
-      const url = res.data?.url || res.url;
-      handleChange('questionImageUrl', url);
-      toast.success('Image uploaded successfully');
+      set('questionImageUrl', res.data?.url || res.url);
+      toast.success('Image uploaded');
     } catch (err) {
       toast.error('Image upload failed');
-      console.error(err);
     } finally {
       setUploading(false);
     }
   };
 
-  const renderTypeSpecificFields = () => {
-    switch (data.questionType) {
-      case 'MCQ':
-      case 'MULTI_CORRECT':
-        return (
-          <div className="space-y-3">
-            <label className="block text-xs font-medium text-dark-300">Options</label>
-            {data.options?.map((opt, idx) => (
-              <div key={opt.id} className="flex gap-2 items-center">
-                <span className="text-dark-400 font-mono text-xs">{opt.id}</span>
-                <input
-                  type="text"
-                  value={opt.text || ''}
-                  onChange={(e) => {
-                    const newOpts = [...data.options];
-                    newOpts[idx].text = e.target.value;
-                    handleChange('options', newOpts);
-                  }}
-                  className="flex-1 rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50"
-                />
+  /* ── Option editor (MCQ / MULTI_CORRECT / ASSERTION_REASON) ── */
+  const renderOptions = () => (
+    <div className="space-y-2">
+      <label className={labelCls}>Options</label>
+      {(data.options || []).map((opt, idx) => (
+        <div key={idx} className="flex gap-2 items-center">
+          <input type="text" value={opt.id} onChange={(e) => { const o = [...data.options]; o[idx] = { ...o[idx], id: e.target.value }; set('options', o); }} className="w-14 rounded-xl border border-dark-600/50 bg-dark-800/50 px-2 py-2 text-xs text-white text-center" placeholder="ID" />
+          <input type="text" value={opt.text || ''} onChange={(e) => { const o = [...data.options]; o[idx] = { ...o[idx], text: e.target.value }; set('options', o); }} className={'flex-1 ' + inputCls} placeholder="Option text" />
+          <button onClick={() => set('options', data.options.filter((_, i) => i !== idx))} className="text-dark-500 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" icon={Plus} onClick={() => set('options', [...(data.options || []), { id: String.fromCharCode(65 + (data.options?.length || 0)), text: '' }])}>Add Option</Button>
+    </div>
+  );
+
+  const renderCorrectAnswer = (multi) => (
+    <div>
+      <label className={labelCls}>{multi ? 'Correct Answers (comma separated IDs)' : 'Correct Answer'}</label>
+      <input type="text" value={data.correctAnswer?.join(', ') || ''} onChange={(e) => set('correctAnswer', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} className={inputCls} placeholder={multi ? 'e.g. A, C' : 'e.g. A'} />
+    </div>
+  );
+
+  /* ── Match Pairs editor ── */
+  const renderMatchPairs = () => (
+    <div className="space-y-2">
+      <label className={labelCls}>Match Pairs</label>
+      {(data.matchPairs || []).map((pair, idx) => (
+        <div key={idx} className="flex gap-2 items-center">
+          <input type="text" value={pair.left || ''} onChange={(e) => { const p = [...data.matchPairs]; p[idx] = { ...p[idx], left: e.target.value }; set('matchPairs', p); }} className={'flex-1 ' + inputCls} placeholder="Left" />
+          <span className="text-dark-500">↔</span>
+          <input type="text" value={pair.right || ''} onChange={(e) => { const p = [...data.matchPairs]; p[idx] = { ...p[idx], right: e.target.value }; set('matchPairs', p); }} className={'flex-1 ' + inputCls} placeholder="Right" />
+          <button onClick={() => set('matchPairs', data.matchPairs.filter((_, i) => i !== idx))} className="text-dark-500 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      ))}
+      <Button variant="ghost" size="sm" icon={Plus} onClick={() => set('matchPairs', [...(data.matchPairs || []), { left: '', right: '' }])}>Add Pair</Button>
+    </div>
+  );
+
+  /* ── Case Study editor ── */
+  const renderCaseStudy = () => {
+    const cs = data.caseStudy || { passage: '', subQuestions: [] };
+    const setCS = (updates) => set('caseStudy', { ...cs, ...updates });
+    return (
+      <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <label className={labelCls}>Case Study Passage</label>
+        <textarea value={cs.passage || ''} onChange={(e) => setCS({ passage: e.target.value })} rows={3} className={inputCls} />
+        <label className={labelCls}>Sub-Questions</label>
+        {(cs.subQuestions || []).map((sq, si) => (
+          <div key={si} className="rounded-lg border border-dark-600/30 bg-dark-800/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-dark-400 font-medium">Sub-Q {si + 1}</span>
+              <button onClick={() => setCS({ subQuestions: cs.subQuestions.filter((_, i) => i !== si) })} className="text-dark-500 hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+            <input type="text" value={sq.question || ''} onChange={(e) => { const sqs = [...cs.subQuestions]; sqs[si] = { ...sqs[si], question: e.target.value }; setCS({ subQuestions: sqs }); }} className={inputCls} placeholder="Sub-question text" />
+            {(sq.options || []).map((opt, oi) => (
+              <div key={oi} className="flex gap-2 items-center pl-3">
+                <input type="text" value={opt.id} onChange={(e) => { const sqs = [...cs.subQuestions]; const opts = [...sqs[si].options]; opts[oi] = { ...opts[oi], id: e.target.value }; sqs[si] = { ...sqs[si], options: opts }; setCS({ subQuestions: sqs }); }} className="w-12 rounded-xl border border-dark-600/50 bg-dark-800/50 px-2 py-1.5 text-xs text-white text-center" />
+                <input type="text" value={opt.text || ''} onChange={(e) => { const sqs = [...cs.subQuestions]; const opts = [...sqs[si].options]; opts[oi] = { ...opts[oi], text: e.target.value }; sqs[si] = { ...sqs[si], options: opts }; setCS({ subQuestions: sqs }); }} className={'flex-1 ' + inputCls} />
+                <button onClick={() => { const sqs = [...cs.subQuestions]; sqs[si] = { ...sqs[si], options: sqs[si].options.filter((_, i) => i !== oi) }; setCS({ subQuestions: sqs }); }} className="text-dark-500 hover:text-red-400"><X className="h-3 w-3" /></button>
               </div>
             ))}
-            <label className="block text-xs font-medium text-dark-300 mt-3">Correct Answer(s) (comma separated IDs)</label>
-            <input
-              type="text"
-              value={data.correctAnswer?.join(',') || ''}
-              onChange={(e) => handleChange('correctAnswer', e.target.value.split(',').map(s => s.trim()))}
-              className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50"
-              placeholder="e.g. A or A,C"
-            />
+            <Button variant="ghost" size="sm" icon={Plus} onClick={() => { const sqs = [...cs.subQuestions]; const opts = sqs[si].options || []; sqs[si] = { ...sqs[si], options: [...opts, { id: String.fromCharCode(65 + opts.length), text: '' }] }; setCS({ subQuestions: sqs }); }}>Add Option</Button>
+            <div>
+              <label className="text-[10px] text-dark-400">Correct Answer(s)</label>
+              <input type="text" value={sq.correctAnswer?.join(', ') || ''} onChange={(e) => { const sqs = [...cs.subQuestions]; sqs[si] = { ...sqs[si], correctAnswer: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }; setCS({ subQuestions: sqs }); }} className={inputCls} placeholder="e.g. A" />
+            </div>
           </div>
-        );
+        ))}
+        <Button variant="ghost" size="sm" icon={Plus} onClick={() => setCS({ subQuestions: [...(cs.subQuestions || []), { question: '', options: [{ id: 'A', text: '' }, { id: 'B', text: '' }, { id: 'C', text: '' }, { id: 'D', text: '' }], correctAnswer: [] }] })}>Add Sub-Question</Button>
+      </div>
+    );
+  };
+
+  /* ── Type-specific sections ── */
+  const renderTypeFields = () => {
+    switch (data.questionType) {
+      case 'MCQ':
+        return <>{renderOptions()}{renderCorrectAnswer(false)}</>;
+      case 'MULTI_CORRECT':
+        return <>{renderOptions()}{renderCorrectAnswer(true)}</>;
       case 'ASSERTION_REASON':
         return (
           <div className="space-y-3">
-            <label className="block text-xs font-medium text-dark-300">Assertion</label>
-            <textarea
-              value={data.assertionStatement || ''}
-              onChange={(e) => handleChange('assertionStatement', e.target.value)}
-              className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50"
-            />
-            <label className="block text-xs font-medium text-dark-300">Reason</label>
-            <textarea
-              value={data.reasonStatement || ''}
-              onChange={(e) => handleChange('reasonStatement', e.target.value)}
-              className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50"
-            />
-            <label className="block text-xs font-medium text-dark-300 mt-3">Correct Answer Option ID</label>
-            <input
-              type="text"
-              value={data.correctAnswer?.[0] || ''}
-              onChange={(e) => handleChange('correctAnswer', [e.target.value])}
-              className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white focus:border-accent-500/50"
-            />
+            <div><label className={labelCls}>Assertion Statement</label><textarea value={data.assertionStatement || ''} onChange={(e) => set('assertionStatement', e.target.value)} className={inputCls} rows={2} /></div>
+            <div><label className={labelCls}>Reason Statement</label><textarea value={data.reasonStatement || ''} onChange={(e) => set('reasonStatement', e.target.value)} className={inputCls} rows={2} /></div>
+            {renderOptions()}
+            {renderCorrectAnswer(false)}
           </div>
         );
+      case 'CASE_BASED':
+        return <>{renderCaseStudy()}{renderOptions()}{renderCorrectAnswer(true)}</>;
+      case 'MATCH_THE_FOLLOWING':
+        return <>{renderMatchPairs()}{renderOptions()}{renderCorrectAnswer(false)}</>;
+      case 'TRUE_FALSE':
+        return (
+          <div>
+            <label className={labelCls}>Correct Answer</label>
+            <select value={data.correctAnswer?.[0] || ''} onChange={(e) => set('correctAnswer', [e.target.value])} className={inputCls}>
+              <option value="">Select</option>
+              <option value="True">True</option>
+              <option value="False">False</option>
+            </select>
+          </div>
+        );
+      case 'DIAGRAM_BASED':
+        return <>{renderOptions()}{renderCorrectAnswer(false)}</>;
       default:
-        return <p className="text-xs text-dark-500 italic">Advanced editing for {TYPE_LABELS[data.questionType] || data.questionType} is handled in raw data format currently.</p>;
+        return null;
     }
   };
 
   return (
-    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Question Type</label>
-          <select
-            value={data.questionType || ''}
-            onChange={(e) => handleChange('questionType', e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-            disabled
-          >
-            {Object.entries(TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Difficulty</label>
-          <select
-            value={data.difficulty || ''}
-            onChange={(e) => handleChange('difficulty', e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          >
-            {['Easy', 'Medium', 'Hard', 'Expert'].map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-dark-300 mb-1.5">Question Text</label>
-        <textarea
-          value={data.question || ''}
-          onChange={(e) => handleChange('question', e.target.value)}
-          rows={3}
-          className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-dark-300 mb-1.5">Question Image</label>
-        {data.questionImageUrl ? (
-          <div className="relative inline-block">
-            <img src={data.questionImageUrl} alt="Question" className="max-h-32 rounded-lg border border-dark-600" />
-            <button
-              onClick={() => handleChange('questionImageUrl', null)}
-              className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 text-white hover:bg-red-600"
-            >
-              <X className="h-3 w-3" />
-            </button>
+    <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+      {/* ── Classification ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">Classification</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={labelCls}>Question Type</label>
+            <select value={data.questionType || ''} onChange={(e) => set('questionType', e.target.value)} className={inputCls}>
+              {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
           </div>
-        ) : (
-          <div>
-            <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={ImageIcon}
-              onClick={() => fileInputRef.current?.click()}
-              loading={uploading}
-            >
-              Upload Image
-            </Button>
+          <div><label className={labelCls}>Difficulty</label>
+            <select value={data.difficulty || ''} onChange={(e) => set('difficulty', e.target.value)} className={inputCls}>
+              {['Easy', 'Medium', 'Hard', 'Expert'].map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
-        )}
-      </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={labelCls}>Class</label><input type="text" value={data.class || ''} onChange={(e) => set('class', e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Subject</label><input type="text" value={data.subject || ''} onChange={(e) => set('subject', e.target.value)} className={inputCls} /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className={labelCls}>Unit</label><input type="text" value={data.unit || ''} onChange={(e) => set('unit', e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Chapter</label><input type="text" value={data.chapter || ''} onChange={(e) => set('chapter', e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Topic</label><input type="text" value={data.topic || ''} onChange={(e) => set('topic', e.target.value)} className={inputCls} /></div>
+        </div>
+        <div><label className={labelCls}>Sub-Topic</label><input type="text" value={data.subTopic || ''} onChange={(e) => set('subTopic', e.target.value)} className={inputCls} /></div>
+        <TagInput label="Exam Types" value={data.examType || []} onChange={(v) => set('examType', v)} placeholder="e.g. NEET, JEE" />
+      </fieldset>
 
-      {renderTypeSpecificFields()}
+      {/* ── Question Text & Image ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">Question Content</legend>
+        <div><label className={labelCls}>Question Text</label><textarea value={data.question || ''} onChange={(e) => set('question', e.target.value)} rows={3} className={inputCls} /></div>
+        <div>
+          <label className={labelCls}>Question Image</label>
+          {data.questionImageUrl ? (
+            <div className="relative inline-block">
+              <img src={data.questionImageUrl} alt="Question" className="max-h-32 rounded-lg border border-dark-600" />
+              <button onClick={() => set('questionImageUrl', null)} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 text-white hover:bg-red-600"><X className="h-3 w-3" /></button>
+            </div>
+          ) : (
+            <div>
+              <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+              <Button variant="secondary" size="sm" icon={ImageIcon} onClick={() => fileInputRef.current?.click()} loading={uploading}>Upload Image</Button>
+            </div>
+          )}
+        </div>
+      </fieldset>
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Topic</label>
-          <input
-            type="text"
-            value={data.topic || ''}
-            onChange={(e) => handleChange('topic', e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Sub-Topic</label>
-          <input
-            type="text"
-            value={data.subTopic || ''}
-            onChange={(e) => handleChange('subTopic', e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          />
-        </div>
-      </div>
+      {/* ── Type-specific fields ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">{TYPE_LABELS[data.questionType] || 'Type'} Fields</legend>
+        {renderTypeFields()}
+      </fieldset>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Time (s)</label>
-          <input
-            type="number"
-            value={data.estimatedTimeSeconds || ''}
-            onChange={(e) => handleChange('estimatedTimeSeconds', +e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          />
+      {/* ── Scoring ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">Scoring</legend>
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className={labelCls}>Time (s)</label><input type="number" value={data.estimatedTimeSeconds ?? ''} onChange={(e) => set('estimatedTimeSeconds', +e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Marks</label><input type="number" value={data.marks ?? ''} onChange={(e) => set('marks', +e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Neg. Marks</label><input type="number" step="0.25" value={data.negativeMarks ?? ''} onChange={(e) => set('negativeMarks', +e.target.value)} className={inputCls} /></div>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Marks</label>
-          <input
-            type="number"
-            value={data.marks || ''}
-            onChange={(e) => handleChange('marks', +e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-dark-300 mb-1.5">Neg. Marks</label>
-          <input
-            type="number"
-            step="0.25"
-            value={data.negativeMarks || ''}
-            onChange={(e) => handleChange('negativeMarks', +e.target.value)}
-            className="w-full rounded-xl border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-sm text-white"
-          />
-        </div>
-      </div>
+      </fieldset>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-dark-700/50 mt-4">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
+      {/* ── Explanation ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">Explanation</legend>
+        <div><label className={labelCls}>Correct Explanation</label><textarea value={data.answerExplanation?.correctExplanation || ''} onChange={(e) => set('answerExplanation', { ...(data.answerExplanation || {}), correctExplanation: e.target.value })} rows={2} className={inputCls} /></div>
+      </fieldset>
+
+      {/* ── Tags & Metadata ── */}
+      <fieldset className="rounded-xl border border-dark-600/30 p-4 space-y-3">
+        <legend className="text-xs font-semibold text-dark-300 px-2">Tags & Metadata</legend>
+        <TagInput label="PYQ Tags" value={data.PYQ_tags || []} onChange={(v) => set('PYQ_tags', v)} placeholder="e.g. NEET 2023" />
+        <TagInput label="Tags" value={data.tags || []} onChange={(v) => set('tags', v)} placeholder="e.g. important" />
+        <TagInput label="Common Misconceptions" value={data.commonMisconceptions || []} onChange={(v) => set('commonMisconceptions', v)} placeholder="Add a misconception" />
+        <div className="flex flex-wrap gap-4 pt-1">
+          {[['isDiagramBased', 'Diagram Based'], ['isCaseBased', 'Case Based'], ['isNcertLineBased', 'NCERT Line Based']].map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 text-xs text-dark-200 cursor-pointer">
+              <input type="checkbox" checked={!!data[key]} onChange={(e) => set(key, e.target.checked)} className="rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-accent-500/30" />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div><label className={labelCls}>Question ID</label><input type="text" value={data.questionId || ''} onChange={(e) => set('questionId', e.target.value)} className={inputCls} /></div>
+      </fieldset>
+
+      {/* ── Actions ── */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-dark-700/50">
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSave(data)}>Save Changes</Button>
       </div>
     </div>
