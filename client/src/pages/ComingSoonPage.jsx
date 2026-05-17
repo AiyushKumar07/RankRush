@@ -401,12 +401,6 @@ export default function ComingSoonPage() {
           </div>
           <span className="text-xl font-bold gradient-text">RankRush</span>
         </div>
-        <a
-          href="/admin/login"
-          className="text-xs text-dark-500 hover:text-dark-300 transition-colors flex items-center gap-1"
-        >
-          Admin <ArrowRight className="h-3 w-3" />
-        </a>
       </motion.nav>
 
       {/* Hero */}

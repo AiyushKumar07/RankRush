@@ -12,22 +12,26 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('rankrush_token');
-    if (token && !user) {
-      authAPI
-        .getProfile()
-        .then((res) => {
-          setUser(res.data.user);
-          localStorage.setItem('rankrush_user', JSON.stringify(res.data.user));
-        })
-        .catch(() => {
-          localStorage.removeItem('rankrush_token');
-          localStorage.removeItem('rankrush_user');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    
+    if (!token) {
+      setUser(null);
+      localStorage.removeItem('rankrush_user');
       setLoading(false);
+      return;
     }
+
+    authAPI
+      .getProfile()
+      .then((res) => {
+        setUser(res.data.user);
+        localStorage.setItem('rankrush_user', JSON.stringify(res.data.user));
+      })
+      .catch(() => {
+        localStorage.removeItem('rankrush_token');
+        localStorage.removeItem('rankrush_user');
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
