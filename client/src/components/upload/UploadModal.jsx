@@ -84,7 +84,159 @@ export default function UploadModal({ isOpen, onClose, onSuccess }) {
   };
 
   const handlePasteTemplate = () => {
-    const template = JSON.stringify({ quizBank: [] }, null, 2);
+    const templateObj = {
+      quizBank: [
+        {
+          examType: ["CBSE"],
+          class: "12",
+          subject: "Physics",
+          chapter: "Electrostatics",
+          topic: "Electric Charges",
+          questionType: "MCQ",
+          difficulty: "Medium",
+          question: "What is the SI unit of electric charge?",
+          options: [
+            { id: "A", text: "Coulomb" },
+            { id: "B", text: "Volt" },
+            { id: "C", text: "Ampere" },
+            { id: "D", text: "Ohm" }
+          ],
+          correctAnswer: ["A"],
+          marks: 1,
+          negativeMarks: 0,
+          estimatedTimeSeconds: 60,
+          answerExplanation: {
+            correctExplanation: "The SI unit of electric charge is Coulomb."
+          }
+        },
+        {
+          examType: ["NEET"],
+          class: "12",
+          subject: "Physics",
+          chapter: "Electrostatics",
+          topic: "Electric Field",
+          questionType: "MULTI_CORRECT",
+          difficulty: "Hard",
+          question: "Which of the following are vector quantities?",
+          options: [
+            { id: "A", text: "Electric Potential" },
+            { id: "B", text: "Electric Field" },
+            { id: "C", text: "Electric Charge" },
+            { id: "D", text: "Electric Force" }
+          ],
+          correctAnswer: ["B", "D"],
+          marks: 4,
+          negativeMarks: 1,
+          estimatedTimeSeconds: 90
+        },
+        {
+          examType: ["AIIMS"],
+          class: "11",
+          subject: "Biology",
+          chapter: "Cell Biology",
+          topic: "Cell Organelles",
+          questionType: "ASSERTION_REASON",
+          difficulty: "Medium",
+          question: "Read the assertion and reason carefully.",
+          assertionStatement: "Mitochondria are known as the powerhouse of the cell.",
+          reasonStatement: "Mitochondria produce ATP, the energy currency of the cell.",
+          options: [
+            { id: "A", text: "Both A and R are true and R is the correct explanation of A." },
+            { id: "B", text: "Both A and R are true but R is NOT the correct explanation of A." },
+            { id: "C", text: "A is true but R is false." },
+            { id: "D", text: "A is false but R is true." }
+          ],
+          correctAnswer: ["A"],
+          marks: 1,
+          negativeMarks: 0.25,
+          estimatedTimeSeconds: 60
+        },
+        {
+          examType: ["CBSE"],
+          class: "10",
+          subject: "Science",
+          chapter: "Light",
+          topic: "Reflection",
+          questionType: "CASE_BASED",
+          isCaseBased: true,
+          difficulty: "Hard",
+          question: "Based on the passage provided below, answer the following sub-questions.",
+          caseStudy: {
+            passage: "A student performed an experiment with a concave mirror and found that the image distance varies with the object distance...",
+            subQuestions: [
+              {
+                question: "What happens to the image when the object is moved closer to the focal point from infinity?",
+                options: [
+                  { id: "A", text: "It becomes smaller" },
+                  { id: "B", text: "It becomes larger" }
+                ],
+                correctAnswer: ["B"]
+              }
+            ]
+          },
+          correctAnswer: ["CaseBased-Dummy"],
+          marks: 4,
+          negativeMarks: 0,
+          estimatedTimeSeconds: 120
+        },
+        {
+          examType: ["CBSE"],
+          class: "11",
+          subject: "Chemistry",
+          chapter: "Thermodynamics",
+          topic: "State Variables",
+          questionType: "MATCH_THE_FOLLOWING",
+          difficulty: "Medium",
+          question: "Match the following quantities with their respective SI units.",
+          matchPairs: [
+            { left: "Temperature", right: "Kelvin" },
+            { left: "Pressure", right: "Pascal" },
+            { left: "Volume", right: "Cubic meter" }
+          ],
+          correctAnswer: ["Temperature-Kelvin", "Pressure-Pascal", "Volume-Cubic meter"],
+          marks: 1,
+          negativeMarks: 0,
+          estimatedTimeSeconds: 60
+        },
+        {
+          examType: ["CBSE"],
+          class: "9",
+          subject: "Math",
+          chapter: "Geometry",
+          topic: "Triangles",
+          questionType: "TRUE_FALSE",
+          difficulty: "Easy",
+          question: "The sum of the interior angles of any triangle is always 180 degrees.",
+          correctAnswer: ["True"],
+          marks: 1,
+          negativeMarks: 0,
+          estimatedTimeSeconds: 30
+        },
+        {
+          examType: ["NEET"],
+          class: "12",
+          subject: "Biology",
+          chapter: "Human Reproduction",
+          topic: "Anatomy",
+          questionType: "DIAGRAM_BASED",
+          isDiagramBased: true,
+          difficulty: "Medium",
+          question: "Identify the labeled part 'X' in the given diagram.",
+          questionImageUrl: "https://example.com/diagram.png",
+          options: [
+            { id: "A", text: "Ovary" },
+            { id: "B", text: "Fallopian Tube" },
+            { id: "C", text: "Uterus" },
+            { id: "D", text: "Cervix" }
+          ],
+          correctAnswer: ["A"],
+          marks: 1,
+          negativeMarks: 0.25,
+          estimatedTimeSeconds: 60
+        }
+      ]
+    };
+    const template = JSON.stringify(templateObj, null, 2);
     setJsonContent(template);
     setFileName('template.json');
     toast.success('Template loaded');
