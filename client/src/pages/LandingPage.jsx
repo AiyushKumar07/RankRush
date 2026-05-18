@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 import {
   Trophy, BookOpen, Brain, Users, Rocket, ArrowRight,
   Star, Target, TrendingUp, Award, Clock, ChevronRight,
-  GraduationCap, BarChart3, FileText, Sparkles,
+  GraduationCap, BarChart3, FileText, Sparkles, CheckCircle2,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 
@@ -151,58 +151,6 @@ function Particles() {
   );
 }
 
-function CountdownUnit({ value, label }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className="relative">
-        <div className="glass-card rounded-2xl w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center overflow-hidden">
-          <AnimatePresence mode="popLayout">
-            <motion.span
-              key={value}
-              initial={{ y: 20, opacity: 0, filter: 'blur(4px)' }}
-              animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-              exit={{ y: -20, opacity: 0, filter: 'blur(4px)' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="text-2xl sm:text-3xl font-bold gradient-text"
-            >
-              {String(value).padStart(2, '0')}
-            </motion.span>
-          </AnimatePresence>
-        </div>
-      </div>
-      <span className="text-[10px] sm:text-xs text-dark-400 mt-2 uppercase tracking-widest font-medium">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function useCountdown(targetDate) {
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date().getTime();
-      const diff = targetDate - now;
-      if (diff <= 0) {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        return;
-      }
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((diff / (1000 * 60)) % 60),
-        seconds: Math.floor((diff / 1000) % 60),
-      });
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [targetDate]);
-
-  return timeLeft;
-}
-
 function FeatureCard({ feature, index }) {
   const ref = useRef(null);
   const mouseX = useMotionValue(0);
@@ -278,7 +226,7 @@ function AuthCTA() {
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 transition-shadow"
       >
         <Rocket className="h-4 w-4" />
-        Get Started Free
+        Create Free Account
       </motion.a>
       <motion.a
         href="/login"
@@ -286,22 +234,14 @@ function AuthCTA() {
         whileTap={{ scale: 0.97 }}
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl glass-frosted hover:border-accent-500/20 text-dark-100 hover:text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all"
       >
-        Sign In
+        Login
         <ArrowRight className="h-4 w-4" />
       </motion.a>
     </motion.div>
   );
 }
 
-const LAUNCH_TARGET = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() + 45);
-  return d.getTime();
-})();
-
 export default function ComingSoonPage() {
-  const countdown = useCountdown(LAUNCH_TARGET);
-
   return (
     <div className="relative min-h-screen bg-dark-950 overflow-x-hidden">
       <AnimatedBackground />
@@ -317,6 +257,20 @@ export default function ComingSoonPage() {
       >
         <div className="flex items-center gap-2.5">
           <img src={logo} alt="RankRush" className="h-8 w-auto" />
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <a
+            href="/login"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-dark-200 hover:text-white transition-colors"
+          >
+            Login
+          </a>
+          <a
+            href="/signup"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold shadow-lg shadow-accent-500/20 hover:shadow-accent-500/40 transition-shadow"
+          >
+            Sign Up
+          </a>
         </div>
       </motion.nav>
 
@@ -356,14 +310,16 @@ export default function ComingSoonPage() {
           transition={{ delay: 0.2, duration: 0.6 }}
           className="mb-4"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-card text-xs font-medium text-accent-300 border border-accent-500/20">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-card text-xs font-medium text-emerald-300 border border-emerald-500/30">
             <motion.span
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              className="relative flex h-2 w-2"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity }}
             >
-              <Rocket className="h-3.5 w-3.5" />
+              <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-60 animate-ping" />
+              <span className="relative rounded-full h-2 w-2 bg-emerald-400" />
             </motion.span>
-            Launching Soon for Students
+            Live Now — Open for Students
           </span>
         </motion.div>
 
@@ -387,26 +343,32 @@ export default function ComingSoonPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.6 }}
-          className="text-base sm:text-lg text-dark-300 max-w-xl mb-10 leading-relaxed"
+          className="text-base sm:text-lg text-dark-300 max-w-xl mb-8 leading-relaxed"
         >
-          The ultimate platform for students to attempt quizzes, compete on
-          leaderboards, access study materials, and accelerate their academic journey.
+          The platform for students to attempt quizzes, compete on leaderboards,
+          access study materials, and accelerate their academic journey — all in
+          one place. Sign up free and start ranking today.
         </motion.p>
 
-        {/* Countdown */}
+        {/* Trust strip */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.6 }}
-          className="flex items-center gap-3 sm:gap-5 mb-12"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.5 }}
+          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-dark-300 mb-10"
         >
-          <CountdownUnit value={countdown.days} label="Days" />
-          <span className="text-xl text-dark-500 font-light mt-[-20px]">:</span>
-          <CountdownUnit value={countdown.hours} label="Hours" />
-          <span className="text-xl text-dark-500 font-light mt-[-20px]">:</span>
-          <CountdownUnit value={countdown.minutes} label="Mins" />
-          <span className="text-xl text-dark-500 font-light mt-[-20px]">:</span>
-          <CountdownUnit value={countdown.seconds} label="Secs" />
+          <span className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            Free to join
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            No credit card
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            Instant access
+          </span>
         </motion.div>
 
         <AuthCTA />
@@ -445,7 +407,7 @@ export default function ComingSoonPage() {
           >
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-accent-300 mb-4">
               <Sparkles className="h-3 w-3" />
-              What&apos;s Coming
+              Why RankRush
             </span>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
               Everything You Need to{' '}
@@ -453,7 +415,7 @@ export default function ComingSoonPage() {
             </h2>
             <p className="text-dark-300 max-w-lg mx-auto">
               Built by students, for students. A complete ecosystem to help you prepare
-              smarter, practice harder, and rank higher.
+              smarter, practice harder, and rank higher — available today.
             </p>
           </motion.div>
 
@@ -494,11 +456,18 @@ export default function ComingSoonPage() {
                 Ready to Rush the Ranks?
               </h2>
               <p className="text-dark-300 mb-8 max-w-md mx-auto">
-                Be among the first students to experience RankRush. Drop your email
-                and we&apos;ll notify you the moment we launch.
+                Create your free RankRush account in seconds — attempt quizzes,
+                climb the leaderboard, and track your progress from day one.
               </p>
 
               <AuthCTA />
+
+              <p className="text-xs text-dark-400 mt-5">
+                Already have an account?{' '}
+                <a href="/login" className="text-accent-300 hover:text-accent-200 font-medium">
+                  Log in here
+                </a>
+              </p>
             </div>
           </div>
         </motion.div>
@@ -511,7 +480,7 @@ export default function ComingSoonPage() {
             <img src={logo} alt="RankRush" className="h-5 w-auto" />
           </div>
           <p className="text-xs text-dark-500">
-            &copy; {new Date().getFullYear()} RankRush. Building the future of student learning.
+            &copy; {new Date().getFullYear()} RankRush. Helping students rank higher.
           </p>
         </div>
       </footer>
