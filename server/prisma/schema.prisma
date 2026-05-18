@@ -194,7 +194,7 @@ model Quiz {
 
   totalMarks     Float   @default(0)
   totalQuestions  Int     @default(0)
-  timeLimitMins   Int     @default(60)
+  timeLimitMins   Float   @default(60)
   negativeMarking Boolean @default(false)
   shuffleQuestions Boolean @default(false)
 
