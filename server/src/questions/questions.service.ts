@@ -434,7 +434,7 @@ export class QuestionsService {
   }
 
   async getFilterOptions() {
-    const [subjects, chapters, topics, classes] = await Promise.all([
+    const [subjects, chapters, topics, classes, examTypes] = await Promise.all([
       this.prisma.question.findMany({
         select: { subject: true },
         distinct: ['subject'],
@@ -451,14 +451,69 @@ export class QuestionsService {
         select: { class: true },
         distinct: ['class'],
       }),
+      this.prisma.question.findMany({
+        select: { examType: true },
+        distinct: ['examType'],
+      }),
     ]);
+
+    const uniqueExamTypes = [...new Set(examTypes.flatMap((e) => e.examType))];
 
     return {
       data: {
-        subjects: subjects.map((s) => s.subject),
-        chapters: chapters.map((c) => c.chapter),
-        topics: topics.map((t) => t.topic),
-        classes: classes.map((c) => c.class),
+        subjects: subjects.map((s) => s.subject).sort(),
+        chapters: chapters.map((c) => c.chapter).sort(),
+        topics: topics.map((t) => t.topic).sort(),
+        classes: classes.map((c) => c.class).sort(),
+        examTypes: uniqueExamTypes.sort(),
+      },
+    };
+  }
+
+  async getDynamicFilterOptions(filters: {
+    examType?: string;
+    class?: string;
+    subject?: string;
+  }) {
+    const where: Prisma.QuestionWhereInput = {
+      status: 'PUBLISHED',
+    };
+
+    if (filters.examType) {
+      where.examType = { hasSome: filters.examType.split(',') };
+    }
+    if (filters.class) {
+      where.class = { in: filters.class.split(',') };
+    }
+    if (filters.subject) {
+      where.subject = filters.subject;
+    }
+
+    const questions = await this.prisma.question.findMany({
+      where,
+      select: {
+        examType: true,
+        class: true,
+        subject: true,
+        chapter: true,
+        topic: true,
+      },
+    });
+
+    const subjects = [...new Set(questions.map((q) => q.subject))].sort();
+    const classes = [...new Set(questions.map((q) => q.class))].sort();
+    const chapters = [...new Set(questions.map((q) => q.chapter))].sort();
+    const topics = [...new Set(questions.map((q) => q.topic))].sort();
+    const examTypes = [...new Set(questions.flatMap((q) => q.examType))].sort();
+
+    return {
+      data: {
+        subjects,
+        classes,
+        chapters,
+        topics,
+        examTypes,
+        totalQuestions: questions.length,
       },
     };
   }

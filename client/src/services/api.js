@@ -40,6 +40,7 @@ export const questionsAPI = {
   bulkUpdateStatus: (data) => api.post('/questions/bulk-status', data),
   delete: (id) => api.delete(`/questions/${id}`),
   getFilters: () => api.get('/questions/filters'),
+  getDynamicFilters: (params) => api.get('/questions/filters/dynamic', { params }),
   uploadImage: (formData) => api.post('/questions/image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

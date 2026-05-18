@@ -87,6 +87,16 @@ export class QuestionsController {
     return this.questionsService.getFilterOptions();
   }
 
+  @Get('filters/dynamic')
+  @Permissions('questions:read')
+  getDynamicFilterOptions(
+    @Query('examType') examType?: string,
+    @Query('class') className?: string,
+    @Query('subject') subject?: string,
+  ) {
+    return this.questionsService.getDynamicFilterOptions({ examType, class: className, subject });
+  }
+
   @Get(':id')
   @Permissions('questions:read')
   findById(@Param('id') id: string) {
