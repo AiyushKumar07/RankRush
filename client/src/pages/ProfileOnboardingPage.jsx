@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, User, School, Target, Phone, MapPin, Camera, ArrowRight,
-  ArrowLeft, Check, Sparkles, Zap,
+  ArrowLeft, Check, Sparkles, Zap, ChevronDown,
 } from 'lucide-react';
+import { parsePhoneNumberFromString, getCountries, getCountryCallingCode } from 'libphonenumber-js';
 import { useAuth } from '../context/AuthContext';
 import { userAPI } from '../services/api';
 import Button from '../components/common/Button';
@@ -70,15 +71,62 @@ export default function ProfileOnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
-  const [form, setForm] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    class: '',
-    school: '',
-    target: [],
-    contactNumber: '',
-    address: '',
+  const [phoneCountry, setPhoneCountry] = useState('IN');
+  const [phoneError, setPhoneError] = useState('');
+  const [form, setForm] = useState(() => {
+    let first = user?.firstName || '';
+    let last = user?.lastName || '';
+    if (!first && user?.name) {
+      const parts = user.name.trim().split(/\s+/);
+      first = parts[0] || '';
+      last = parts.slice(1).join(' ') || '';
+    }
+    return {
+      firstName: first,
+      lastName: last,
+      class: '',
+      school: '',
+      target: [],
+      contactNumber: '',
+      address: '',
+    };
   });
+
+  const countries = useMemo(() => {
+    return getCountries()
+      .map((code) => ({ code, dialCode: `+${getCountryCallingCode(code)}` }))
+      .sort((a, b) => {
+        if (a.code === 'IN') return -1;
+        if (b.code === 'IN') return 1;
+        return a.code.localeCompare(b.code);
+      });
+  }, []);
+
+  function validatePhone(number, country) {
+    if (!number) {
+      setPhoneError('');
+      return false;
+    }
+    const phone = parsePhoneNumberFromString(number, country);
+    if (!phone || !phone.isValid()) {
+      setPhoneError('Invalid phone number for selected country');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  }
+
+  function handlePhoneChange(value) {
+    const cleaned = value.replace(/[^\d]/g, '');
+    update('contactNumber', cleaned);
+    if (cleaned) validatePhone(cleaned, phoneCountry);
+    else setPhoneError('');
+  }
+
+  function handleCountryChange(code) {
+    setPhoneCountry(code);
+    if (form.contactNumber) validatePhone(form.contactNumber, code);
+  }
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -108,7 +156,11 @@ export default function ProfileOnboardingPage() {
     if (step === 0) return form.firstName && form.lastName;
     if (step === 1) return form.class && form.school;
     if (step === 2) return form.target.length > 0;
-    if (step === 3) return form.contactNumber;
+    if (step === 3) {
+      if (!form.contactNumber) return false;
+      const phone = parsePhoneNumberFromString(form.contactNumber, phoneCountry);
+      return phone && phone.isValid();
+    }
     return true;
   }
 
@@ -121,13 +173,14 @@ export default function ProfileOnboardingPage() {
         await userAPI.uploadProfilePicture(fd);
       }
 
+      const parsedPhone = parsePhoneNumberFromString(form.contactNumber, phoneCountry);
       const res = await userAPI.completeProfile({
         firstName: form.firstName,
         lastName: form.lastName,
         class: form.class,
         school: form.school,
         target: form.target,
-        contactNumber: form.contactNumber,
+        contactNumber: parsedPhone.format('E.164'),
         address: form.address || undefined,
       });
 
@@ -324,26 +377,31 @@ export default function ProfileOnboardingPage() {
                         <motion.button
                           key={t.id}
                           type="button"
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
+                          whileTap={{ scale: 0.98 }}
                           onClick={() => toggleTarget(t.id)}
                           className={`
-                            relative p-4 rounded-xl border text-left transition-all overflow-hidden
+                            relative p-4 rounded-xl border text-left transition-all
                             ${selected
                               ? 'bg-accent-500/10 border-accent-400/40 shadow-[0_0_20px_rgba(124,107,245,0.08)]'
                               : 'bg-dark-800/30 border-dark-600/50 hover:border-dark-500'}
                           `}
                         >
-                          {selected && (
-                            <motion.div
-                              layoutId="targetCheck"
-                              className="absolute top-2 right-2"
-                            >
-                              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-500 text-white">
-                                <Check className="h-3 w-3" />
-                              </div>
-                            </motion.div>
-                          )}
+                          <AnimatePresence>
+                            {selected && (
+                              <motion.div
+                                key="check"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                                className="absolute top-2 right-2"
+                              >
+                                <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-500 text-white">
+                                  <Check className="h-3 w-3" />
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                           <span className="text-xl mb-1 block">{t.emoji}</span>
                           <span className={`text-sm font-semibold block ${selected ? 'text-white' : 'text-dark-200'}`}>
                             {t.label}
@@ -369,17 +427,36 @@ export default function ProfileOnboardingPage() {
                 >
                   <div>
                     <label className="block text-[11px] font-medium text-dark-300 mb-1.5 uppercase tracking-wider">Contact Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
-                      <input
-                        type="tel"
-                        value={form.contactNumber}
-                        onChange={(e) => update('contactNumber', e.target.value.replace(/[^\d+]/g, ''))}
-                        className="w-full rounded-xl glass-input pl-10 pr-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none"
-                        placeholder="+919876543210"
-                        required
-                      />
+                    <div className="flex gap-2">
+                      <div className="relative shrink-0">
+                        <select
+                          value={phoneCountry}
+                          onChange={(e) => handleCountryChange(e.target.value)}
+                          className="appearance-none w-[100px] rounded-xl glass-input pl-3 pr-7 py-2.5 text-sm text-white focus:outline-none cursor-pointer bg-dark-800/60 border border-dark-600/50"
+                        >
+                          {countries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.code} {c.dialCode}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dark-400 pointer-events-none" />
+                      </div>
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
+                        <input
+                          type="tel"
+                          value={form.contactNumber}
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          className={`w-full rounded-xl glass-input pl-10 pr-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none ${phoneError ? 'border border-red-500/50' : ''}`}
+                          placeholder="9876543210"
+                          required
+                        />
+                      </div>
                     </div>
+                    {phoneError && (
+                      <p className="text-[11px] text-red-400 mt-1.5">{phoneError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-[11px] font-medium text-dark-300 mb-1.5 uppercase tracking-wider">
