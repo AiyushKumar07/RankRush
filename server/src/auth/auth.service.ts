@@ -235,6 +235,8 @@ export class AuthService {
         user: {
           id: user.id,
           name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
           email: user.email,
           role: user.role,
           isVerified: true,
@@ -316,6 +318,8 @@ export class AuthService {
         user: {
           id: user.id,
           name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
           email: user.email,
           role: user.role,
           avatar: user.avatar,
