@@ -165,6 +165,55 @@ model Question {
   @@index([subject, chapter, topic])
 }
 
+// ─── Quiz ────────────────────────────────────────────────────────────
+enum QuizStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+type QuizQuestion {
+  questionId String
+  order      Int
+  marks      Float?
+}
+
+model Quiz {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  quizId   String @unique
+
+  title       String
+  description String?
+  subject     String
+  chapter     String?
+  topic       String?
+  className   String?
+  examType    String[]
+
+  questions QuizQuestion[]
+
+  totalMarks     Float   @default(0)
+  totalQuestions  Int     @default(0)
+  timeLimitMins   Int     @default(60)
+  negativeMarking Boolean @default(false)
+  shuffleQuestions Boolean @default(false)
+
+  difficulty String?
+  tags       String[]
+
+  status    QuizStatus @default(DRAFT)
+  createdBy String     @db.ObjectId
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([subject])
+  @@index([status])
+  @@index([createdBy])
+  @@index([createdAt])
+}
+
 // ─── Audit Log ───────────────────────────────────────────────────────
 // ─── AI Generation ──────────────────────────────────────────────────
 enum AiProvider {

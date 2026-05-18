@@ -5,12 +5,14 @@ import {
   LogOut,
   Zap,
   ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/quizzes', icon: BookOpen, label: 'Quizzes' },
 ];
 
 const sidebarVariants = {

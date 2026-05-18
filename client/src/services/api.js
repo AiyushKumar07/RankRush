@@ -62,4 +62,13 @@ export const aiGenerateAPI = {
   listModels: (provider, apiKey) => api.post('/ai-generate/models', { provider, apiKey }),
 };
 
+export const quizzesAPI = {
+  create: (data) => api.post('/quizzes', data),
+  getAll: (params) => api.get('/quizzes', { params }),
+  getById: (id) => api.get(`/quizzes/${id}`),
+  update: (id, data) => api.put(`/quizzes/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/quizzes/${id}/status`, data),
+  delete: (id) => api.delete(`/quizzes/${id}`),
+};
+
 export default api;

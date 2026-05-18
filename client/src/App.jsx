@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import QuizzesPage from './pages/QuizzesPage';
 import ComingSoonPage from './pages/ComingSoonPage';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/admin/login" element={<LoginPage />} />
           <Route path="/admin" element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="quizzes" element={<QuizzesPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
