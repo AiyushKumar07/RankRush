@@ -44,7 +44,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           {/* Public pages */}
-          <Route path="/" element={<ComingSoonPage />} />
+          <Route path="/" element={<LandingPage />} />
 
           {/* Student auth flow */}
           <Route path="/signup" element={<GuestOnly><StudentSignupPage /></GuestOnly>} />
