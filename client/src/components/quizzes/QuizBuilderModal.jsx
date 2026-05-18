@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Save, X, Plus, Trash2, Clock, Award, BookOpen, Check, Filter, ChevronDown } from 'lucide-react';
+import { Search, Save, X, Plus, Trash2, Clock, Award, BookOpen, Check, Filter, ChevronDown, Wand2, Loader2, Sparkles } from 'lucide-react';
 import Button from '../common/Button';
 import { quizzesAPI, questionsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { DIFFICULTY_COLORS, TYPE_LABELS } from '../../utils/constants';
+import { DIFFICULTY_COLORS, TYPE_LABELS, QUESTION_TYPES } from '../../utils/constants';
 import { cn } from '../../utils/cn';
 
 export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQuiz = null }) {
@@ -17,6 +17,16 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({ subjects: [], chapters: [], topics: [], classes: [] });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Randomizer State
+  const [showRandomizer, setShowRandomizer] = useState(false);
+  const [targetMarks, setTargetMarks] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationLog, setGenerationLog] = useState('');
+  
+  // Time Limit Override State
+  const [manualTimeLimit, setManualTimeLimit] = useState('');
 
   // Quiz Form Data
   const [formData, setFormData] = useState({
@@ -50,7 +60,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         if (initialQuiz.questions && Array.isArray(initialQuiz.questions)) {
            initialQuiz.questions.forEach(q => {
              if (q.questionData) {
-               initialSelected.set(q.questionId, { ...q.questionData, selectedMarks: q.marks });
+               initialSelected.set(q.questionId, { ...q.questionData, _id: q.questionData.id || q.questionId, selectedMarks: q.marks });
              }
            });
         }
@@ -108,11 +118,16 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
       totalMarks += (q.selectedMarks || q.marks || 1);
       totalSeconds += (q.estimatedTimeSeconds || 60);
     });
+    
+    // Round to nearest 30 seconds for smart default
+    const roundedSeconds = Math.round(totalSeconds / 30) * 30;
+    const autoMins = roundedSeconds / 60;
+    
     return {
       marks: totalMarks,
-      timeLimitMins: Math.ceil(totalSeconds / 60)
+      timeLimitMins: manualTimeLimit !== '' ? parseFloat(manualTimeLimit) : (autoMins > 0 ? autoMins : 0)
     };
-  }, [selectedQuestions]);
+  }, [selectedQuestions, manualTimeLimit]);
 
   const handleSave = async () => {
     if (!formData.title || !formData.subject) {
@@ -136,7 +151,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         examType: formData.examType.split(',').map(t => t.trim()).filter(Boolean),
         timeLimitMins: calculateTotals.timeLimitMins,
         questions: Array.from(selectedQuestions.values()).map((q, i) => ({
-          questionId: q._id,
+          questionId: q._id || q.id,
           order: i + 1,
           marks: q.selectedMarks || q.marks || 1
         }))
@@ -158,10 +173,69 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
     }
   };
 
+  const handleRandomize = async () => {
+    if (!targetMarks || isNaN(targetMarks) || Number(targetMarks) <= 0) {
+      toast.error('Please enter a valid target max marks');
+      return;
+    }
+
+    const target = Number(targetMarks);
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    setGenerationLog('Analyzing criteria & applying filters...');
+
+    await new Promise(r => setTimeout(r, 400));
+    setGenerationProgress(30);
+    setGenerationLog('Fetching matching questions from bank...');
+
+    const pool = [...filteredQuestions];
+    if (pool.length === 0) {
+      toast.error('No questions match the current criteria');
+      setIsGenerating(false);
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+    setGenerationProgress(60);
+    setGenerationLog('Shuffling and optimizing question selection...');
+
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+    const nextSelected = new Map();
+    
+    let currentMarks = 0;
+    for (const q of shuffled) {
+      if (currentMarks >= target) break;
+      nextSelected.set(q._id, q);
+      currentMarks += (q.selectedMarks || q.marks || 1);
+    }
+
+    await new Promise(r => setTimeout(r, 600));
+    setGenerationProgress(85);
+    setGenerationLog('Finalizing quiz structure & smart defaults...');
+
+    setSelectedQuestions(nextSelected);
+    setManualTimeLimit(''); 
+
+    await new Promise(r => setTimeout(r, 400));
+    setGenerationProgress(100);
+    setGenerationLog('Complete!');
+
+    setTimeout(() => {
+      setIsGenerating(false);
+      if (currentMarks < target) {
+        toast.success(`Generated with ${currentMarks} marks (Not enough matching questions for ${target})`);
+      } else {
+        toast.success(`Successfully generated quiz with ${currentMarks} marks!`);
+      }
+      setShowRandomizer(false);
+    }, 600);
+  };
+
   const filteredQuestions = questions.filter(q => 
-    q.question.toLowerCase().includes(search.toLowerCase()) || 
+    (q.question.toLowerCase().includes(search.toLowerCase()) || 
     q.subject.toLowerCase().includes(search.toLowerCase()) ||
-    q.chapter.toLowerCase().includes(search.toLowerCase())
+    q.chapter.toLowerCase().includes(search.toLowerCase())) &&
+    (!filters.tags || (q.tags && q.tags.some(t => t.toLowerCase().includes(filters.tags.toLowerCase()))))
   );
 
   return (
@@ -279,6 +353,26 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
                     className="w-full rounded-xl glass-input px-4 py-2.5 text-sm text-white focus:outline-none"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-400 mb-1.5 flex items-center justify-between uppercase">
+                    <span>Time Limit (Minutes)</span>
+                    {manualTimeLimit !== '' && (
+                      <button onClick={() => setManualTimeLimit('')} className="text-[10px] text-accent-500 hover:text-accent-400 normal-case">Reset to Auto</button>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={manualTimeLimit !== '' ? manualTimeLimit : calculateTotals.timeLimitMins}
+                    onChange={e => setManualTimeLimit(e.target.value)}
+                    placeholder="Auto-calculated"
+                    className={cn("w-full rounded-xl glass-input px-4 py-2.5 text-sm focus:outline-none", manualTimeLimit === '' ? "text-dark-300" : "text-white")}
+                  />
+                  {manualTimeLimit === '' && (
+                    <p className="mt-1 text-[10px] text-dark-400">Smart default calculated from selected questions.</p>
+                  )}
+                </div>
               </div>
 
               {/* Right Panel: Question Selection */}
@@ -294,13 +388,87 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
                       className="w-full rounded-xl glass-input pl-10 pr-4 py-2 text-sm text-white focus:outline-none"
                     />
                   </div>
-                  <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
+                  <Button variant="secondary" onClick={() => { setShowRandomizer(!showRandomizer); setShowFilters(false); }}>
+                    <Wand2 className="h-4 w-4" />
+                    Auto Generate
+                  </Button>
+                  <Button variant="secondary" onClick={() => { setShowFilters(!showFilters); setShowRandomizer(false); }}>
                     <Filter className="h-4 w-4" />
                     {Object.keys(filters).length > 0 && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent-500"></span>
                     )}
                   </Button>
                 </div>
+
+                <AnimatePresence>
+                  {showRandomizer && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-4 overflow-hidden"
+                    >
+                      <div className="glass-card rounded-xl p-5 border border-accent-500/30 bg-accent-500/5 relative overflow-hidden">
+                        {isGenerating && (
+                           <motion.div 
+                             className="absolute inset-0 bg-accent-500/10"
+                             animate={{ opacity: [0.2, 0.5, 0.2] }}
+                             transition={{ duration: 1.5, repeat: Infinity }}
+                           />
+                        )}
+                        
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Sparkles className="h-4 w-4 text-accent-400" />
+                            <h3 className="text-sm font-semibold text-white">Auto Quiz Generator</h3>
+                          </div>
+                          
+                          <div className="flex flex-col gap-4">
+                             <p className="text-xs text-dark-300">Set your criteria using the filters below, specify the target marks, and we'll automatically assemble the perfect quiz randomly.</p>
+                             
+                             {!isGenerating ? (
+                               <div className="flex items-end gap-3">
+                                 <div className="flex-1">
+                                   <label className="block text-xs font-semibold text-dark-400 mb-1.5 uppercase">Target Max Marks *</label>
+                                   <input
+                                     type="number"
+                                     min="1"
+                                     value={targetMarks}
+                                     onChange={(e) => setTargetMarks(e.target.value)}
+                                     placeholder="e.g. 50"
+                                     className="w-full rounded-xl glass-input px-4 py-2 text-sm text-white focus:outline-none"
+                                   />
+                                 </div>
+                                 <Button onClick={handleRandomize} disabled={!targetMarks}>
+                                   <Wand2 className="h-4 w-4" />
+                                   Generate
+                                 </Button>
+                               </div>
+                             ) : (
+                               <div className="space-y-3 py-2">
+                                 <div className="flex justify-between text-xs font-medium">
+                                   <span className="text-accent-400 flex items-center gap-2">
+                                     <Loader2 className="w-3 h-3 animate-spin" />
+                                     {generationLog}
+                                   </span>
+                                   <span className="text-white">{generationProgress}%</span>
+                                 </div>
+                                 <div className="w-full h-1.5 bg-dark-800 rounded-full overflow-hidden">
+                                   <motion.div 
+                                     className="h-full bg-accent-500 rounded-full"
+                                     initial={{ width: 0 }}
+                                     animate={{ width: `${generationProgress}%` }}
+                                     transition={{ duration: 0.3 }}
+                                   />
+                                 </div>
+                               </div>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence>
                   {showFilters && (
@@ -310,13 +478,26 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
                       exit={{ opacity: 0, height: 0 }}
                       className="mb-4 overflow-hidden"
                     >
-                      <div className="glass-card rounded-xl p-4 grid grid-cols-2 gap-3">
-                        <FilterSelect label="Subject" value={filters.subject || ''} onChange={v => setFilters(f => v ? { ...f, subject: v } : (() => { const n = { ...f }; delete n.subject; return n; })())} options={filterOptions.subjects?.map(s => ({ value: s, label: s })) || []} />
-                        <FilterSelect label="Chapter" value={filters.chapter || ''} onChange={v => setFilters(f => v ? { ...f, chapter: v } : (() => { const n = { ...f }; delete n.chapter; return n; })())} options={filterOptions.chapters?.map(c => ({ value: c, label: c })) || []} />
-                        <FilterSelect label="Topic" value={filters.topic || ''} onChange={v => setFilters(f => v ? { ...f, topic: v } : (() => { const n = { ...f }; delete n.topic; return n; })())} options={filterOptions.topics?.map(t => ({ value: t, label: t })) || []} />
-                        <FilterSelect label="Class" value={filters.class || ''} onChange={v => setFilters(f => v ? { ...f, class: v } : (() => { const n = { ...f }; delete n.class; return n; })())} options={filterOptions.classes?.map(c => ({ value: c, label: c })) || []} />
-                        <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={v => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
-                        <div className="flex items-end">
+                      <div className="glass-card rounded-xl p-4">
+                        <div className="grid grid-cols-3 gap-3">
+                          <FilterSelect label="Subject" value={filters.subject || ''} onChange={v => setFilters(f => v ? { ...f, subject: v } : (() => { const n = { ...f }; delete n.subject; return n; })())} options={filterOptions.subjects?.map(s => ({ value: s, label: s })) || []} />
+                          <FilterSelect label="Chapter" value={filters.chapter || ''} onChange={v => setFilters(f => v ? { ...f, chapter: v } : (() => { const n = { ...f }; delete n.chapter; return n; })())} options={filterOptions.chapters?.map(c => ({ value: c, label: c })) || []} />
+                          <FilterSelect label="Topic" value={filters.topic || ''} onChange={v => setFilters(f => v ? { ...f, topic: v } : (() => { const n = { ...f }; delete n.topic; return n; })())} options={filterOptions.topics?.map(t => ({ value: t, label: t })) || []} />
+                          <FilterSelect label="Class" value={filters.class || ''} onChange={v => setFilters(f => v ? { ...f, class: v } : (() => { const n = { ...f }; delete n.class; return n; })())} options={filterOptions.classes?.map(c => ({ value: c, label: c })) || []} />
+                          <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={v => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
+                          <FilterSelect label="Type" value={filters.type || ''} onChange={v => setFilters(f => v ? { ...f, type: v } : (() => { const n = { ...f }; delete n.type; return n; })())} options={Object.keys(QUESTION_TYPES).map(k => ({ value: QUESTION_TYPES[k], label: TYPE_LABELS[k] }))} />
+                        </div>
+                        <div className="mt-3 flex items-end gap-3">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold text-dark-400 mb-1 uppercase tracking-wider">Tags (Local Filter)</label>
+                            <input 
+                              type="text" 
+                              value={filters.tags || ''} 
+                              onChange={(e) => setFilters(f => e.target.value ? { ...f, tags: e.target.value } : (() => { const n = { ...f }; delete n.tags; return n; })())} 
+                              placeholder="Comma separated tags..." 
+                              className="w-full rounded-lg glass-input px-3 py-1.5 text-xs text-white focus:outline-none" 
+                            />
+                          </div>
                           <Button variant="ghost" size="sm" onClick={() => setFilters({})}>Clear Filters</Button>
                         </div>
                       </div>
