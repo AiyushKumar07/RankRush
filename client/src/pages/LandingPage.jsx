@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import {
   Trophy, BookOpen, Brain, Users, Rocket, ArrowRight,
@@ -6,6 +7,8 @@ import {
   GraduationCap, BarChart3, FileText, Sparkles, CheckCircle2,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
+
+const MotionLink = motion(Link);
 
 const FEATURES = [
   {
@@ -219,24 +222,24 @@ function AuthCTA() {
       transition={{ delay: 0.3, duration: 0.6 }}
       className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto"
     >
-      <motion.a
-        href="/signup"
+      <MotionLink
+        to="/signup"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 transition-shadow"
       >
         <Rocket className="h-4 w-4" />
         Create Free Account
-      </motion.a>
-      <motion.a
-        href="/login"
+      </MotionLink>
+      <MotionLink
+        to="/login"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl glass-frosted hover:border-accent-500/20 text-dark-100 hover:text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all"
       >
         Login
         <ArrowRight className="h-4 w-4" />
-      </motion.a>
+      </MotionLink>
     </motion.div>
   );
 }
@@ -259,18 +262,18 @@ export default function LandingPage() {
           <img src={logo} alt="RankRush" className="h-8 w-auto" />
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <a
-            href="/login"
+          <Link
+            to="/login"
             className="px-4 py-2 rounded-lg text-sm font-medium text-dark-200 hover:text-white transition-colors"
           >
             Login
-          </a>
-          <a
-            href="/signup"
+          </Link>
+          <Link
+            to="/signup"
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold shadow-lg shadow-accent-500/20 hover:shadow-accent-500/40 transition-shadow"
           >
             Sign Up
-          </a>
+          </Link>
         </div>
       </motion.nav>
 
@@ -464,9 +467,9 @@ export default function LandingPage() {
 
               <p className="text-xs text-dark-400 mt-5">
                 Already have an account?{' '}
-                <a href="/login" className="text-accent-300 hover:text-accent-200 font-medium">
+                <Link to="/login" className="text-accent-300 hover:text-accent-200 font-medium">
                   Log in here
-                </a>
+                </Link>
               </p>
             </div>
           </div>
