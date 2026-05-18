@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   LogOut,
-  Zap,
   ChevronRight,
   BookOpen,
 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
 
@@ -55,33 +55,22 @@ export default function Sidebar() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.5 }}
-        className="flex items-center gap-3.5 px-6 py-6 border-b border-white/[0.04]"
+        className="flex items-center gap-3 px-5 py-5 border-b border-white/[0.04]"
       >
-        <div className="relative">
-          <div className="absolute inset-0 rounded-xl bg-accent-500/20 blur-lg animate-pulse-glow" />
-          <motion.div
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500/25 to-neon-purple/20 border border-accent-400/15"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: 'spring', stiffness: 400 }}
-          >
-            <motion.div
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
-            >
-              <Zap className="h-5 w-5 text-accent-300" />
-            </motion.div>
-          </motion.div>
-        </div>
-        <div>
-          <h1 className="text-lg font-bold gradient-text tracking-tight">RankRush</h1>
-          <motion.p
-            className="text-[10px] text-dark-400 uppercase tracking-[0.2em]"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 4, repeat: Infinity }}
-          >
-            Quiz Admin
-          </motion.p>
-        </div>
+        <motion.img
+          src={logo}
+          alt="RankRush"
+          className="h-9 w-auto"
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: 'spring', stiffness: 400 }}
+        />
+        <motion.p
+          className="text-[10px] text-dark-400 uppercase tracking-[0.2em]"
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        >
+          Admin
+        </motion.p>
       </motion.div>
 
       {/* Nav */}

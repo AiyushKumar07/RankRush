@@ -2,7 +2,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
-import { Zap } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 function BackgroundOrbs() {
   return (
@@ -37,21 +37,13 @@ export default function AppLayout() {
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-5"
         >
-          <div className="relative">
-            <div className="absolute inset-0 rounded-2xl bg-accent-500/20 blur-xl animate-pulse" />
-            <motion.div
-              className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500/30 to-accent-700/20 border border-accent-400/20"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <Zap className="h-7 w-7 text-accent-300" />
-              </motion.div>
-            </motion.div>
-          </div>
+          <motion.img
+            src={logo}
+            alt="RankRush"
+            className="h-14 w-auto"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
           <div className="text-center">
             <motion.p
               className="text-sm font-medium text-dark-200"

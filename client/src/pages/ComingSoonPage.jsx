@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import {
-  Zap, Trophy, BookOpen, Brain, Users, Rocket, ArrowRight,
+  Trophy, BookOpen, Brain, Users, Rocket, ArrowRight,
   Star, Target, TrendingUp, Award, Clock, ChevronRight,
-  GraduationCap, BarChart3, FileText, Sparkles, Bell,
+  GraduationCap, BarChart3, FileText, Sparkles,
 } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const FEATURES = [
   {
@@ -261,115 +262,34 @@ function FeatureCard({ feature, index }) {
   );
 }
 
-function EmailSignup() {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!email || loading) return;
-    setError('');
-    setLoading(true);
-    try {
-      const { authAPI } = await import('../services/api.js');
-      await authAPI.studentSignup({ email });
-      setSubmitted(true);
-      setEmail('');
-      setTimeout(() => setSubmitted(false), 5000);
-    } catch (err) {
-      const msg = err?.message || err?.data?.message || 'Something went wrong. Try again.';
-      setError(msg);
-      setTimeout(() => setError(''), 4000);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+function AuthCTA() {
   return (
-    <motion.form
-      onSubmit={handleSubmit}
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: 0.3, duration: 0.6 }}
-      className="relative max-w-md mx-auto"
+      className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto"
     >
-      <div className="relative flex items-center gap-2">
-        <div className="relative flex-1">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email for early access"
-            className="w-full rounded-xl glass-input px-4 py-3.5 text-sm text-white placeholder-dark-500 focus:outline-none disabled:opacity-50"
-            required
-            disabled={loading || submitted}
-          />
-        </div>
-        <motion.button
-          type="submit"
-          disabled={loading || submitted}
-          whileHover={!loading && !submitted ? { scale: 1.02 } : {}}
-          whileTap={!loading && !submitted ? { scale: 0.98 } : {}}
-          className="shrink-0 px-5 py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <AnimatePresence mode="wait">
-            {submitted ? (
-              <motion.span
-                key="done"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1.5"
-              >
-                <Sparkles className="h-4 w-4" />
-                Joined!
-              </motion.span>
-            ) : loading ? (
-              <motion.span
-                key="loading"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1.5"
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full"
-                />
-                Signing up...
-              </motion.span>
-            ) : (
-              <motion.span
-                key="notify"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1.5"
-              >
-                <Bell className="h-4 w-4" />
-                Notify Me
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.button>
-      </div>
-      <AnimatePresence>
-        {error && (
-          <motion.p
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            className="mt-2 text-xs text-neon-pink text-center"
-          >
-            {error}
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </motion.form>
+      <motion.a
+        href="/signup"
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 transition-shadow"
+      >
+        <Rocket className="h-4 w-4" />
+        Get Started Free
+      </motion.a>
+      <motion.a
+        href="/login"
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        className="w-full sm:w-auto px-7 py-3.5 rounded-xl glass-frosted hover:border-accent-500/20 text-dark-100 hover:text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+      >
+        Sign In
+        <ArrowRight className="h-4 w-4" />
+      </motion.a>
+    </motion.div>
   );
 }
 
@@ -396,10 +316,7 @@ export default function ComingSoonPage() {
         className="relative z-20 flex items-center justify-between px-6 sm:px-10 py-5"
       >
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500/30 to-accent-700/30 border border-accent-400/20">
-            <Zap className="h-5 w-5 text-accent-300" />
-          </div>
-          <span className="text-xl font-bold gradient-text">RankRush</span>
+          <img src={logo} alt="RankRush" className="h-8 w-auto" />
         </div>
       </motion.nav>
 
@@ -424,11 +341,13 @@ export default function ComingSoonPage() {
             transition={{ duration: 45, repeat: Infinity, ease: 'linear' }}
             style={{ borderStyle: 'dashed' }}
           />
-          <div className="relative flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-500/30 to-accent-700/30 border border-accent-400/20 shadow-2xl shadow-accent-500/20">
-            <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 5, repeat: Infinity }}>
-              <Zap className="h-10 w-10 sm:h-12 sm:w-12 text-accent-300" />
-            </motion.div>
-          </div>
+          <motion.img
+            src={logo}
+            alt="RankRush"
+            className="relative h-16 sm:h-20 w-auto drop-shadow-2xl"
+            animate={{ rotate: [0, 2, -2, 0] }}
+            transition={{ duration: 5, repeat: Infinity }}
+          />
         </motion.div>
 
         <motion.div
@@ -490,7 +409,7 @@ export default function ComingSoonPage() {
           <CountdownUnit value={countdown.seconds} label="Secs" />
         </motion.div>
 
-        <EmailSignup />
+        <AuthCTA />
       </section>
 
       {/* Stats */}
@@ -579,7 +498,7 @@ export default function ComingSoonPage() {
                 and we&apos;ll notify you the moment we launch.
               </p>
 
-              <EmailSignup />
+              <AuthCTA />
             </div>
           </div>
         </motion.div>
@@ -589,8 +508,7 @@ export default function ComingSoonPage() {
       <footer className="relative z-10 border-t border-dark-700/50 py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-accent-400" />
-            <span className="text-sm font-semibold gradient-text">RankRush</span>
+            <img src={logo} alt="RankRush" className="h-5 w-auto" />
           </div>
           <p className="text-xs text-dark-500">
             &copy; {new Date().getFullYear()} RankRush. Building the future of student learning.

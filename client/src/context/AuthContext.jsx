@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, setTokens, clearTokens } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -10,9 +10,15 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
+  // Pending verification state (userId + email stored between signup → verify)
+  const [pendingVerification, setPendingVerification] = useState(() => {
+    const stored = localStorage.getItem('rankrush_pending_verification');
+    return stored ? JSON.parse(stored) : null;
+  });
+
   useEffect(() => {
-    const token = localStorage.getItem('rankrush_token');
-    
+    const token = localStorage.getItem('rankrush_access_token');
+
     if (!token) {
       setUser(null);
       localStorage.removeItem('rankrush_user');
@@ -23,35 +29,97 @@ export function AuthProvider({ children }) {
     authAPI
       .getProfile()
       .then((res) => {
-        setUser(res.data.user);
-        localStorage.setItem('rankrush_user', JSON.stringify(res.data.user));
+        const u = res.data.user;
+        setUser(u);
+        localStorage.setItem('rankrush_user', JSON.stringify(u));
       })
       .catch(() => {
-        localStorage.removeItem('rankrush_token');
-        localStorage.removeItem('rankrush_user');
+        clearTokens();
         setUser(null);
       })
       .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const studentSignup = useCallback(async (data) => {
+    const res = await authAPI.studentSignup(data);
+    const pending = {
+      userId: res.data.userId,
+      email: res.data.email,
+    };
+    setPendingVerification(pending);
+    localStorage.setItem('rankrush_pending_verification', JSON.stringify(pending));
+    return res;
+  }, []);
+
+  const verifyEmail = useCallback(async (userId, otp) => {
+    const res = await authAPI.verifyEmail({ userId, otp });
+    const { user: userData, accessToken, refreshToken } = res.data;
+
+    setTokens(accessToken, refreshToken);
+    setUser(userData);
+    localStorage.setItem('rankrush_user', JSON.stringify(userData));
+    setPendingVerification(null);
+    localStorage.removeItem('rankrush_pending_verification');
+
+    return userData;
   }, []);
 
   const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password });
-    const { user: userData, token } = res.data;
-    localStorage.setItem('rankrush_token', token);
-    localStorage.setItem('rankrush_user', JSON.stringify(userData));
+
+    if (res.data.requiresVerification) {
+      const pending = { userId: res.data.userId, email: res.data.email };
+      setPendingVerification(pending);
+      localStorage.setItem('rankrush_pending_verification', JSON.stringify(pending));
+      return { requiresVerification: true, ...pending };
+    }
+
+    const { user: userData, accessToken, refreshToken } = res.data;
+    setTokens(accessToken, refreshToken);
     setUser(userData);
+    localStorage.setItem('rankrush_user', JSON.stringify(userData));
     return userData;
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('rankrush_token');
-    localStorage.removeItem('rankrush_user');
+  const logout = useCallback(async () => {
+    try {
+      const refreshToken = localStorage.getItem('rankrush_refresh_token');
+      if (refreshToken) {
+        await authAPI.logout({ refreshToken });
+      }
+    } catch {
+      // Logout even if API call fails
+    }
+    clearTokens();
     setUser(null);
+    setPendingVerification(null);
+    localStorage.removeItem('rankrush_pending_verification');
+  }, []);
+
+  const updateUser = useCallback((userData) => {
+    setUser(userData);
+    localStorage.setItem('rankrush_user', JSON.stringify(userData));
+  }, []);
+
+  const clearPendingVerification = useCallback(() => {
+    setPendingVerification(null);
+    localStorage.removeItem('rankrush_pending_verification');
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        pendingVerification,
+        studentSignup,
+        verifyEmail,
+        login,
+        logout,
+        updateUser,
+        clearPendingVerification,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

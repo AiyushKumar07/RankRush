@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Zap, LogIn, Eye, EyeOff, Shield, Lock } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Shield, Lock } from 'lucide-react';
+import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import toast from 'react-hot-toast';
@@ -81,7 +82,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      if (result?.requiresVerification) {
+        toast('Please verify your email first.', { icon: '📧' });
+        navigate('/verify-email');
+        return;
+      }
       toast.success('Welcome back!');
       navigate('/admin');
     } catch (err) {
@@ -174,32 +180,13 @@ export default function LoginPage() {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="flex flex-col items-center mb-8"
           >
-            <div className="relative mb-4">
-              <div className="absolute inset-0 rounded-2xl bg-accent-500/20 blur-xl animate-pulse-glow" />
-              {/* Orbiting ring around logo */}
-              <motion.div
-                className="absolute -inset-3 rounded-2xl border border-accent-400/10"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                style={{ borderStyle: 'dashed' }}
-              />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500/30 to-accent-700/30 border border-accent-400/20">
-                <motion.div
-                  animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <Zap className="h-8 w-8 text-accent-300" />
-                </motion.div>
-              </div>
-            </div>
-            <motion.h1
-              className="text-3xl font-bold gradient-text tracking-tight"
-              animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ backgroundSize: '200% 200%' }}
-            >
-              RankRush
-            </motion.h1>
+            <motion.img
+              src={logo}
+              alt="RankRush"
+              className="h-14 w-auto mb-3"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: 'spring', stiffness: 400 }}
+            />
             <motion.p
               className="text-sm text-dark-400 mt-1.5 flex items-center gap-1.5"
               initial={{ opacity: 0 }}
