@@ -11,7 +11,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfileOnboardingPage from './pages/ProfileOnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import QuizzesPage from './pages/QuizzesPage';
-import ComingSoonPage from './pages/ComingSoonPage';
+import LandingPage from './pages/LandingPage';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();

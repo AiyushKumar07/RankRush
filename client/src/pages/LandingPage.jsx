@@ -241,7 +241,7 @@ function AuthCTA() {
   );
 }
 
-export default function ComingSoonPage() {
+export default function LandingPage() {
   return (
     <div className="relative min-h-screen bg-dark-950 overflow-x-hidden">
       <AnimatedBackground />
