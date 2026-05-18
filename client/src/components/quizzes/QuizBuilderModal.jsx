@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Save, X, Plus, Trash2, Clock, Award, BookOpen, Check } from 'lucide-react';
+import { Search, Save, X, Plus, Trash2, Clock, Award, BookOpen, Check, Filter, ChevronDown } from 'lucide-react';
 import Button from '../common/Button';
 import { quizzesAPI, questionsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -13,6 +13,11 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
   const [questions, setQuestions] = useState([]);
   const [search, setSearch] = useState('');
   
+  // Filters State
+  const [filters, setFilters] = useState({});
+  const [filterOptions, setFilterOptions] = useState({ subjects: [], chapters: [], topics: [], classes: [] });
+  const [showFilters, setShowFilters] = useState(false);
+
   // Quiz Form Data
   const [formData, setFormData] = useState({
     title: '',
@@ -20,6 +25,8 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
     subject: '',
     difficulty: 'Medium',
     tags: '',
+    className: '',
+    examType: '',
   });
 
   // Selected Questions Map: id -> question data
@@ -28,7 +35,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
   // Load questions when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadQuestions();
+      loadFilterOptions();
       if (initialQuiz) {
         setFormData({
           title: initialQuiz.title || '',
@@ -36,6 +43,8 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
           subject: initialQuiz.subject || '',
           difficulty: initialQuiz.difficulty || 'Medium',
           tags: (initialQuiz.tags || []).join(', '),
+          className: initialQuiz.className || '',
+          examType: (initialQuiz.examType || []).join(', '),
         });
         const initialSelected = new Map();
         if (initialQuiz.questions && Array.isArray(initialQuiz.questions)) {
@@ -47,18 +56,33 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         }
         setSelectedQuestions(initialSelected);
       } else {
-        setFormData({ title: '', description: '', subject: '', difficulty: 'Medium', tags: '' });
+        setFormData({ title: '', description: '', subject: '', difficulty: 'Medium', tags: '', className: '', examType: '' });
         setSelectedQuestions(new Map());
       }
       setStep(1);
     }
   }, [isOpen, initialQuiz]);
 
+  useEffect(() => {
+    if (isOpen) {
+      loadQuestions();
+    }
+  }, [isOpen, filters]);
+
+  const loadFilterOptions = async () => {
+    try {
+      const res = await questionsAPI.getFilters();
+      setFilterOptions(res.data || { subjects: [], chapters: [], topics: [], classes: [] });
+    } catch (err) {
+      console.error('Failed to load filter options');
+    }
+  };
+
   const loadQuestions = async () => {
     try {
       // For simplicity, loading a large batch of published questions
       // In production, implement proper pagination or infinite scroll here
-      const res = await questionsAPI.getAll({ limit: 100, status: 'PUBLISHED' });
+      const res = await questionsAPI.getAll({ limit: 100, status: 'PUBLISHED', ...filters });
       setQuestions(res.data.questions);
     } catch (err) {
       toast.error('Failed to load questions');
@@ -108,6 +132,8 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         subject: formData.subject,
         difficulty: formData.difficulty,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        className: formData.className,
+        examType: formData.examType.split(',').map(t => t.trim()).filter(Boolean),
         timeLimitMins: calculateTotals.timeLimitMins,
         questions: Array.from(selectedQuestions.values()).map((q, i) => ({
           questionId: q._id,
@@ -224,6 +250,26 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
                   </select>
                 </div>
                 <div>
+                  <label className="block text-xs font-semibold text-dark-400 mb-1.5 uppercase">Class</label>
+                  <input
+                    type="text"
+                    value={formData.className}
+                    onChange={e => setFormData({ ...formData, className: e.target.value })}
+                    placeholder="e.g. 11, 12"
+                    className="w-full rounded-xl glass-input px-4 py-2.5 text-sm text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-400 mb-1.5 uppercase">Exam Type (comma separated)</label>
+                  <input
+                    type="text"
+                    value={formData.examType}
+                    onChange={e => setFormData({ ...formData, examType: e.target.value })}
+                    placeholder="e.g. NEET, JEE"
+                    className="w-full rounded-xl glass-input px-4 py-2.5 text-sm text-white focus:outline-none"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-dark-400 mb-1.5 uppercase">Tags (comma separated)</label>
                   <input
                     type="text"
@@ -237,16 +283,46 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
 
               {/* Right Panel: Question Selection */}
               <div className="flex-1 flex flex-col p-5 bg-dark-950/30">
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search questions to add..."
-                    className="w-full rounded-xl glass-input pl-10 pr-4 py-2 text-sm text-white focus:outline-none"
-                  />
+                <div className="flex gap-2 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search questions to add..."
+                      className="w-full rounded-xl glass-input pl-10 pr-4 py-2 text-sm text-white focus:outline-none"
+                    />
+                  </div>
+                  <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
+                    <Filter className="h-4 w-4" />
+                    {Object.keys(filters).length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent-500"></span>
+                    )}
+                  </Button>
                 </div>
+
+                <AnimatePresence>
+                  {showFilters && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-4 overflow-hidden"
+                    >
+                      <div className="glass-card rounded-xl p-4 grid grid-cols-2 gap-3">
+                        <FilterSelect label="Subject" value={filters.subject || ''} onChange={v => setFilters(f => v ? { ...f, subject: v } : (() => { const n = { ...f }; delete n.subject; return n; })())} options={filterOptions.subjects?.map(s => ({ value: s, label: s })) || []} />
+                        <FilterSelect label="Chapter" value={filters.chapter || ''} onChange={v => setFilters(f => v ? { ...f, chapter: v } : (() => { const n = { ...f }; delete n.chapter; return n; })())} options={filterOptions.chapters?.map(c => ({ value: c, label: c })) || []} />
+                        <FilterSelect label="Topic" value={filters.topic || ''} onChange={v => setFilters(f => v ? { ...f, topic: v } : (() => { const n = { ...f }; delete n.topic; return n; })())} options={filterOptions.topics?.map(t => ({ value: t, label: t })) || []} />
+                        <FilterSelect label="Class" value={filters.class || ''} onChange={v => setFilters(f => v ? { ...f, class: v } : (() => { const n = { ...f }; delete n.class; return n; })())} options={filterOptions.classes?.map(c => ({ value: c, label: c })) || []} />
+                        <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={v => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
+                        <div className="flex items-end">
+                          <Button variant="ghost" size="sm" onClick={() => setFilters({})}>Clear Filters</Button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-2">
                   {filteredQuestions.map(q => {
@@ -304,5 +380,24 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-semibold text-dark-400 mb-1 uppercase tracking-wider">{label}</label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none rounded-lg glass-input px-3 py-1.5 pr-8 text-xs text-white focus:outline-none"
+        >
+          <option value="">All</option>
+          {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-500 pointer-events-none" />
+      </div>
+    </div>
   );
 }
