@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   ADMIN
   STUDENT
+  TEACHER
 }
 
 model User {
@@ -18,19 +19,75 @@ model User {
   name         String
   email        String   @unique
   password     String
-  role         Role     @default(ADMIN)
+  role         Role     @default(STUDENT)
   avatar       String?
   isActive     Boolean  @default(true)
+  isVerified   Boolean  @default(false)
   lastLogin    DateTime?
   refreshToken String?
+
+  // Student profile fields
+  firstName      String?
+  lastName       String?
+  class          String?
+  school         String?
+  target         String[]  // "Boards" | "NEET" | "JEE" | "Other"
+  contactNumber  String?
+  profilePicture String?
+  address        String?
+  isOnboarded    Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   auditLogs     AuditLog[]
   uploadBatches UploadBatch[]
+  sessions      Session[]
+  otps          Otp[]
 
   @@index([role])
+  @@index([isVerified])
+}
+
+// ─── Session ──────────────────────────────────────────────────────────
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  isRevoked    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─── OTP ──────────────────────────────────────────────────────────────
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  SENSITIVE_ACTION
+}
+
+model Otp {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String     @db.ObjectId
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  purpose   OtpPurpose
+  expiresAt DateTime
+  isUsed    Boolean    @default(false)
+  attempts  Int        @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
 }
 
 // ─── Question ────────────────────────────────────────────────────────
@@ -311,6 +368,15 @@ enum AuditAction {
   AI_GENERATE
   LOGIN
   LOGOUT
+  SIGNUP
+  EMAIL_VERIFIED
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  OTP_SENT
+  OTP_VERIFIED
+  PROFILE_UPDATED
+  SESSION_REVOKED
+  TOKEN_REFRESHED
 }
 
 model AuditLog {

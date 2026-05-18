@@ -8,6 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { PermissionsGuard } from './guards/permissions.guard.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { OtpModule } from '../otp/otp.module.js';
 
 @Module({
   imports: [
@@ -18,14 +19,15 @@ import { AuditModule } from '../audit/audit.module.js';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: config.get<number>('JWT_EXPIRES_IN_SECONDS') || 604800,
+          expiresIn: '15m',
         },
       }),
     }),
     AuditModule,
+    OtpModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard, PermissionsGuard],
-  exports: [JwtStrategy, RolesGuard, PermissionsGuard],
+  exports: [AuthService, JwtStrategy, RolesGuard, PermissionsGuard],
 })
 export class AuthModule {}
