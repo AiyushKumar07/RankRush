@@ -433,6 +433,23 @@ export class QuestionsService {
     return { message: 'Question deleted', data: null };
   }
 
+  async bulkRemove(questionIds: string[], userId: string, req: any) {
+    const result = await this.prisma.question.deleteMany({
+      where: { id: { in: questionIds } },
+    });
+
+    await this.audit.log({
+      action: 'BULK_DELETE',
+      entityType: 'Question',
+      entityId: questionIds.join(','),
+      performedBy: userId,
+      details: { count: result.count },
+      req,
+    });
+
+    return { message: `${result.count} questions deleted`, data: { count: result.count } };
+  }
+
   async getFilterOptions() {
     const [subjects, chapters, topics, classes, examTypes] = await Promise.all([
       this.prisma.question.findMany({

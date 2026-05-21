@@ -153,6 +153,13 @@ export class BulkUpdateStatusDto {
   comment?: string;
 }
 
+export class BulkDeleteDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  questionIds: string[];
+}
+
 export class QueryQuestionsDto {
   @IsOptional()
   @Transform(({ value }) => parseInt(value))

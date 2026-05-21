@@ -27,6 +27,7 @@ import {
   UpdateQuestionDto,
   UpdateStatusDto,
   BulkUpdateStatusDto,
+  BulkDeleteDto,
   QueryQuestionsDto,
 } from './dto/questions.dto.js';
 
@@ -137,6 +138,16 @@ export class QuestionsController {
     @Req() req: any,
   ) {
     return this.questionsService.bulkUpdateStatus(dto, userId, req);
+  }
+
+  @Post('bulk-delete')
+  @Permissions('questions:create')
+  bulkDelete(
+    @Body() dto: BulkDeleteDto,
+    @CurrentUser('id') userId: string,
+    @Req() req: any,
+  ) {
+    return this.questionsService.bulkRemove(dto.questionIds, userId, req);
   }
 
   @Delete(':id')
