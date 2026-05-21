@@ -13,17 +13,17 @@ import DashboardPage from './pages/DashboardPage';
 import QuizzesPage from './pages/QuizzesPage';
 import LandingPage from './pages/LandingPage';
 
-function RequireAuth({ children }) {
+function RequireAuth({ children, adminRoute = false }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/login'} replace />;
   return children;
 }
 
-function RequireOnboarded({ children }) {
+function RequireOnboarded({ children, adminRoute = false }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/login'} replace />;
   if (!user.isOnboarded && user.role === 'STUDENT') return <Navigate to="/onboarding" replace />;
   return children;
 }
@@ -66,7 +66,7 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <RequireOnboarded>
+              <RequireOnboarded adminRoute>
                 <AppLayout />
               </RequireOnboarded>
             }
