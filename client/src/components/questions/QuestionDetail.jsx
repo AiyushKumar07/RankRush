@@ -11,6 +11,7 @@ import {
   Calendar,
   GitBranch,
   AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
 import Button from '../common/Button';
@@ -18,7 +19,7 @@ import QuestionRenderer from './QuestionRenderer';
 import { cn } from '../../utils/cn';
 import { DIFFICULTY_COLORS, TYPE_LABELS } from '../../utils/constants';
 
-export default function QuestionDetail({ question, onStatusChange, onEdit, userRole }) {
+export default function QuestionDetail({ question, onStatusChange, onEdit, onDelete, userRole }) {
   const [showAnswer, setShowAnswer] = useState(false);
 
   if (!question) return null;
@@ -67,9 +68,14 @@ export default function QuestionDetail({ question, onStatusChange, onEdit, userR
               ))}
             </div>
           </div>
-          {canEdit && (
-            <Button variant="secondary" size="sm" onClick={onEdit}>Edit</Button>
-          )}
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <Button variant="secondary" size="sm" onClick={onEdit}>Edit</Button>
+            )}
+            {isAdmin && onDelete && (
+              <Button variant="danger" size="sm" icon={Trash2} onClick={onDelete}>Delete</Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -190,15 +196,20 @@ export default function QuestionDetail({ question, onStatusChange, onEdit, userR
       </motion.div>
 
       {/* Actions */}
-      <motion.div variants={item} className="glass-card rounded-2xl p-5 flex flex-wrap gap-3">
+      <motion.div variants={item} className="glass-card rounded-2xl p-5 flex flex-wrap items-center gap-3">
         {question.status !== 'PUBLISHED' && canPublish && (
           <Button variant="primary" size="sm" onClick={() => onStatusChange('PUBLISHED')}>
-            Publish Directly
+            Publish
           </Button>
         )}
         {question.status === 'PUBLISHED' && canPublish && (
           <Button variant="secondary" size="sm" onClick={() => onStatusChange('DRAFT')}>
             Unpublish to Draft
+          </Button>
+        )}
+        {isAdmin && onDelete && (
+          <Button variant="danger" size="sm" icon={Trash2} onClick={onDelete} className="ml-auto">
+            Delete Question
           </Button>
         )}
       </motion.div>

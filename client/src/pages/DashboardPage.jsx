@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, ChevronDown, CheckSquare, X, FileQuestion, Upload as UploadIcon, BarChart3, Activity, Sparkles } from 'lucide-react';
+import { Search, Filter, ChevronDown, CheckSquare, X, FileQuestion, Upload as UploadIcon, BarChart3, Activity, Sparkles, Trash2 } from 'lucide-react';
 import { questionsAPI, analyticsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import QuestionCard from '../components/questions/QuestionCard';
@@ -12,8 +12,15 @@ import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import EmptyState from '../components/common/EmptyState';
 import StatCard from '../components/dashboard/StatCard';
+import { TYPE_LABELS } from '../utils/constants';
 import toast from 'react-hot-toast';
-import { WORKFLOW_STATES, TYPE_LABELS } from '../utils/constants';
+
+const STAT_FILTERS = [
+  { key: null, label: 'Total Questions', statKey: 'totalQuestions', icon: FileQuestion, color: 'accent' },
+  { key: 'DRAFT', label: 'Drafts', statKey: 'drafts', icon: Activity, color: 'amber' },
+  { key: 'PUBLISHED', label: 'Published', statKey: 'published', icon: CheckSquare, color: 'emerald' },
+  { key: 'week', label: 'This Week', statKey: 'weeklyUploads', icon: BarChart3, color: 'cyan' },
+];
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -23,6 +30,7 @@ export default function DashboardPage() {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [activeStatFilter, setActiveStatFilter] = useState(null);
   const [filters, setFilters] = useState({});
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -44,6 +52,11 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const params = { page, limit: 20, ...filters };
+      if (activeStatFilter === 'DRAFT' || activeStatFilter === 'PUBLISHED') {
+        params.status = activeStatFilter;
+      } else if (activeStatFilter === 'week') {
+        params.thisWeek = true;
+      }
       if (search) params.search = search;
       const res = await questionsAPI.getAll(params);
       setQuestions(res.data.questions);
@@ -54,13 +67,17 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, search]);
+  }, [activeStatFilter, filters, search]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadStats();
     loadQuestions();
   }, [loadQuestions]);
+
+  const handleStatFilterClick = (key) => {
+    setActiveStatFilter((prev) => (prev === key ? null : key));
+    setSelectedIds(new Set());
+  };
 
   const handleSelectToggle = (id) => {
     setSelectedIds((prev) => {
@@ -86,6 +103,21 @@ export default function DashboardPage() {
       loadStats();
     } catch (err) {
       toast.error('Bulk action failed');
+      console.error(err);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} question${selectedIds.size > 1 ? 's' : ''}? This action cannot be undone.`)) return;
+    try {
+      const res = await questionsAPI.bulkDelete({ questionIds: Array.from(selectedIds) });
+      toast.success(`${res.data?.count || selectedIds.size} questions deleted`);
+      setSelectedIds(new Set());
+      loadQuestions(pagination.page);
+      loadStats();
+    } catch (err) {
+      toast.error(err?.message || 'Bulk delete failed');
       console.error(err);
     }
   };
@@ -143,6 +175,24 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!selectedQuestion) return;
+    if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) return;
+    try {
+      await questionsAPI.delete(selectedQuestion._id);
+      toast.success('Question deleted');
+      setDetailOpen(false);
+      setSelectedQuestion(null);
+      loadQuestions(pagination.page);
+      loadStats();
+    } catch (err) {
+      toast.error(err?.message || 'Delete failed');
+      console.error(err);
+    }
+  };
+
+  const activeFilterCount = Object.keys(filters).length + (activeStatFilter ? 1 : 0);
+
   return (
     <div className="space-y-7">
       {/* Header */}
@@ -185,7 +235,7 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards — clickable filters */}
       <motion.div
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         initial="hidden"
@@ -195,18 +245,18 @@ export default function DashboardPage() {
           visible: { transition: { staggerChildren: 0.1 } },
         }}
       >
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-          <StatCard icon={FileQuestion} label="Total Questions" value={stats?.overview?.totalQuestions || 0} color="accent" />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-          <StatCard icon={Activity} label="Drafts" value={stats?.overview?.drafts || 0} color="amber" />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-          <StatCard icon={CheckSquare} label="Published" value={stats?.overview?.published || 0} color="emerald" />
-        </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-          <StatCard icon={BarChart3} label="This Week" value={stats?.overview?.weeklyUploads || 0} color="cyan" />
-        </motion.div>
+        {STAT_FILTERS.map((sf) => (
+          <motion.div key={sf.statKey} variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+            <StatCard
+              icon={sf.icon}
+              label={sf.label}
+              value={stats?.overview?.[sf.statKey] || 0}
+              color={sf.color}
+              active={activeStatFilter === sf.key}
+              onClick={() => handleStatFilterClick(sf.key)}
+            />
+          </motion.div>
+        ))}
       </motion.div>
 
       {/* Search & filters row */}
@@ -223,9 +273,9 @@ export default function DashboardPage() {
         </div>
         <Button variant="secondary" icon={Filter} onClick={() => setShowFilters(!showFilters)}>
           Filters
-          {Object.keys(filters).length > 0 && (
+          {activeFilterCount > 0 && (
             <span className="ml-1.5 rounded-full bg-accent-500/20 border border-accent-500/15 px-2 py-0.5 text-[10px] font-semibold text-accent-400">
-              {Object.keys(filters).length}
+              {activeFilterCount}
             </span>
           )}
         </Button>
@@ -242,11 +292,20 @@ export default function DashboardPage() {
           >
             <div className="glass-card rounded-2xl p-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <FilterSelect label="Status" value={filters.status || ''} onChange={(v) => setFilters(f => v ? { ...f, status: v } : (() => { const n = { ...f }; delete n.status; return n; })())} options={Object.values(WORKFLOW_STATES).map(s => ({ value: s, label: s.replace(/_/g, ' ') }))} />
-                <FilterSelect label="Type" value={filters.questionType || ''} onChange={(v) => setFilters(f => v ? { ...f, questionType: v } : (() => { const n = { ...f }; delete n.questionType; return n; })())} options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
-                <FilterSelect label="Difficulty" value={filters.difficulty || ''} onChange={(v) => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
+                <FilterSelect
+                  label="Difficulty"
+                  value={filters.difficulty || ''}
+                  onChange={(v) => setFilters(f => v ? { ...f, difficulty: v } : (() => { const n = { ...f }; delete n.difficulty; return n; })())}
+                  options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))}
+                />
+                <FilterSelect
+                  label="Type"
+                  value={filters.questionType || ''}
+                  onChange={(v) => setFilters(f => v ? { ...f, questionType: v } : (() => { const n = { ...f }; delete n.questionType; return n; })())}
+                  options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                />
                 <div className="flex items-end">
-                  <Button variant="ghost" size="sm" icon={X} onClick={() => setFilters({})}>Clear All</Button>
+                  <Button variant="ghost" size="sm" icon={X} onClick={() => { setFilters({}); setActiveStatFilter(null); }}>Clear All</Button>
                 </div>
               </div>
             </div>
@@ -265,9 +324,13 @@ export default function DashboardPage() {
           >
             <span className="text-sm text-accent-300 font-semibold">{selectedIds.size} selected</span>
             <div className="flex gap-2 ml-auto">
-              <Button size="sm" variant="success" onClick={() => handleBulkAction('PUBLISHED')}>Publish All</Button>
-              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('DRAFT')}>Move to Drafts</Button>
-              <Button size="sm" variant="danger" onClick={() => handleBulkAction('REJECTED')}>Reject All</Button>
+              {activeStatFilter !== 'PUBLISHED' && (
+                <Button size="sm" variant="success" onClick={() => handleBulkAction('PUBLISHED')}>Publish</Button>
+              )}
+              {activeStatFilter !== 'DRAFT' && (
+                <Button size="sm" variant="secondary" onClick={() => handleBulkAction('DRAFT')}>Move to Drafts</Button>
+              )}
+              <Button size="sm" variant="danger" icon={Trash2} onClick={handleBulkDelete}>Delete</Button>
               <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Deselect</Button>
             </div>
           </motion.div>
@@ -330,7 +393,7 @@ export default function DashboardPage() {
 
       {/* Modals */}
       <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title="Question Details" maxWidth="max-w-3xl">
-        <QuestionDetail question={selectedQuestion} onStatusChange={handleStatusChange} onEdit={handleEdit} userRole={user?.role} />
+        <QuestionDetail question={selectedQuestion} onStatusChange={handleStatusChange} onEdit={handleEdit} onDelete={handleDelete} userRole={user?.role} />
       </Modal>
 
       <Modal isOpen={editModal} onClose={() => setEditModal(false)} title="Edit Question" maxWidth="max-w-2xl">

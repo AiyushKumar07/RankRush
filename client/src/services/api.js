@@ -121,6 +121,7 @@ export const questionsAPI = {
   update: (id, data) => api.put(`/questions/${id}`, data),
   updateStatus: (id, data) => api.patch(`/questions/${id}/status`, data),
   bulkUpdateStatus: (data) => api.post('/questions/bulk-status', data),
+  bulkDelete: (data) => api.post('/questions/bulk-delete', data),
   delete: (id) => api.delete(`/questions/${id}`),
   getFilters: () => api.get('/questions/filters'),
   getDynamicFilters: (params) => api.get('/questions/filters/dynamic', { params }),
