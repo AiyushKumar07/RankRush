@@ -227,7 +227,7 @@ export default function StudentSignupPage() {
               onFocus={() => setFocusedField('referralCode')}
               onBlur={() => setFocusedField(null)}
               className="w-full rounded-xl glass-input pl-10 pr-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none"
-              placeholder="RR-XXXXXX"
+              placeholder="RRXXXXXX"
             />
             {focusedField === 'referralCode' && (
               <motion.div

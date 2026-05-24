@@ -64,7 +64,7 @@ export default function ReferAndEarnPage() {
     if (!referralInfo?.referralCode) return;
     
     const link = `${window.location.origin}/app/signup?rid=${referralInfo.referralCode}`;
-    const shareText = `Use my referral code ${referralInfo.referralCode} to get 2 free quiz tokens! Sign up here: ${link}`;
+    const shareText = `Use my referral code ${referralInfo.referralCode} to get 2 free quiz tokens on your first payment! Sign up here: ${link}`;
     
     if (navigator.share) {
       navigator.share({
@@ -100,7 +100,7 @@ export default function ReferAndEarnPage() {
           transition={{ delay: 0.2 }}
           className="text-dark-300 max-w-2xl mx-auto text-lg"
         >
-          Invite your friends to RankRush and both of you will earn 2 free quiz tokens when they sign up and verify their email.
+          Invite your friends to RankRush and both of you will earn 2 free quiz tokens when they make their first payment.
         </motion.p>
       </div>
 

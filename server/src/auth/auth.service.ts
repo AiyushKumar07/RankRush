@@ -163,7 +163,7 @@ export class AuthService {
     let referralCode = '';
     let isUnique = false;
     while (!isUnique) {
-      referralCode = `RR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      referralCode = `RR${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
       const existingCode = await this.prisma.user.findFirst({
         where: { referralCode },
       });
@@ -172,8 +172,9 @@ export class AuthService {
 
     let referredById: string | null = null;
     if (dto.referralCode && dto.referralCode.trim() !== '') {
+      const normalizedCode = dto.referralCode.trim().replace(/-/g, '').toUpperCase();
       const referrer = await this.prisma.user.findFirst({
-        where: { referralCode: dto.referralCode.trim() },
+        where: { referralCode: normalizedCode },
       });
       if (referrer) {
         referredById = referrer.id;
