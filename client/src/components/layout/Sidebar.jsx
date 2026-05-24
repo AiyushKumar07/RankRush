@@ -5,6 +5,7 @@ import {
   LogOut,
   ChevronRight,
   BookOpen,
+  CreditCard,
   Ticket,
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
@@ -14,6 +15,7 @@ import { cn } from '../../utils/cn';
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/quizzes', icon: BookOpen, label: 'Quizzes' },
+  { to: '/admin/pricing-plans', icon: CreditCard, label: 'Pricing Plans' },
   { to: '/admin/redeem-codes', icon: Ticket, label: 'Redeem Codes' },
 ];
 

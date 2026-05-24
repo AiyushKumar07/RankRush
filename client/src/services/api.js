@@ -193,4 +193,14 @@ export const paymentsAPI = {
   toggleRedeemCodeStatus: (id, isActive) => api.patch(`/payments/admin/redeem-codes/${id}/toggle`, { isActive }),
 };
 
+export const subscriptionPlansAPI = {
+  getAll: () => api.get('/subscriptions/admin/plans'),
+  create: (data) => api.post('/subscriptions/admin/plans', data),
+  update: (id, data) => api.patch(`/subscriptions/admin/plans/${id}`, data),
+  toggleStatus: (id, isActive) => api.patch(`/subscriptions/admin/plans/${id}/toggle`, { isActive }),
+  getStats: () => api.get('/subscriptions/admin/stats'),
+  reorder: (orderedIds) => api.post('/subscriptions/admin/plans/reorder', { orderedIds }),
+};
+
 export default api;
+

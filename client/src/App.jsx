@@ -12,6 +12,7 @@ import ProfileOnboardingPage from './pages/ProfileOnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import QuizzesPage from './pages/QuizzesPage';
 import RedeemCodesPage from './pages/RedeemCodesPage';
+import PricingPlansPage from './pages/PricingPlansPage';
 import LandingPage from './pages/LandingPage';
 import StudentLayout from './components/layout/StudentLayout';
 import StudentDashboardPage from './pages/student/StudentDashboardPage';
@@ -98,6 +99,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="quizzes" element={<QuizzesPage />} />
+            <Route path="pricing-plans" element={<PricingPlansPage />} />
             <Route path="redeem-codes" element={<RedeemCodesPage />} />
           </Route>
 

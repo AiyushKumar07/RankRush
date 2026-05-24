@@ -22,9 +22,8 @@ export default function PricingPage() {
     async function fetchPlans() {
       try {
         const res = await api.get('/subscriptions/plans');
-        // Sort to ensure specific order
-        const sortedPlans = res.data.sort((a, b) => a.price - b.price);
-        setPlans(sortedPlans);
+        // Plans come pre-sorted by admin-defined order from the API
+        setPlans(res.data);
       } catch (err) {
         toast.error('Failed to load pricing plans');
       } finally {
@@ -235,8 +234,8 @@ export default function PricingPage() {
 
       <div className="grid lg:grid-cols-3 gap-8 items-center max-w-6xl mx-auto relative z-10 mt-16">
         {plans.map((plan, index) => {
-          const style = tierStyles[plan.name] || tierStyles['Starter Pass'];
-          const isPremium = plan.name === 'Ranker Pro' || plan.isRecurring;
+          const style = tierStyles[plan.name] || (plan.isPopular ? tierStyles['Ranker Pro'] : tierStyles['Starter Pass']);
+          const isPremium = plan.isPopular || plan.isRecurring;
           
           const isCodeApplicable = appliedCode && (applicablePlanIds.length === 0 || applicablePlanIds.includes(plan.id));
           const discountedPrice = isCodeApplicable 
@@ -251,7 +250,7 @@ export default function PricingPage() {
               transition={{ delay: 0.1 * index, duration: 0.5, type: 'spring' }}
               className={`relative rounded-3xl p-8 bg-dark-800/40 backdrop-blur-xl border transition-all duration-300 flex flex-col h-full ${style.border} ${style.glow}`}
             >
-              {isPremium && (
+              {plan.isPopular && (
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-accent-500 to-neon-cyan text-white text-xs font-bold uppercase tracking-widest py-1.5 px-6 rounded-full flex items-center gap-2 shadow-[0_0_20px_rgba(124,107,245,0.4)] border border-white/20 whitespace-nowrap">
                   <Sparkles className="h-4 w-4" />
                   Most Popular

@@ -613,6 +613,8 @@ model SubscriptionPlan {
   refreshFrequency RefreshFrequency?
   
   isActive    Boolean  @default(true)
+  isPopular   Boolean  @default(false)
+  sortOrder   Int      @default(0)
   
   subscriptions StudentSubscription[]
 
