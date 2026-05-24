@@ -22,25 +22,61 @@ export default function ReferAndEarnPage() {
     fetchReferralInfo();
   }, []);
 
-  const copyToClipboard = async () => {
-    if (referralInfo?.referralCode) {
-      try {
-        await navigator.clipboard.writeText(referralInfo.referralCode);
-        toast.success('Copied Successfully');
-      } catch (err) {
-        // Fallback for older browsers or non-secure contexts
-        const textArea = document.createElement('textarea');
-        textArea.value = referralInfo.referralCode;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-          document.execCommand('copy');
-          toast.success('Copied Successfully');
-        } catch (err2) {
-          toast.error('Failed to copy');
-        }
-        document.body.removeChild(textArea);
+  const fallbackCopyTextToClipboard = (text, successMsg) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        toast.success(successMsg || 'Code Copied Successfully');
+      } else {
+        toast.error('Failed to copy');
       }
+    } catch (err) {
+      toast.error('Failed to copy');
+    }
+    document.body.removeChild(textArea);
+  };
+
+  const copyToClipboard = (text, successMessage) => {
+    const textToCopy = text || referralInfo?.referralCode;
+    if (!textToCopy) return;
+
+    if (!navigator.clipboard || !window.isSecureContext) {
+      fallbackCopyTextToClipboard(textToCopy, successMessage);
+      return;
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      toast.success(successMessage || 'Code Copied Successfully');
+    }).catch(() => {
+      fallbackCopyTextToClipboard(textToCopy, successMessage);
+    });
+  };
+
+  const shareLink = () => {
+    if (!referralInfo?.referralCode) return;
+    
+    const link = `${window.location.origin}/app/signup?rid=${referralInfo.referralCode}`;
+    const shareText = `Use my referral code ${referralInfo.referralCode} to get 2 free quiz tokens! Sign up here: ${link}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'Join RankRush',
+        text: shareText,
+      }).catch((err) => {
+        if (err.name !== 'AbortError') {
+          copyToClipboard(shareText, 'Share link copied to clipboard!');
+        }
+      });
+    } else {
+      copyToClipboard(shareText, 'Share link copied to clipboard!');
     }
   };
 
@@ -75,26 +111,38 @@ export default function ReferAndEarnPage() {
           transition={{ delay: 0.3 }}
           className="glass-card rounded-3xl p-8 border-accent-500/20 relative overflow-hidden"
         >
-          <div className="absolute top-0 right-0 p-6 opacity-10">
+          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
             <Gift className="w-32 h-32 text-accent-500" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <h3 className="relative z-10 text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Share2 className="text-accent-400" /> Your Referral Code
           </h3>
           
-          <div className="bg-dark-900 border border-white/10 rounded-2xl p-4 flex items-center justify-between mb-6">
-            <span className="text-2xl font-mono text-neon-cyan tracking-widest font-bold">
-              {referralInfo?.referralCode || 'GENERATING...'}
-            </span>
+          <div className="relative z-10 flex gap-2 mb-6">
+            <div className="flex-1 bg-dark-900 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+              <span className="text-2xl font-mono text-neon-cyan tracking-widest font-bold">
+                {referralInfo?.referralCode || 'GENERATING...'}
+              </span>
+              <button 
+                type="button"
+                onClick={() => copyToClipboard()}
+                title="Copy Code"
+                className="p-3 hover:bg-white/5 rounded-xl transition-colors text-dark-300 hover:text-white cursor-pointer"
+              >
+                <Copy className="h-5 w-5 pointer-events-none" />
+              </button>
+            </div>
             <button 
-              onClick={copyToClipboard}
-              className="p-3 hover:bg-white/5 rounded-xl transition-colors text-dark-300 hover:text-white"
+              type="button"
+              onClick={() => shareLink()}
+              title="Share Link"
+              className="bg-accent-500 hover:bg-accent-600 text-white rounded-2xl p-4 flex items-center justify-center transition-colors shadow-lg shadow-accent-500/20 cursor-pointer"
             >
-              <Copy className="h-5 w-5" />
+              <Share2 className="h-6 w-6 pointer-events-none" />
             </button>
           </div>
           
-          <p className="text-sm text-dark-400">
+          <p className="relative z-10 text-sm text-dark-400">
             Share this code with your friends. They can enter it during registration.
           </p>
         </motion.div>

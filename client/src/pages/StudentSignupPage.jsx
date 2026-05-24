@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UserPlus, Eye, EyeOff, Mail, User, Lock, ArrowRight, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -56,7 +56,17 @@ function PasswordStrength({ password }) {
 }
 
 export default function StudentSignupPage() {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const rid = searchParams.get('rid');
+
+  const [form, setForm] = useState({ 
+    firstName: '', 
+    lastName: '', 
+    email: '', 
+    password: '',
+    referralCode: rid || ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
