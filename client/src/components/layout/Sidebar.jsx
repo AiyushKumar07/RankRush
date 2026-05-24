@@ -5,6 +5,7 @@ import {
   LogOut,
   ChevronRight,
   BookOpen,
+  Ticket,
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +14,7 @@ import { cn } from '../../utils/cn';
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/quizzes', icon: BookOpen, label: 'Quizzes' },
+  { to: '/admin/redeem-codes', icon: Ticket, label: 'Redeem Codes' },
 ];
 
 const sidebarVariants = {

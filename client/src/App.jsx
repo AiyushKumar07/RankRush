@@ -11,6 +11,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfileOnboardingPage from './pages/ProfileOnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import QuizzesPage from './pages/QuizzesPage';
+import RedeemCodesPage from './pages/RedeemCodesPage';
 import LandingPage from './pages/LandingPage';
 import StudentLayout from './components/layout/StudentLayout';
 import StudentDashboardPage from './pages/student/StudentDashboardPage';
@@ -97,6 +98,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="quizzes" element={<QuizzesPage />} />
+            <Route path="redeem-codes" element={<RedeemCodesPage />} />
           </Route>
 
           {/* Student App (requires auth + onboarded) */}

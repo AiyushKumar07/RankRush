@@ -180,4 +180,10 @@ export const studentAPI = {
   getActivity: (params) => api.get('/student/activity', { params }),
 };
 
+export const paymentsAPI = {
+  createRedeemCode: (data) => api.post('/payments/admin/redeem-codes', data),
+  getAllRedeemCodes: () => api.get('/payments/admin/redeem-codes'),
+  toggleRedeemCodeStatus: (id, isActive) => api.patch(`/payments/admin/redeem-codes/${id}/toggle`, { isActive }),
+};
+
 export default api;
