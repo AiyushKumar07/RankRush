@@ -30,13 +30,50 @@ export class PaymentsService {
     }
   }
 
-  async createOrder(userId: string, planId: string) {
+  async validateCode(code: string, userId: string) {
+    const redeemCode = await this.prisma.redeemCode.findUnique({
+      where: { code: code.toUpperCase() }
+    });
+
+    if (!redeemCode) {
+      throw new BadRequestException('Invalid redeem code');
+    }
+
+    if (!redeemCode.isActive) {
+      throw new BadRequestException('This code is no longer active');
+    }
+
+    if (redeemCode.expiresAt && new Date() > redeemCode.expiresAt) {
+      throw new BadRequestException('This code has expired');
+    }
+
+    if (redeemCode.currentUses >= redeemCode.maxUses) {
+      throw new BadRequestException('This code has reached its usage limit');
+    }
+
+    if (redeemCode.usedBy.includes(userId)) {
+      throw new BadRequestException('You have already used this code');
+    }
+
+    return redeemCode;
+  }
+
+  async createOrder(userId: string, planId: string, redeemCodeString?: string) {
     const plan = await this.prisma.subscriptionPlan.findUnique({
       where: { id: planId },
     });
     if (!plan) throw new BadRequestException('Plan not found');
 
-    const amount = Math.round(plan.price * 100);
+    let finalPrice = plan.price;
+    let appliedCode = null;
+
+    if (redeemCodeString) {
+      const validCode = await this.validateCode(redeemCodeString, userId);
+      finalPrice = finalPrice * (1 - validCode.discountPercentage / 100);
+      appliedCode = validCode.code;
+    }
+
+    const amount = Math.round(finalPrice * 100);
     if (amount < 100) {
       throw new BadRequestException('Amount must be at least 1 INR');
     }
@@ -59,11 +96,12 @@ export class PaymentsService {
       data: {
         userId,
         planId,
-        amount: plan.price,
+        amount: finalPrice, // Store discounted price
         currency: plan.currency,
         status: 'PENDING',
         mode: plan.isRecurring ? 'SUBSCRIPTION' : 'ONE_TIME',
         gatewayOrderId: order.id,
+        redeemCode: appliedCode,
       },
     });
 
@@ -116,6 +154,17 @@ export class PaymentsService {
       },
     });
 
+    // Handle Redeem Code usage if applied
+    if (transaction.redeemCode) {
+      await this.prisma.redeemCode.update({
+        where: { code: transaction.redeemCode },
+        data: {
+          currentUses: { increment: 1 },
+          usedBy: { push: userId }
+        }
+      });
+    }
+
     if (transaction.planId) {
       const plan = await this.prisma.subscriptionPlan.findUnique({
         where: { id: transaction.planId },
@@ -156,5 +205,35 @@ export class PaymentsService {
     }
 
     return { success: true, message: 'Payment verified successfully' };
+  }
+
+  // --- Admin Redeem Code Management ---
+  async createRedeemCode(data: { code: string; discountPercentage: number; maxUses: number; expiresAt?: string }) {
+    const existing = await this.prisma.redeemCode.findUnique({
+      where: { code: data.code.toUpperCase() }
+    });
+    if (existing) throw new BadRequestException('Code already exists');
+
+    return this.prisma.redeemCode.create({
+      data: {
+        code: data.code.toUpperCase(),
+        discountPercentage: data.discountPercentage,
+        maxUses: data.maxUses,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      }
+    });
+  }
+
+  async getAllRedeemCodes() {
+    return this.prisma.redeemCode.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async toggleRedeemCodeStatus(id: string, isActive: boolean) {
+    return this.prisma.redeemCode.update({
+      where: { id },
+      data: { isActive }
+    });
   }
 }

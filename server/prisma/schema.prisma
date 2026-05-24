@@ -659,11 +659,30 @@ model PaymentTransaction {
   gatewayOrderId   String?
   gatewaySignature String?
   
+  redeemCode       String?  // Track if a promo code was used for this transaction
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   @@index([userId])
   @@index([status])
+}
+
+// ─── Redeem Codes ────────────────────────────────────────────────────
+
+model RedeemCode {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  code               String   @unique
+  discountPercentage Float
+  maxUses            Int      @default(20)
+  currentUses        Int      @default(0)
+  isActive           Boolean  @default(true)
+  expiresAt          DateTime?
+  
+  usedBy             String[] @db.ObjectId // To track which users have used it
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 // ─── Referral System ──────────────────────────────────────────────────

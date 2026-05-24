@@ -15,26 +15,25 @@ export class SubscriptionsService {
       await this.prisma.subscriptionPlan.createMany({
         data: [
           {
-            name: 'Starter Pack',
+            name: 'Starter Pass',
             description: '10 Quiz Tokens',
-            price: 49,
+            price: 99,
             tokenCount: 10,
             isRecurring: false,
           },
           {
-            name: 'Pro Pack',
-            description: '25 Quiz Tokens',
-            price: 99,
-            tokenCount: 25,
+            name: 'Scholar Pack',
+            description: '20 Quiz Tokens',
+            price: 199,
+            tokenCount: 20,
             isRecurring: false,
           },
           {
-            name: 'Unlimited Monthly',
-            description: '100 Tokens / Month',
-            price: 299,
-            tokenCount: 100,
-            isRecurring: true,
-            refreshFrequency: 'MONTHLY',
+            name: 'Ranker Pro',
+            description: '50 Quiz Tokens',
+            price: 399,
+            tokenCount: 50,
+            isRecurring: false,
           },
         ],
       });
