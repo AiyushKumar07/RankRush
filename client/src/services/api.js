@@ -27,12 +27,19 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Do not intercept 401s for login/auth routes to allow components to handle auth errors
+    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register')) {
+      return Promise.reject(error.response?.data || error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('rankrush_refresh_token');
 
       if (!refreshToken) {
         clearTokens();
-        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/app/login';
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/app/login';
+        }
         return Promise.reject(error.response?.data || error);
       }
 
