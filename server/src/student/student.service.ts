@@ -295,7 +295,7 @@ export class StudentService {
     });
 
     const questionsMap = new Map(questions.map((q) => [q.id, q]));
-    const orderedQuestions = quiz.questions
+    let orderedQuestions = quiz.questions
       .sort((a, b) => a.order - b.order)
       .map((qq) => ({
         questionId: qq.questionId,
@@ -303,6 +303,14 @@ export class StudentService {
         marks: qq.marks,
         questionData: questionsMap.get(qq.questionId) || null,
       }));
+
+    // Shuffle questions if enabled (Fisher-Yates)
+    if (quiz.shuffleQuestions) {
+      for (let i = orderedQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [orderedQuestions[i], orderedQuestions[j]] = [orderedQuestions[j], orderedQuestions[i]];
+      }
+    }
 
     return {
       data: {
@@ -406,6 +414,7 @@ export class StudentService {
     let correctCount = 0;
     let incorrectCount = 0;
     let unansweredCount = 0;
+    let negativeMarksTotal = 0;
     const questionResults: Array<{
       questionId: string;
       topic: string;
@@ -449,6 +458,7 @@ export class StudentService {
         incorrectCount++;
         if (quiz.negativeMarking && q.negativeMarks) {
           score -= q.negativeMarks;
+          negativeMarksTotal += q.negativeMarks;
         }
       }
 
@@ -460,9 +470,9 @@ export class StudentService {
       });
     }
 
-    score = Math.max(0, score);
+    // Don't clamp score to 0 — negative scores are valid with negative marking
     const percentage =
-      quiz.totalMarks > 0 ? Math.round((score / quiz.totalMarks) * 100) : 0;
+      quiz.totalMarks > 0 ? Math.max(0, Math.round((score / quiz.totalMarks) * 100)) : 0;
 
     // Update the attempt
     const now = new Date();
@@ -551,6 +561,7 @@ export class StudentService {
         correctCount,
         incorrectCount,
         unansweredCount,
+        negativeMarksTotal,
         timeTakenSecs: timeTaken,
         xpEarned,
         questionResults,

@@ -402,15 +402,23 @@ export default function QuizSessionPage() {
           </p>
 
           {!isDisqualified && (
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className={cn("grid gap-4 mb-8", summaryData.negativeMarksTotal > 0 ? "grid-cols-4" : "grid-cols-3")}>
               <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <p className="text-sm text-dark-400 mb-1">Accuracy</p>
-                <p className="text-xl font-bold text-white">{summaryData.percentage}%</p>
+                <p className="text-sm text-dark-400 mb-1">Score</p>
+                <p className={cn("text-xl font-bold", summaryData.score < 0 ? "text-rose-400" : "text-white")}>
+                  {summaryData.score}/{summaryData.totalMarks}
+                </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
                 <p className="text-sm text-dark-400 mb-1">Correct</p>
                 <p className="text-xl font-bold text-emerald-400">{summaryData.correctCount}</p>
               </div>
+              {summaryData.negativeMarksTotal > 0 && (
+                <div className="bg-rose-500/5 rounded-2xl p-4 border border-rose-500/20">
+                  <p className="text-sm text-dark-400 mb-1">Neg. Deducted</p>
+                  <p className="text-xl font-bold text-rose-400">-{summaryData.negativeMarksTotal}</p>
+                </div>
+              )}
               <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
                 <p className="text-sm text-dark-400 mb-1">Earned</p>
                 <p className="text-xl font-bold text-amber-400">+{summaryData.xpEarned} XP</p>

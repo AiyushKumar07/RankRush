@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Save, X, Clock, Award, BookOpen, Check, Filter, ChevronDown, ChevronRight, Wand2, Loader2, Sparkles, GraduationCap, Layers, FileText } from 'lucide-react';
+import { Search, Save, X, Clock, Award, BookOpen, Check, Filter, ChevronDown, ChevronRight, Wand2, Loader2, Sparkles, GraduationCap, Layers, FileText, Shuffle } from 'lucide-react';
 import Button from '../common/Button';
 import { quizzesAPI, questionsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -46,6 +46,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
 
   // Time Limit Override State
   const [manualTimeLimit, setManualTimeLimit] = useState('');
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
 
   // Quiz Form Data
   const [formData, setFormData] = useState({
@@ -142,6 +143,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
           });
         }
         setSelectedQuestions(initialSelected);
+        setShuffleQuestions(initialQuiz.shuffleQuestions || false);
       } else {
         setFormData({ title: '', description: '', difficulty: 'Medium', tags: '' });
         setSelectedExamType('');
@@ -153,6 +155,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         setTypeFilter('');
         setSearch('');
         setManualTimeLimit('');
+        setShuffleQuestions(false);
       }
     }
   }, [isOpen, initialQuiz]);
@@ -241,9 +244,11 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
   const calculateTotals = useMemo(() => {
     let totalMarks = 0;
     let totalSeconds = 0;
+    let hasNegativeMarking = false;
     selectedQuestions.forEach(q => {
       totalMarks += (q.selectedMarks || q.marks || 1);
       totalSeconds += (q.estimatedTimeSeconds || 60);
+      if (q.negativeMarks && q.negativeMarks > 0) hasNegativeMarking = true;
     });
 
     const roundedSeconds = Math.round(totalSeconds / 30) * 30;
@@ -251,6 +256,7 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
 
     return {
       marks: totalMarks,
+      hasNegativeMarking,
       timeLimitMins: manualTimeLimit !== '' ? parseFloat(manualTimeLimit) : (autoMins > 0 ? autoMins : 0)
     };
   }, [selectedQuestions, manualTimeLimit]);
@@ -280,6 +286,8 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
         className: selectedClasses.join(', '),
         examType: [selectedExamType].filter(Boolean),
         timeLimitMins: calculateTotals.timeLimitMins,
+        negativeMarking: calculateTotals.hasNegativeMarking,
+        shuffleQuestions,
         questions: Array.from(selectedQuestions.values()).map((q, i) => ({
           questionId: q._id || q.id,
           order: i + 1,
@@ -670,6 +678,28 @@ export default function QuizBuilderModal({ isOpen, onClose, onSuccess, initialQu
                           className="w-full rounded-lg glass-input px-3 py-1.5 text-xs text-white focus:outline-none"
                         />
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setShuffleQuestions(prev => !prev)}
+                        className={cn(
+                          "flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border transition-all duration-200 text-xs font-medium",
+                          shuffleQuestions
+                            ? "bg-accent-500/15 border-accent-500/40 text-white"
+                            : "glass-frosted border-transparent hover:border-white/10 text-dark-300 hover:text-white"
+                        )}
+                      >
+                        <Shuffle className={cn("w-3.5 h-3.5", shuffleQuestions ? "text-accent-400" : "text-dark-500")} />
+                        Shuffle Questions
+                        <div className={cn(
+                          "ml-auto w-7 h-4 rounded-full transition-all duration-200 relative",
+                          shuffleQuestions ? "bg-accent-500" : "bg-dark-600"
+                        )}>
+                          <div className={cn(
+                            "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200",
+                            shuffleQuestions ? "left-3.5" : "left-0.5"
+                          )} />
+                        </div>
+                      </button>
                     </div>
                   )}
                 </div>
