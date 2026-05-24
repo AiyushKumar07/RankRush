@@ -73,7 +73,7 @@ export class PaymentsService {
 
     if (redeemCodeString) {
       const validCode = await this.validateCode(redeemCodeString, userId, planId);
-      finalPrice = finalPrice * (1 - validCode.discountPercentage / 100);
+      finalPrice = Math.round(finalPrice * (1 - validCode.discountPercentage / 100));
       appliedCode = validCode.code;
     }
 
