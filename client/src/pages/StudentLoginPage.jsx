@@ -20,7 +20,7 @@ export default function StudentLoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, 'STUDENT');
       if (result?.requiresVerification) {
         toast('Email not verified. Please enter the OTP sent to your email.', { icon: '📧' });
         navigate('/verify-email');
@@ -28,9 +28,9 @@ export default function StudentLoginPage() {
       }
       toast.success('Welcome back!');
       if (!result.isOnboarded) {
-        navigate('/onboarding');
+        navigate('/app/onboarding');
       } else {
-        navigate('/');
+        navigate('/app/dashboard');
       }
     } catch (err) {
       toast.error(err?.message || 'Invalid email or password');
@@ -119,7 +119,7 @@ export default function StudentLoginPage() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-5 text-center">
         <p className="text-sm text-dark-400">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
+          <Link to="/app/signup" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
             Sign up
           </Link>
         </p>

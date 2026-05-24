@@ -27,7 +27,7 @@ export default function ResetPasswordPage() {
     try {
       await authAPI.resetPassword({ email, otp, newPassword });
       toast.success('Password reset! You can now sign in.');
-      navigate('/login', { replace: true });
+      navigate('/app/login', { replace: true });
     } catch (err) {
       toast.error(err?.message || 'Reset failed. Check your code and try again.');
     } finally {
@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-5">
         <Link
-          to="/login"
+          to="/app/login"
           className="flex items-center justify-center gap-1.5 text-sm text-dark-400 hover:text-dark-200 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

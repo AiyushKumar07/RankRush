@@ -18,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OtpService } from '../otp/otp.service.js';
 import { MailService } from '../mail/mail.service.js';
+import { TokensService } from '../tokens/tokens.service.js';
 import {
   RegisterDto,
   LoginDto,
@@ -43,6 +44,7 @@ export class AuthService {
     private audit: AuditService,
     private otp: OtpService,
     private mail: MailService,
+    private tokensService: TokensService,
   ) {}
 
   private signAccessToken(userId: string, role: string) {
@@ -157,6 +159,27 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(dto.password, 12);
 
+    // Generate unique branded referral code
+    let referralCode = '';
+    let isUnique = false;
+    while (!isUnique) {
+      referralCode = `RR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const existingCode = await this.prisma.user.findFirst({
+        where: { referralCode },
+      });
+      if (!existingCode) isUnique = true;
+    }
+
+    let referredById: string | null = null;
+    if (dto.referralCode) {
+      const referrer = await this.prisma.user.findFirst({
+        where: { referralCode: dto.referralCode },
+      });
+      if (referrer) {
+        referredById = referrer.id;
+      }
+    }
+
     const user = await this.prisma.user.create({
       data: {
         name: `${dto.firstName} ${dto.lastName}`,
@@ -166,8 +189,20 @@ export class AuthService {
         password: hashed,
         role: 'STUDENT',
         isVerified: false,
+        referralCode,
+        referredBy: referredById,
       },
     });
+
+    if (referredById) {
+      await this.prisma.referral.create({
+        data: {
+          referrerId: referredById,
+          referredId: user.id,
+          status: 'PENDING',
+        },
+      });
+    }
 
     await this.otp.sendOtp(
       user.id,
@@ -215,6 +250,38 @@ export class AuthService {
       data: { isVerified: true },
     });
 
+    // Check for pending referral
+    const referral = await this.prisma.referral.findUnique({
+      where: { referredId: userId },
+    });
+
+    if (referral && referral.status === 'PENDING') {
+      await this.prisma.referral.update({
+        where: { id: referral.id },
+        data: { status: 'SUCCESS' },
+      });
+
+      // Reward referrer
+      await this.tokensService.creditTokens(
+        referral.referrerId,
+        2,
+        'REFERRAL_BONUS',
+        referral.id,
+        `Referral bonus for inviting ${user.firstName || user.name}`,
+      );
+
+      // Reward referred user
+      await this.tokensService.creditTokens(
+        userId,
+        2,
+        'REFERRAL_BONUS',
+        referral.id,
+        'Signup referral bonus',
+      );
+    }
+
+    await this.updateLoginStreak(userId);
+
     const tokens = await this.createSession(userId, req);
 
     await this.audit.log({
@@ -239,8 +306,15 @@ export class AuthService {
           lastName: user.lastName,
           email: user.email,
           role: user.role,
+          avatar: user.avatar,
           isVerified: true,
           isOnboarded: user.isOnboarded,
+          class: user.class,
+          school: user.school,
+          target: user.target,
+          contactNumber: user.contactNumber,
+          profilePicture: user.profilePicture,
+          address: user.address,
         },
         ...tokens,
       },
@@ -301,6 +375,8 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
+    await this.updateLoginStreak(user.id);
+
     const tokens = await this.createSession(user.id, req);
 
     await this.audit.log({
@@ -325,6 +401,12 @@ export class AuthService {
           avatar: user.avatar,
           isVerified: user.isVerified,
           isOnboarded: user.isOnboarded,
+          class: user.class,
+          school: user.school,
+          target: user.target,
+          contactNumber: user.contactNumber,
+          profilePicture: user.profilePicture,
+          address: user.address,
         },
         ...tokens,
       },
@@ -540,6 +622,8 @@ export class AuthService {
 
   // ─── Get Profile (legacy compat) ──────────────────────────────────
   async getProfile(userId: string) {
+    await this.updateLoginStreak(userId);
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -552,7 +636,14 @@ export class AuthService {
         isOnboarded: true,
         firstName: true,
         lastName: true,
+        class: true,
+        school: true,
+        target: true,
+        contactNumber: true,
+        profilePicture: true,
+        address: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -615,5 +706,101 @@ export class AuthService {
       },
     });
     return result.count;
+  }
+
+  // ─── Private Gamification Streak Helper ─────────────────────────────
+  private async updateLoginStreak(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { lastActive: true, streak: true, longestStreak: true, loginXp: true },
+    });
+    if (!user) return;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (!user.lastActive) {
+      // First time active
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          lastActive: now,
+          streak: 1,
+          longestStreak: 1,
+          loginXp: 15, // +15 XP for first daily login!
+        },
+      });
+
+      await this.prisma.studentActivity.create({
+        data: {
+          studentId: userId,
+          type: 'streak',
+          title: 'Daily Login!',
+          meta: 'Streak: 1 day · +15 XP',
+          icon: 'Flame',
+          tone: 'orange',
+        },
+      });
+      return;
+    }
+
+    const lastActiveDate = new Date(
+      user.lastActive.getFullYear(),
+      user.lastActive.getMonth(),
+      user.lastActive.getDate(),
+    );
+    const diffTime = today.getTime() - lastActiveDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      // Consecutive day!
+      const newStreak = user.streak + 1;
+      const newLongest = Math.max(user.longestStreak, newStreak);
+      const xpGained = 15;
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          lastActive: now,
+          streak: newStreak,
+          longestStreak: newLongest,
+          loginXp: user.loginXp + xpGained,
+        },
+      });
+
+      await this.prisma.studentActivity.create({
+        data: {
+          studentId: userId,
+          type: 'streak',
+          title: 'Daily Login!',
+          meta: `Streak: ${newStreak} days · +${xpGained} XP`,
+          icon: 'Flame',
+          tone: 'orange',
+        },
+      });
+    } else if (diffDays > 1) {
+      // Streak broken! Reset to 1.
+      const xpGained = 15;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          lastActive: now,
+          streak: 1,
+          loginXp: user.loginXp + xpGained,
+        },
+      });
+
+      await this.prisma.studentActivity.create({
+        data: {
+          studentId: userId,
+          type: 'streak',
+          title: 'Daily Login!',
+          meta: 'Streak: 1 day · +15 XP',
+          icon: 'Flame',
+          tone: 'orange',
+        },
+      });
+    }
+    // If diffDays === 0, they already logged in today, so do nothing!
   }
 }

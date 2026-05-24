@@ -32,7 +32,7 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         clearTokens();
-        window.location.href = '/login';
+        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/app/login';
         return Promise.reject(error.response?.data || error);
       }
 
@@ -63,7 +63,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         clearTokens();
-        window.location.href = '/login';
+        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/app/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -155,6 +155,29 @@ export const quizzesAPI = {
   update: (id, data) => api.put(`/quizzes/${id}`, data),
   updateStatus: (id, data) => api.patch(`/quizzes/${id}/status`, data),
   delete: (id) => api.delete(`/quizzes/${id}`),
+};
+
+export const studentAPI = {
+  // Dashboard aggregate (stats + recent activity + topic insights + badges)
+  getDashboard: () => api.get('/student/dashboard'),
+
+  // Stats (sidebar, profile — streak, XP, level, rank)
+  getStats: () => api.get('/student/stats'),
+
+  // Published quizzes available to students
+  listAvailableQuizzes: (params) => api.get('/student/quizzes', { params }),
+
+  // Quiz detail (for starting an attempt — correct answers stripped)
+  getQuiz: (id) => api.get(`/student/quizzes/${id}`),
+
+  // Start a quiz attempt
+  startAttempt: (quizId) => api.post(`/student/quizzes/${quizId}/start`),
+
+  // Submit quiz answers
+  submitAttempt: (quizId, data) => api.post(`/student/quizzes/${quizId}/submit`, data),
+
+  // Activity feed + subject performance
+  getActivity: (params) => api.get('/student/activity', { params }),
 };
 
 export default api;

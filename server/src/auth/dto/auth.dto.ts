@@ -44,6 +44,10 @@ export class StudentSignupDto {
   @IsNotEmpty()
   @MaxLength(50)
   lastName: string;
+
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
 }
 
 export class LoginDto {

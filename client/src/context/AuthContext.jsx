@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
     return userData;
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email, password, expectedRole) => {
     const res = await authAPI.login({ email, password });
 
     if (res.data.requiresVerification) {
@@ -75,6 +75,11 @@ export function AuthProvider({ children }) {
     }
 
     const { user: userData, accessToken, refreshToken } = res.data;
+
+    if (expectedRole && userData.role !== expectedRole) {
+      throw new Error(`Access denied: Invalid credentials for ${expectedRole.toLowerCase()} portal.`);
+    }
+
     setTokens(accessToken, refreshToken);
     setUser(userData);
     localStorage.setItem('rankrush_user', JSON.stringify(userData));

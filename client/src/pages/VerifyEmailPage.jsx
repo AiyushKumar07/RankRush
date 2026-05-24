@@ -18,7 +18,7 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     if (!pendingVerification) {
-      navigate('/signup', { replace: true });
+      navigate('/app/signup', { replace: true });
     }
   }, [pendingVerification, navigate]);
 
@@ -37,7 +37,7 @@ export default function VerifyEmailPage() {
       if (!user.isOnboarded) {
         navigate('/onboarding', { replace: true });
       } else {
-        navigate('/', { replace: true });
+        navigate('/app', { replace: true });
       }
     } catch (err) {
       toast.error(err?.message || 'Invalid or expired code. Please try again.');
@@ -61,7 +61,7 @@ export default function VerifyEmailPage() {
 
   function handleBack() {
     clearPendingVerification();
-    navigate('/signup');
+    navigate('/app/signup');
   }
 
   if (!pendingVerification) return null;

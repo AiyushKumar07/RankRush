@@ -94,7 +94,7 @@ export default function ForgotPasswordPage() {
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-5">
         <Link
-          to="/login"
+          to="/app/login"
           className="flex items-center justify-center gap-1.5 text-sm text-dark-400 hover:text-dark-200 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

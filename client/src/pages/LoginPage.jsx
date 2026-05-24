@@ -82,14 +82,14 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, 'ADMIN');
       if (result?.requiresVerification) {
         toast('Please verify your email first.', { icon: '📧' });
         navigate('/verify-email');
         return;
       }
       toast.success('Welcome back!');
-      navigate('/admin');
+      navigate('/admin/dashboard');
     } catch (err) {
       toast.error(err?.message || 'Login failed');
     } finally {

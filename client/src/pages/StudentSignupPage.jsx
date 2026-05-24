@@ -205,6 +205,30 @@ export default function StudentSignupPage() {
           <PasswordStrength password={form.password} />
         </motion.div>
 
+        {/* Referral Code (Optional) */}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.65 }}>
+          <label className="block text-[11px] font-medium text-dark-300 mb-1.5 uppercase tracking-wider">Referral Code (Optional)</label>
+          <div className="relative">
+            <UserPlus className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-500" />
+            <input
+              type="text"
+              value={form.referralCode || ''}
+              onChange={(e) => update('referralCode', e.target.value)}
+              onFocus={() => setFocusedField('referralCode')}
+              onBlur={() => setFocusedField(null)}
+              className="w-full rounded-xl glass-input pl-10 pr-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none"
+              placeholder="RR-XXXXXX"
+            />
+            {focusedField === 'referralCode' && (
+              <motion.div
+                layoutId="signupFocus"
+                className="absolute inset-0 rounded-xl border border-accent-400/30 pointer-events-none"
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              />
+            )}
+          </div>
+        </motion.div>
+
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
           <Button type="submit" className="w-full" icon={ArrowRight} loading={loading}>
             Create Account
@@ -215,8 +239,8 @@ export default function StudentSignupPage() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="mt-5 text-center">
         <p className="text-sm text-dark-400">
           Already have an account?{' '}
-          <Link to="/login" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
-            Sign in
+          <Link to="/app/login" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
+            Log in
           </Link>
         </p>
       </motion.div>

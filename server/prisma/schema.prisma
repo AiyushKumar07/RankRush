@@ -37,6 +37,12 @@ model User {
   address        String?
   isOnboarded    Boolean  @default(false)
 
+  // Student gamification fields (persistent login streak & XP)
+  streak         Int       @default(0)
+  longestStreak  Int       @default(0)
+  loginXp        Int       @default(0)
+  lastActive     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -44,6 +50,20 @@ model User {
   uploadBatches UploadBatch[]
   sessions      Session[]
   otps          Otp[]
+  quizAttempts  QuizAttempt[]     @relation("StudentAttempts")
+  activities    StudentActivity[] @relation("StudentActivities")
+
+  // Quiz Token System
+  tokenWallet     QuizTokenWallet?
+  transactions    TokenTransaction[]
+  subscriptions   StudentSubscription[]
+  payments        PaymentTransaction[]
+  
+  // Referral System
+  referralCode    String?
+  referredBy      String?   @db.ObjectId // User ID who referred this user
+  referralsMade   Referral[] @relation("Referrer")
+  referralRewards ReferralReward[]
 
   @@index([role])
   @@index([isVerified])
@@ -258,6 +278,9 @@ model Quiz {
   difficulty String?
   tags       String[]
 
+  paperType   String?    // null = regular quiz, "PRACTICE_PAPER" | "FULL_MOCK" | "PYQ"
+  year        Int?       // For PYQ papers: 2024, 2023, etc.
+
   status    QuizStatus @default(DRAFT)
   createdBy String     @db.ObjectId
 
@@ -437,4 +460,237 @@ model UploadBatch {
   updatedAt DateTime @updatedAt
 
   @@index([uploadedBy])
+}
+
+// ─── Quiz Attempt ────────────────────────────────────────────────────
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+model QuizAttempt {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  studentId String   @db.ObjectId
+  student   User     @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+
+  quizId    String   @db.ObjectId
+
+  // Snapshot of quiz metadata at attempt time
+  quizTitle   String
+  quizSubject String
+
+  // Attempt details
+  answers         Json?     // { questionId: selectedAnswer[] }
+  score           Float     @default(0)
+  totalMarks      Float     @default(0)
+  percentage      Float     @default(0)
+  correctCount    Int       @default(0)
+  incorrectCount  Int       @default(0)
+  unansweredCount Int       @default(0)
+  timeTakenSecs   Int       @default(0)
+
+  // State
+  status    AttemptStatus  @default(IN_PROGRESS)
+
+  // Per-question breakdown for topic analytics
+  questionResults Json?   // [{ questionId, topic, subject, correct: bool }]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([studentId])
+  @@index([quizId])
+  @@index([studentId, quizId])
+  @@index([studentId, completedAt])
+  @@index([status])
+}
+
+// ─── Student Activity ────────────────────────────────────────────────
+model StudentActivity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  studentId String   @db.ObjectId
+  student   User     @relation("StudentActivities", fields: [studentId], references: [id], onDelete: Cascade)
+
+  type      String   // quiz_completed | badge_unlocked | streak | profile_update | practice
+  title     String
+  meta      String?  // "92% · +280 XP"
+  icon      String?  // "Trophy", "Flame", etc.
+  tone      String?  // "emerald", "orange", etc.
+
+  relatedId String?  // e.g. quizAttemptId or badgeId
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+  @@index([studentId, createdAt])
+}
+
+// ─── Quiz Token System & Subscriptions ───────────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  PAST_DUE
+  EXPIRED
+}
+
+enum TokenTransactionType {
+  PURCHASE
+  QUIZ_CONSUMED
+  REFERRAL_BONUS
+  SUBSCRIPTION_REFRESH
+  ADMIN_CREDIT
+  REFUND
+}
+
+enum RefreshFrequency {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMode {
+  ONE_TIME
+  SUBSCRIPTION
+}
+
+model QuizTokenWallet {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  balance   Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TokenTransaction {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      TokenTransactionType
+  amount    Int      // positive for credit, negative for debit
+  balanceAfter Int
+  
+  description String?
+  referenceId String? // e.g. quizAttemptId, paymentId, referralId
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  
+  price       Float
+  currency    String   @default("INR")
+  
+  tokenCount  Int      // e.g. 10, 25, 50
+  
+  isRecurring Boolean  @default(false)
+  refreshFrequency RefreshFrequency?
+  
+  isActive    Boolean  @default(true)
+  
+  subscriptions StudentSubscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StudentSubscription {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  planId    String   @db.ObjectId
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  
+  status    SubscriptionStatus @default(ACTIVE)
+  
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  nextRefreshDate DateTime?
+  
+  isAutoRenewEnabled Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+}
+
+model PaymentTransaction {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  planId    String?  @db.ObjectId // Optional, if linked to a plan
+  
+  amount    Float
+  currency  String   @default("INR")
+  status    PaymentStatus @default(PENDING)
+  mode      PaymentMode
+  
+  gatewayPaymentId String?
+  gatewayOrderId   String?
+  gatewaySignature String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Referral System ──────────────────────────────────────────────────
+
+model Referral {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  referrerId  String   @db.ObjectId
+  referrer    User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  
+  referredId  String   @unique @db.ObjectId // The user who signed up
+  
+  status      String   @default("PENDING") // PENDING, SUCCESS
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([referrerId])
+}
+
+model ReferralReward {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId // User receiving the reward
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  referralId  String   @db.ObjectId
+  
+  tokensAwarded Int    @default(2)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
 }

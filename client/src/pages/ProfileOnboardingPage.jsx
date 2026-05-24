@@ -186,7 +186,7 @@ export default function ProfileOnboardingPage() {
 
       updateUser({ ...user, ...res.data.user, isOnboarded: true });
       toast.success("You're all set! Welcome to RankRush.");
-      navigate('/', { replace: true });
+      navigate('/app', { replace: true });
     } catch (err) {
       toast.error(err?.message || 'Failed to save profile. Please try again.');
     } finally {

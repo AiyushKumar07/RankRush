@@ -223,7 +223,7 @@ function AuthCTA() {
       className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto"
     >
       <MotionLink
-        to="/signup"
+        to="/app/signup"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 transition-shadow"
@@ -232,7 +232,7 @@ function AuthCTA() {
         Create Free Account
       </MotionLink>
       <MotionLink
-        to="/login"
+        to="/app/login"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         className="w-full sm:w-auto px-7 py-3.5 rounded-xl glass-frosted hover:border-accent-500/20 text-dark-100 hover:text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all"
@@ -263,13 +263,13 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
-            to="/login"
+            to="/app/login"
             className="px-4 py-2 rounded-lg text-sm font-medium text-dark-200 hover:text-white transition-colors"
           >
             Login
           </Link>
           <Link
-            to="/signup"
+            to="/app/signup"
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent-500 to-accent-600 text-white text-sm font-semibold shadow-lg shadow-accent-500/20 hover:shadow-accent-500/40 transition-shadow"
           >
             Sign Up
@@ -467,7 +467,7 @@ export default function LandingPage() {
 
               <p className="text-xs text-dark-400 mt-5">
                 Already have an account?{' '}
-                <Link to="/login" className="text-accent-300 hover:text-accent-200 font-medium">
+                <Link to="/app/login" className="text-accent-300 hover:text-accent-200 font-medium">
                   Log in here
                 </Link>
               </p>

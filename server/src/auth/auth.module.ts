@@ -9,6 +9,7 @@ import { RolesGuard } from './guards/roles.guard.js';
 import { PermissionsGuard } from './guards/permissions.guard.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { OtpModule } from '../otp/otp.module.js';
+import { TokensModule } from '../tokens/tokens.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { OtpModule } from '../otp/otp.module.js';
     }),
     AuditModule,
     OtpModule,
+    TokensModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard, PermissionsGuard],

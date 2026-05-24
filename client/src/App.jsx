@@ -12,28 +12,49 @@ import ProfileOnboardingPage from './pages/ProfileOnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import QuizzesPage from './pages/QuizzesPage';
 import LandingPage from './pages/LandingPage';
+import StudentLayout from './components/layout/StudentLayout';
+import StudentDashboardPage from './pages/student/StudentDashboardPage';
+import StudentQuizzesPage from './pages/student/StudentQuizzesPage';
+import StudentProfilePage from './pages/student/StudentProfilePage';
+import {
+  StudentLeaderboardPage,
+  StudentNotesPage,
+  StudentVideoLecturesPage,
+  StudentChatPage,
+} from './pages/student/ComingSoonPages';
+import PricingPage from './pages/student/PricingPage';
+import ReferAndEarnPage from './pages/student/ReferAndEarnPage';
+import BillingHistoryPage from './pages/student/BillingHistoryPage';
 
-function RequireAuth({ children, adminRoute = false }) {
+function RequireAuth({ children, adminRoute = false, studentRoute = false }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/login'} replace />;
+  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/app/login'} replace />;
+  
+  if (adminRoute && user.role !== 'ADMIN') return <Navigate to="/app/dashboard" replace />;
+  if (studentRoute && user.role !== 'STUDENT') return <Navigate to="/admin/dashboard" replace />;
+  
   return children;
 }
 
-function RequireOnboarded({ children, adminRoute = false }) {
+function RequireOnboarded({ children, adminRoute = false, studentRoute = false }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/login'} replace />;
-  if (!user.isOnboarded && user.role === 'STUDENT') return <Navigate to="/onboarding" replace />;
+  if (!user) return <Navigate to={adminRoute ? '/admin/login' : '/app/login'} replace />;
+  
+  if (adminRoute && user.role !== 'ADMIN') return <Navigate to="/app/dashboard" replace />;
+  if (studentRoute && user.role !== 'STUDENT') return <Navigate to="/admin/dashboard" replace />;
+  
+  if (!user.isOnboarded && user.role === 'STUDENT') return <Navigate to="/app/onboarding" replace />;
   return children;
 }
 
-function GuestOnly({ children }) {
+function GuestOnly({ children, adminRoute = false, studentRoute = false }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (user) {
-    if (!user.isOnboarded && user.role === 'STUDENT') return <Navigate to="/onboarding" replace />;
-    return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/'} replace />;
+    if (!user.isOnboarded && user.role === 'STUDENT') return <Navigate to="/app/onboarding" replace />;
+    return <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : '/app/dashboard'} replace />;
   }
   return children;
 }
@@ -45,22 +66,22 @@ export default function App() {
         <Routes>
           {/* Public pages */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
+          <Route path="/reset-password" element={<GuestOnly><ResetPasswordPage /></GuestOnly>} />
 
           {/* Student auth flow */}
-          <Route path="/signup" element={<GuestOnly><StudentSignupPage /></GuestOnly>} />
-          <Route path="/login" element={<GuestOnly><StudentLoginPage /></GuestOnly>} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/app/signup" element={<GuestOnly studentRoute><StudentSignupPage /></GuestOnly>} />
+          <Route path="/app/login" element={<GuestOnly studentRoute><StudentLoginPage /></GuestOnly>} />
 
           {/* Onboarding (requires auth, but not onboarded yet) */}
           <Route
-            path="/onboarding"
-            element={<RequireAuth><ProfileOnboardingPage /></RequireAuth>}
+            path="/app/onboarding"
+            element={<RequireAuth studentRoute><ProfileOnboardingPage /></RequireAuth>}
           />
 
           {/* Admin auth */}
-          <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin/login" element={<GuestOnly adminRoute><LoginPage /></GuestOnly>} />
 
           {/* Admin dashboard (requires auth + onboarded) */}
           <Route
@@ -71,8 +92,35 @@ export default function App() {
               </RequireOnboarded>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="quizzes" element={<QuizzesPage />} />
+          </Route>
+
+          {/* Student App (requires auth + onboarded) */}
+          <Route
+            path="/app"
+            element={
+              <RequireOnboarded studentRoute>
+                <StudentLayout />
+              </RequireOnboarded>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<StudentDashboardPage />} />
+            <Route path="quizzes" element={<StudentQuizzesPage />} />
+            <Route path="profile" element={<StudentProfilePage />} />
+            
+            {/* Coming Soon */}
+            <Route path="leaderboard" element={<StudentLeaderboardPage />} />
+            <Route path="notes" element={<StudentNotesPage />} />
+            <Route path="lectures" element={<StudentVideoLecturesPage />} />
+            <Route path="chat" element={<StudentChatPage />} />
+
+            {/* Token & Billing */}
+            <Route path="pricing" element={<PricingPage />} />
+            <Route path="refer-and-earn" element={<ReferAndEarnPage />} />
+            <Route path="billing" element={<BillingHistoryPage />} />
           </Route>
 
           {/* Catch-all */}
