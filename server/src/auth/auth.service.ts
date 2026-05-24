@@ -171,12 +171,14 @@ export class AuthService {
     }
 
     let referredById: string | null = null;
-    if (dto.referralCode) {
+    if (dto.referralCode && dto.referralCode.trim() !== '') {
       const referrer = await this.prisma.user.findFirst({
-        where: { referralCode: dto.referralCode },
+        where: { referralCode: dto.referralCode.trim() },
       });
       if (referrer) {
         referredById = referrer.id;
+      } else {
+        throw new BadRequestException('Invalid referral code');
       }
     }
 
@@ -270,6 +272,13 @@ export class AuthService {
         referral.id,
         `Referral bonus for inviting ${user.firstName || user.name}`,
       );
+      await this.prisma.referralReward.create({
+        data: {
+          userId: referral.referrerId,
+          referralId: referral.id,
+          tokensAwarded: 2,
+        },
+      });
 
       // Reward referred user
       await this.tokensService.creditTokens(
@@ -279,6 +288,13 @@ export class AuthService {
         referral.id,
         'Signup referral bonus',
       );
+      await this.prisma.referralReward.create({
+        data: {
+          userId: userId,
+          referralId: referral.id,
+          tokensAwarded: 2,
+        },
+      });
     }
 
     await this.updateLoginStreak(userId);
@@ -319,6 +335,7 @@ export class AuthService {
           contactNumber: user.contactNumber,
           profilePicture: user.profilePicture,
           address: user.address,
+          referralCode: user.referralCode,
         },
         ...tokens,
       },
@@ -411,6 +428,7 @@ export class AuthService {
           contactNumber: user.contactNumber,
           profilePicture: user.profilePicture,
           address: user.address,
+          referralCode: user.referralCode,
         },
         ...tokens,
       },
@@ -650,6 +668,7 @@ export class AuthService {
         contactNumber: true,
         profilePicture: true,
         address: true,
+        referralCode: true,
         createdAt: true,
         updatedAt: true,
       },

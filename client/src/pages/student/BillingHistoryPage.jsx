@@ -11,12 +11,10 @@ export default function BillingHistoryPage() {
   useEffect(() => {
     async function fetchBilling() {
       try {
-        const res = await api.get('/tokens/balance'); // The balance endpoint returns history too!
-        // Actually, we need to make sure `getWallet` in `TokensService` returns the transaction history or we create a specific endpoint.
-        // I will assume `res.data.history` has the payment/token history, or I should update the backend.
+        const res = await api.get('/tokens/balance');
         setTransactions(res.data.transactions || []);
       } catch (err) {
-        toast.error('Failed to load billing history');
+        toast.error('Failed to load transaction history');
       } finally {
         setLoading(false);
       }
@@ -24,9 +22,16 @@ export default function BillingHistoryPage() {
     fetchBilling();
   }, []);
 
+  const [activeTab, setActiveTab] = useState('purchases');
+
   if (loading) {
     return <div className="flex justify-center items-center h-full"><div className="loader" /></div>;
   }
+
+  const purchases = transactions.filter((t) => t.amount > 0);
+  const usage = transactions.filter((t) => t.amount <= 0);
+
+  const displayTransactions = activeTab === 'purchases' ? purchases : usage;
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
@@ -36,7 +41,7 @@ export default function BillingHistoryPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl font-bold text-white mb-2"
         >
-          Billing History
+          Transaction History
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0 }}
@@ -44,8 +49,27 @@ export default function BillingHistoryPage() {
           transition={{ delay: 0.1 }}
           className="text-dark-300"
         >
-          View your token purchases and subscription history.
+          View your token purchases, consumption, and subscription history.
         </motion.p>
+      </div>
+
+      <div className="flex gap-4 mb-6 border-b border-white/[0.05] pb-2">
+        <button
+          onClick={() => setActiveTab('purchases')}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+            activeTab === 'purchases' ? 'bg-white/10 text-white' : 'text-dark-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          Token Purchases
+        </button>
+        <button
+          onClick={() => setActiveTab('usage')}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+            activeTab === 'usage' ? 'bg-white/10 text-white' : 'text-dark-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          Token Usage
+        </button>
       </div>
 
       <motion.div
@@ -60,37 +84,43 @@ export default function BillingHistoryPage() {
               <tr className="bg-white/[0.02] border-b border-white/[0.05]">
                 <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-wider text-dark-400">Date</th>
                 <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-wider text-dark-400">Description</th>
-                <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-wider text-dark-400">Amount</th>
+                {activeTab === 'purchases' && (
+                  <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-wider text-dark-400">Amount Paid</th>
+                )}
                 <th className="py-4 px-6 text-[11px] font-bold uppercase tracking-wider text-dark-400">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
-              {transactions.length > 0 ? (
-                transactions.filter(t => t.type === 'PURCHASE').map((tx, idx) => (
+              {displayTransactions.length > 0 ? (
+                displayTransactions.map((tx, idx) => (
                   <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
                     <td className="py-4 px-6 text-sm text-dark-200">
                       {new Date(tx.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-4 px-6">
-                      <p className="text-sm font-medium text-white">{tx.description || 'Token Purchase'}</p>
-                      <p className="text-xs text-accent-400">+{tx.amount} Tokens</p>
+                      <p className="text-sm font-medium text-white">{tx.description || tx.type.replace('_', ' ')}</p>
+                      <p className={`text-xs ${tx.amount > 0 ? 'text-accent-400' : 'text-red-400'}`}>
+                        {tx.amount > 0 ? '+' : ''}{tx.amount} Tokens
+                      </p>
                     </td>
-                    <td className="py-4 px-6 text-sm font-bold text-white">
-                      ₹{tx.amount * 5 /* Placeholder for actual price calculation */} 
-                    </td>
+                    {activeTab === 'purchases' && (
+                      <td className="py-4 px-6 text-sm font-bold text-white">
+                        {tx.price != null ? `₹${tx.price}` : (tx.type === 'PURCHASE' ? '-' : 'Free')} 
+                      </td>
+                    )}
                     <td className="py-4 px-6">
-                      <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 w-fit px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
+                      <div className={`flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider ${tx.amount > 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
                         <CheckCircle className="h-3 w-3" />
-                        PAID
+                        {tx.amount > 0 ? 'SUCCESS' : 'COMPLETED'}
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4" className="py-12 text-center text-dark-400">
+                  <td colSpan={activeTab === 'purchases' ? "4" : "3"} className="py-12 text-center text-dark-400">
                     <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                    <p>No billing history found.</p>
+                    <p>No transaction history found.</p>
                   </td>
                 </tr>
               )}

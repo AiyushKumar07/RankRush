@@ -22,10 +22,25 @@ export default function ReferAndEarnPage() {
     fetchReferralInfo();
   }, []);
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     if (referralInfo?.referralCode) {
-      navigator.clipboard.writeText(referralInfo.referralCode);
-      toast.success('Referral code copied to clipboard!');
+      try {
+        await navigator.clipboard.writeText(referralInfo.referralCode);
+        toast.success('Copied Successfully');
+      } catch (err) {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = referralInfo.referralCode;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          toast.success('Copied Successfully');
+        } catch (err2) {
+          toast.error('Failed to copy');
+        }
+        document.body.removeChild(textArea);
+      }
     }
   };
 

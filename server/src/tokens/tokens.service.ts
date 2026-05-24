@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenTransactionType } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class TokensService {
@@ -23,9 +24,33 @@ export class TokensService {
       take: 50,
     });
 
+    const purchaseRefIds = transactions
+      .filter((t) => t.type === 'PURCHASE' && t.referenceId)
+      .map((t) => t.referenceId as string);
+
+    let paymentMap = new Map<string, number>();
+    if (purchaseRefIds.length > 0) {
+      const payments = await this.prisma.paymentTransaction.findMany({
+        where: { id: { in: purchaseRefIds } },
+        select: { id: true, amount: true },
+      });
+      payments.forEach((p) => paymentMap.set(p.id, p.amount));
+    }
+
+    const enrichedTransactions = transactions.map((t) => {
+      if (
+        t.type === 'PURCHASE' &&
+        t.referenceId &&
+        paymentMap.has(t.referenceId)
+      ) {
+        return { ...t, price: paymentMap.get(t.referenceId) };
+      }
+      return t;
+    });
+
     return {
       balance: wallet.balance,
-      transactions,
+      transactions: enrichedTransactions,
     };
   }
 
@@ -116,10 +141,28 @@ export class TokensService {
   }
 
   async getReferralInfo(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    let user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { referralCode: true },
     });
+
+    if (user && !user.referralCode) {
+      let referralCode = '';
+      let isUnique = false;
+      while (!isUnique) {
+        referralCode = `RR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        const existingCode = await this.prisma.user.findFirst({
+          where: { referralCode },
+        });
+        if (!existingCode) isUnique = true;
+      }
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { referralCode },
+      });
+      user.referralCode = referralCode;
+    }
 
     const referrals = await this.prisma.referral.findMany({
       where: { referrerId: userId },

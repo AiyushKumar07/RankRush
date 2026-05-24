@@ -27,7 +27,7 @@ const primaryNav = [
   { to: '/app/quizzes', icon: BookOpen, label: 'Quizzes' },
   { to: '/app/activity', icon: Activity, label: 'Activity' },
   { to: '/app/refer-and-earn', icon: User, label: 'Refer & Earn' },
-  { to: '/app/billing', icon: FileText, label: 'Billing History' },
+  { to: '/app/billing', icon: FileText, label: 'Transaction History' },
 ];
 
 const soonNav = [
