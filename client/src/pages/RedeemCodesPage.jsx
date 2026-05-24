@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ticket, Plus, Search, Power, Trash2, Calendar, Hash, Percent } from 'lucide-react';
-import { paymentsAPI } from '../services/api';
+import api, { paymentsAPI } from '../services/api';
 import Button from '../components/common/Button';
 import EmptyState from '../components/common/EmptyState';
 import Modal from '../components/common/Modal';
@@ -14,6 +14,7 @@ export default function RedeemCodesPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [plans, setPlans] = useState([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -21,15 +22,20 @@ export default function RedeemCodesPage() {
     discountPercentage: '',
     maxUses: '',
     expiresAt: '',
+    applicablePlanIds: [],
   });
 
-  const fetchCodes = async () => {
+  const fetchCodesAndPlans = async () => {
     try {
       setLoading(true);
-      const res = await paymentsAPI.getAllRedeemCodes();
-      setCodes(res.data || []);
+      const [codesRes, plansRes] = await Promise.all([
+        paymentsAPI.getAllRedeemCodes(),
+        api.get('/subscriptions/plans')
+      ]);
+      setCodes(codesRes.data || []);
+      setPlans(plansRes.data || []);
     } catch (err) {
-      toast.error('Failed to load redeem codes');
+      toast.error('Failed to load data');
       console.error(err);
     } finally {
       setLoading(false);
@@ -37,14 +43,14 @@ export default function RedeemCodesPage() {
   };
 
   useEffect(() => {
-    fetchCodes();
+    fetchCodesAndPlans();
   }, []);
 
   const handleToggleStatus = async (id, currentStatus) => {
     try {
       await paymentsAPI.toggleRedeemCodeStatus(id, !currentStatus);
       toast.success(`Code ${currentStatus ? 'deactivated' : 'activated'} successfully`);
-      fetchCodes();
+      fetchCodesAndPlans();
     } catch (err) {
       toast.error(err?.message || 'Failed to toggle status');
     }
@@ -64,11 +70,12 @@ export default function RedeemCodesPage() {
         discountPercentage: Number(formData.discountPercentage),
         maxUses: Number(formData.maxUses),
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null,
+        applicablePlanIds: formData.applicablePlanIds,
       });
       toast.success('Redeem code created successfully');
       setIsModalOpen(false);
-      setFormData({ code: '', discountPercentage: '', maxUses: '', expiresAt: '' });
-      fetchCodes();
+      setFormData({ code: '', discountPercentage: '', maxUses: '', expiresAt: '', applicablePlanIds: [] });
+      fetchCodesAndPlans();
     } catch (err) {
       toast.error(err?.message || 'Failed to create code');
     } finally {
@@ -200,12 +207,26 @@ export default function RedeemCodesPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11px] text-dark-500 mt-2">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {code.expiresAt ? (
-                    <span>Expires: {new Date(code.expiresAt).toLocaleDateString()}</span>
-                  ) : (
-                    <span>No expiration</span>
+                <div className="flex flex-col gap-1.5 mt-2">
+                  <div className="flex items-center gap-1.5 text-[11px] text-dark-500">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {code.expiresAt ? (
+                      <span>Expires: {new Date(code.expiresAt).toLocaleDateString()}</span>
+                    ) : (
+                      <span>No expiration</span>
+                    )}
+                  </div>
+                  {code.applicablePlanIds && code.applicablePlanIds.length > 0 && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-accent-400">
+                      <Ticket className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-dark-400">Applicable Plans:</span>
+                        {code.applicablePlanIds.map(planId => {
+                          const plan = plans.find(p => p.id === planId);
+                          return <span key={planId}>{plan ? plan.name : planId}</span>;
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -273,6 +294,48 @@ export default function RedeemCodesPage() {
               onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
               className="w-full rounded-xl glass-input px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50 [color-scheme:dark]"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wider">
+              Applicable Plans (Optional)
+            </label>
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+              <label className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-white/[0.02] cursor-pointer hover:bg-dark-800 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.applicablePlanIds.length === 0}
+                  onChange={() => setFormData({ ...formData, applicablePlanIds: [] })}
+                  className="w-4 h-4 rounded text-accent-500 bg-dark-900 border-white/10 focus:ring-accent-500/50"
+                />
+                <span className="text-sm text-white font-medium">All Plans</span>
+              </label>
+              {plans.map((plan) => {
+                const isSelected = formData.applicablePlanIds.includes(plan.id);
+                return (
+                  <label key={plan.id} className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 border border-white/[0.02] cursor-pointer hover:bg-dark-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        const newIds = isSelected 
+                          ? formData.applicablePlanIds.filter(id => id !== plan.id)
+                          : [...formData.applicablePlanIds, plan.id];
+                        setFormData({ ...formData, applicablePlanIds: newIds });
+                      }}
+                      className="w-4 h-4 rounded text-accent-500 bg-dark-900 border-white/10 focus:ring-accent-500/50"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm text-white font-medium">{plan.name}</span>
+                      <span className="text-xs text-dark-400">₹{plan.price}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-dark-400 mt-2">
+              Select specific plans this code applies to. If none are selected, it applies to all plans.
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.04]">

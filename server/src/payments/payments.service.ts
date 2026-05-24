@@ -30,7 +30,7 @@ export class PaymentsService {
     }
   }
 
-  async validateCode(code: string, userId: string) {
+  async validateCode(code: string, userId: string, planId?: string) {
     const redeemCode = await this.prisma.redeemCode.findUnique({
       where: { code: code.toUpperCase() }
     });
@@ -55,6 +55,10 @@ export class PaymentsService {
       throw new BadRequestException('You have already used this code');
     }
 
+    if (planId && redeemCode.applicablePlanIds && redeemCode.applicablePlanIds.length > 0 && !redeemCode.applicablePlanIds.includes(planId)) {
+      throw new BadRequestException('This redeem code is not valid for the selected plan.');
+    }
+
     return redeemCode;
   }
 
@@ -68,7 +72,7 @@ export class PaymentsService {
     let appliedCode: string | null = null;
 
     if (redeemCodeString) {
-      const validCode = await this.validateCode(redeemCodeString, userId);
+      const validCode = await this.validateCode(redeemCodeString, userId, planId);
       finalPrice = finalPrice * (1 - validCode.discountPercentage / 100);
       appliedCode = validCode.code;
     }
@@ -208,7 +212,7 @@ export class PaymentsService {
   }
 
   // --- Admin Redeem Code Management ---
-  async createRedeemCode(data: { code: string; discountPercentage: number; maxUses: number; expiresAt?: string }) {
+  async createRedeemCode(data: { code: string; discountPercentage: number; maxUses: number; expiresAt?: string; applicablePlanIds?: string[] }) {
     const existing = await this.prisma.redeemCode.findUnique({
       where: { code: data.code.toUpperCase() }
     });
@@ -220,6 +224,7 @@ export class PaymentsService {
         discountPercentage: data.discountPercentage,
         maxUses: data.maxUses,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+        applicablePlanIds: data.applicablePlanIds || [],
       }
     });
   }

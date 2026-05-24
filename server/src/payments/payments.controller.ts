@@ -48,7 +48,7 @@ export class PaymentsController {
   @Post('admin/redeem-codes')
   @Roles(Role.ADMIN)
   createRedeemCode(
-    @Body() body: { code: string; discountPercentage: number; maxUses: number; expiresAt?: string }
+    @Body() body: { code: string; discountPercentage: number; maxUses: number; expiresAt?: string; applicablePlanIds?: string[] }
   ) {
     return this.paymentsService.createRedeemCode(body);
   }

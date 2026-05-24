@@ -678,6 +678,7 @@ model RedeemCode {
   currentUses        Int      @default(0)
   isActive           Boolean  @default(true)
   expiresAt          DateTime?
+  applicablePlanIds  String[] @db.ObjectId // If empty, code is valid for all plans
   
   usedBy             String[] @db.ObjectId // To track which users have used it
   

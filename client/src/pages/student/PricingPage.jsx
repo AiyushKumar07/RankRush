@@ -15,6 +15,7 @@ export default function PricingPage() {
   const [redeemCodeInput, setRedeemCodeInput] = useState('');
   const [appliedCode, setAppliedCode] = useState(null);
   const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [applicablePlanIds, setApplicablePlanIds] = useState([]);
   const [validatingCode, setValidatingCode] = useState(false);
 
   useEffect(() => {
@@ -42,10 +43,12 @@ export default function PricingPage() {
       const res = await api.post('/payments/validate-code', { code: redeemCodeInput });
       setAppliedCode(res.data.code);
       setDiscountPercentage(res.data.discountPercentage);
+      setApplicablePlanIds(res.data.applicablePlanIds || []);
       toast.success(`Promo code applied! ${res.data.discountPercentage}% off`);
     } catch (err) {
       setAppliedCode(null);
       setDiscountPercentage(0);
+      setApplicablePlanIds([]);
       toast.error(err.response?.data?.message || 'Invalid promo code');
     } finally {
       setValidatingCode(false);
@@ -55,6 +58,7 @@ export default function PricingPage() {
   const handleClearCode = () => {
     setAppliedCode(null);
     setDiscountPercentage(0);
+    setApplicablePlanIds([]);
     setRedeemCodeInput('');
   };
 
@@ -234,7 +238,8 @@ export default function PricingPage() {
           const style = tierStyles[plan.name] || tierStyles['Starter Pass'];
           const isPremium = plan.name === 'Ranker Pro' || plan.isRecurring;
           
-          const discountedPrice = appliedCode 
+          const isCodeApplicable = appliedCode && (applicablePlanIds.length === 0 || applicablePlanIds.includes(plan.id));
+          const discountedPrice = isCodeApplicable 
             ? Math.round(plan.price * (1 - discountPercentage / 100))
             : plan.price;
 
@@ -267,7 +272,7 @@ export default function PricingPage() {
                 <div className="flex items-baseline gap-2 mb-2 relative">
                   <span className="text-sm font-medium text-dark-300 align-top mt-1">₹</span>
                   
-                  {appliedCode ? (
+                  {isCodeApplicable ? (
                     <div className="flex items-end gap-3">
                       <span className="text-5xl font-extrabold text-emerald-400 tracking-tighter">
                         {discountedPrice}
@@ -343,13 +348,14 @@ export default function PricingPage() {
       {/* Trust badges below */}
       <div className="mt-20 text-center relative z-10">
         <p className="text-dark-400 text-sm mb-6 uppercase tracking-widest font-semibold">Secure payments powered by</p>
-        <div className="flex justify-center items-center gap-8 opacity-50 grayscale hover:grayscale-0 transition-all duration-300">
-          {/* Mock razorpay logo */}
+        <div className="flex justify-center items-center gap-8 opacity-75 hover:opacity-100 transition-all duration-300">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-xl">R</span>
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">Razorpay</span>
+            <svg viewBox="0 0 100 100" className="w-10 h-10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.5 10H77.5C84.4036 10 90 15.5964 90 22.5V77.5C90 84.4036 84.4036 90 77.5 90H22.5C15.5964 90 10 84.4036 10 77.5V22.5C10 15.5964 15.5964 10 22.5 10Z" fill="#02042B"/>
+              <path d="M57.7725 36.3317L44.8368 76L30 71.1895L42.9356 31.5211L57.7725 36.3317Z" fill="#00C4FF"/>
+              <path d="M72.0001 36.3317L59.0645 76L44.2276 71.1895L57.1633 31.5211L72.0001 36.3317Z" fill="#00C4FF"/>
+            </svg>
+            <span className="text-2xl font-bold text-[#00C4FF] tracking-tight">Razorpay</span>
           </div>
         </div>
       </div>
