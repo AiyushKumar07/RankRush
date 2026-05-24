@@ -65,7 +65,7 @@ export class PaymentsService {
     if (!plan) throw new BadRequestException('Plan not found');
 
     let finalPrice = plan.price;
-    let appliedCode = null;
+    let appliedCode: string | null = null;
 
     if (redeemCodeString) {
       const validCode = await this.validateCode(redeemCodeString, userId);
