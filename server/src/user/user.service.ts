@@ -46,11 +46,7 @@ export class UserService {
     return { data: { user } };
   }
 
-  async completeProfile(
-    userId: string,
-    dto: CompleteProfileDto,
-    req?: any,
-  ) {
+  async completeProfile(userId: string, dto: CompleteProfileDto, req?: any) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -109,11 +105,7 @@ export class UserService {
     };
   }
 
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-    req?: any,
-  ) {
+  async updateProfile(userId: string, dto: UpdateProfileDto, req?: any) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -123,7 +115,8 @@ export class UserService {
     if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
     if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
     if (dto.firstName || dto.lastName) {
-      updateData.name = `${dto.firstName ?? user.firstName ?? ''} ${dto.lastName ?? user.lastName ?? ''}`.trim();
+      updateData.name =
+        `${dto.firstName ?? user.firstName ?? ''} ${dto.lastName ?? user.lastName ?? ''}`.trim();
     }
     if (dto.class !== undefined) updateData.class = dto.class;
     if (dto.school !== undefined) updateData.school = dto.school;

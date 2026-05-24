@@ -18,9 +18,21 @@ import {
 
 const VALID_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
   DRAFT: [WorkflowStatus.PENDING_REVIEW, WorkflowStatus.PUBLISHED],
-  PENDING_REVIEW: [WorkflowStatus.APPROVED, WorkflowStatus.REJECTED, WorkflowStatus.PUBLISHED],
-  APPROVED: [WorkflowStatus.PUBLISHED, WorkflowStatus.REJECTED, WorkflowStatus.DRAFT],
-  REJECTED: [WorkflowStatus.DRAFT, WorkflowStatus.PENDING_REVIEW, WorkflowStatus.PUBLISHED],
+  PENDING_REVIEW: [
+    WorkflowStatus.APPROVED,
+    WorkflowStatus.REJECTED,
+    WorkflowStatus.PUBLISHED,
+  ],
+  APPROVED: [
+    WorkflowStatus.PUBLISHED,
+    WorkflowStatus.REJECTED,
+    WorkflowStatus.DRAFT,
+  ],
+  REJECTED: [
+    WorkflowStatus.DRAFT,
+    WorkflowStatus.PENDING_REVIEW,
+    WorkflowStatus.PUBLISHED,
+  ],
   PUBLISHED: [WorkflowStatus.DRAFT],
 };
 
@@ -447,7 +459,10 @@ export class QuestionsService {
       req,
     });
 
-    return { message: `${result.count} questions deleted`, data: { count: result.count } };
+    return {
+      message: `${result.count} questions deleted`,
+      data: { count: result.count },
+    };
   }
 
   async getFilterOptions() {

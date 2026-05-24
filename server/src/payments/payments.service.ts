@@ -14,7 +14,7 @@ export class PaymentsService {
   ) {
     const key_id = process.env.RAZORPAY_KEY_ID || 'mock_key_id';
     const key_secret = process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret';
-    
+
     if (key_id === 'mock_key_id') {
       this.razorpay = {
         orders: {
@@ -50,7 +50,9 @@ export class PaymentsService {
       });
     } catch (error) {
       console.error('Razorpay Order Creation Failed:', error);
-      throw new Error('Failed to create payment order');
+      throw new Error(
+        `Failed to create payment order: ${error.message || JSON.stringify(error)}`,
+      );
     }
 
     const payment = await this.prisma.paymentTransaction.create({
@@ -142,7 +144,7 @@ export class PaymentsService {
             },
           });
         }
-        
+
         await this.tokensService.creditTokens(
           userId,
           plan.tokenCount,

@@ -25,7 +25,7 @@ import { useTokenWallet } from '../../hooks/useTokenWallet';
 const primaryNav = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/app/quizzes', icon: BookOpen, label: 'Quizzes' },
-  { to: '/app/pricing', icon: BookOpen, label: 'Buy Tokens' },
+  { to: '/app/activity', icon: Activity, label: 'Activity' },
   { to: '/app/refer-and-earn', icon: User, label: 'Refer & Earn' },
   { to: '/app/billing', icon: FileText, label: 'Billing History' },
 ];

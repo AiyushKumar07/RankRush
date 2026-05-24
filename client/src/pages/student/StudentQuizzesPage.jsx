@@ -326,8 +326,9 @@ export default function StudentQuizzesPage() {
               {(wallet?.balance || 0) > 0 ? (
                 <button
                   onClick={() => {
-                    toast(`Starting quiz ${selectedQuiz.title}... (API Call Needed)`);
+                    toast.success(`Preparing ${selectedQuiz.title}...`);
                     setSelectedQuiz(null);
+                    navigate(`/app/quizzes/${selectedQuiz.id || selectedQuiz.quizId}/session`);
                   }}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-accent-500 to-neon-cyan text-white font-bold tracking-wide hover:shadow-[0_0_20px_rgba(124,107,245,0.4)] transition-all"
                 >

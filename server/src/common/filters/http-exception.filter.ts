@@ -34,7 +34,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }]`,
       );
     } else {
-      const errMessage = exception instanceof Error ? exception.message : 'Unknown error';
+      const errMessage =
+        exception instanceof Error ? exception.message : 'Unknown error';
       const stack = exception instanceof Error ? exception.stack : '';
       this.logger.error(
         `${request.method} ${request.url} - ${status} - Error: ${errMessage}`,

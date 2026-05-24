@@ -6,7 +6,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AiJobStatus, AiProvider, WorkflowStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  scryptSync,
+} from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AiProviderFactory } from './providers/ai-provider.factory.js';
@@ -56,7 +61,9 @@ export class AiGenerateService {
       decrypted += decipher.final('utf8');
       return decrypted;
     } catch {
-      throw new BadRequestException('Failed to decrypt API key. Key may be corrupted or from a different user.');
+      throw new BadRequestException(
+        'Failed to decrypt API key. Key may be corrupted or from a different user.',
+      );
     }
   }
 
@@ -92,7 +99,10 @@ export class AiGenerateService {
 
   // ── Generate ───────────────────────────────────────────────────────
 
-  private resolveApiKey(dto: { encryptedApiKey?: string; provider: string }, userId: string): string | undefined {
+  private resolveApiKey(
+    dto: { encryptedApiKey?: string; provider: string },
+    userId: string,
+  ): string | undefined {
     if (dto.encryptedApiKey) {
       return this.decryptApiKey(dto.encryptedApiKey, userId);
     }
@@ -111,9 +121,14 @@ export class AiGenerateService {
       );
     }
 
-    const totalRequested = dto.questionTypes.reduce((sum, qt) => sum + qt.count, 0);
+    const totalRequested = dto.questionTypes.reduce(
+      (sum, qt) => sum + qt.count,
+      0,
+    );
     if (totalRequested > 50) {
-      throw new BadRequestException('Maximum 50 questions can be generated per request');
+      throw new BadRequestException(
+        'Maximum 50 questions can be generated per request',
+      );
     }
 
     const jobId = uuidv4();
@@ -149,10 +164,14 @@ export class AiGenerateService {
 
       const result = await provider.generate(aiRequest, apiKey, dto.model);
 
-      const costRate = COST_PER_MILLION[result.model] || { input: 0, output: 0 };
+      const costRate = COST_PER_MILLION[result.model] || {
+        input: 0,
+        output: 0,
+      };
       const estimatedCost =
         (result.usage.promptTokens * costRate.input +
-          result.usage.completionTokens * costRate.output) / 1_000_000;
+          result.usage.completionTokens * costRate.output) /
+        1_000_000;
 
       await this.prisma.aiProviderLog.create({
         data: {
@@ -169,14 +188,18 @@ export class AiGenerateService {
       });
 
       const { inserted, errors } = await this.processGeneratedQuestions(
-        result.questions, dto, userId, jobId,
+        result.questions,
+        dto,
+        userId,
+        jobId,
       );
 
-      const status = inserted.length === 0
-        ? AiJobStatus.FAILED
-        : inserted.length < totalRequested
-          ? AiJobStatus.PARTIAL
-          : AiJobStatus.COMPLETED;
+      const status =
+        inserted.length === 0
+          ? AiJobStatus.FAILED
+          : inserted.length < totalRequested
+            ? AiJobStatus.PARTIAL
+            : AiJobStatus.COMPLETED;
 
       await this.prisma.aiGenerationJob.update({
         where: { id: job.id },
@@ -211,18 +234,27 @@ export class AiGenerateService {
       return {
         message: `Generated ${inserted.length}/${totalRequested} questions`,
         data: {
-          jobId, provider: providerKey, status, totalRequested,
-          totalGenerated: inserted.length, totalFailed: errors.length,
-          generatedQuestionIds: inserted, errors,
-          usage: result.usage, model: result.model,
-          latencyMs: result.latencyMs, estimatedCost: estimatedCost.toFixed(4),
+          jobId,
+          provider: providerKey,
+          status,
+          totalRequested,
+          totalGenerated: inserted.length,
+          totalFailed: errors.length,
+          generatedQuestionIds: inserted,
+          errors,
+          usage: result.usage,
+          model: result.model,
+          latencyMs: result.latencyMs,
+          estimatedCost: estimatedCost.toFixed(4),
         },
       };
     } catch (error: any) {
       await this.prisma.aiProviderLog.create({
         data: {
-          jobId: job.id, provider: providerKey as AiProvider,
-          model: 'unknown', errorMessage: error.message || String(error),
+          jobId: job.id,
+          provider: providerKey as AiProvider,
+          model: 'unknown',
+          errorMessage: error.message || String(error),
           success: false,
         },
       });
@@ -234,14 +266,19 @@ export class AiGenerateService {
           completedAt: new Date(),
         },
       });
-      throw new BadRequestException(`AI generation failed: ${error.message || 'Unknown error'}`);
+      throw new BadRequestException(
+        `AI generation failed: ${error.message || 'Unknown error'}`,
+      );
     }
   }
 
   // ── Process generated questions ────────────────────────────────────
 
   private async processGeneratedQuestions(
-    rawQuestions: any[], dto: AiGenerateRequestDto, userId: string, jobId: string,
+    rawQuestions: any[],
+    dto: AiGenerateRequestDto,
+    userId: string,
+    jobId: string,
   ): Promise<{ inserted: string[]; errors: any[] }> {
     const inserted: string[] = [];
     const errors: any[] = [];
@@ -263,26 +300,44 @@ export class AiGenerateService {
 
         const validationErrors = QuestionValidator.validate(enriched, i);
         if (validationErrors.length > 0) {
-          errors.push({ index: i, questionId: enriched.questionId, errors: validationErrors, raw: enriched });
+          errors.push({
+            index: i,
+            questionId: enriched.questionId,
+            errors: validationErrors,
+            raw: enriched,
+          });
           continue;
         }
 
         const hash = QuestionValidator.generateContentHash(enriched);
-        const dup = await this.prisma.question.findFirst({ where: { contentHash: hash } });
+        const dup = await this.prisma.question.findFirst({
+          where: { contentHash: hash },
+        });
         if (dup) {
-          errors.push({ index: i, questionId: enriched.questionId, errors: [`Duplicate of existing question: ${dup.questionId}`] });
+          errors.push({
+            index: i,
+            questionId: enriched.questionId,
+            errors: [`Duplicate of existing question: ${dup.questionId}`],
+          });
           continue;
         }
 
         const created = await this.prisma.question.create({
           data: {
-            questionId: enriched.questionId, examType: enriched.examType,
-            class: enriched.class, subject: enriched.subject,
-            unit: enriched.unit || null, chapter: enriched.chapter,
-            topic: enriched.topic, subTopic: enriched.subTopic,
-            questionType: enriched.questionType, difficulty: enriched.difficulty,
-            question: enriched.question, questionImageUrl: enriched.questionImageUrl || null,
-            options: enriched.options || [], matchPairs: enriched.matchPairs || [],
+            questionId: enriched.questionId,
+            examType: enriched.examType,
+            class: enriched.class,
+            subject: enriched.subject,
+            unit: enriched.unit || null,
+            chapter: enriched.chapter,
+            topic: enriched.topic,
+            subTopic: enriched.subTopic,
+            questionType: enriched.questionType,
+            difficulty: enriched.difficulty,
+            question: enriched.question,
+            questionImageUrl: enriched.questionImageUrl || null,
+            options: enriched.options || [],
+            matchPairs: enriched.matchPairs || [],
             caseStudy: enriched.caseStudy || undefined,
             assertionStatement: enriched.assertionStatement || null,
             reasonStatement: enriched.reasonStatement || null,
@@ -290,20 +345,36 @@ export class AiGenerateService {
             answerExplanation: enriched.answerExplanation || undefined,
             PYQ_tags: enriched.PYQ_tags || [],
             estimatedTimeSeconds: enriched.estimatedTimeSeconds ?? 60,
-            marks: enriched.marks ?? 4, negativeMarks: enriched.negativeMarks ?? 1,
+            marks: enriched.marks ?? 4,
+            negativeMarks: enriched.negativeMarks ?? 1,
             isDiagramBased: enriched.isDiagramBased ?? false,
             isCaseBased: enriched.isCaseBased ?? false,
             isNcertLineBased: enriched.isNcertLineBased ?? false,
             commonMisconceptions: enriched.commonMisconceptions || [],
-            status: WorkflowStatus.DRAFT, uploadedBy: userId,
-            uploadBatchId: `ai-gen-${jobId}`, contentHash: hash, version: 1,
-            tags: [...(enriched.tags || []), 'ai-generated', `provider:${dto.provider.toLowerCase()}`],
-            metadata: { aiGenerated: true, provider: dto.provider, jobId } as any,
+            status: WorkflowStatus.DRAFT,
+            uploadedBy: userId,
+            uploadBatchId: `ai-gen-${jobId}`,
+            contentHash: hash,
+            version: 1,
+            tags: [
+              ...(enriched.tags || []),
+              'ai-generated',
+              `provider:${dto.provider.toLowerCase()}`,
+            ],
+            metadata: {
+              aiGenerated: true,
+              provider: dto.provider,
+              jobId,
+            } as any,
           },
         });
         inserted.push(created.questionId);
       } catch (e: any) {
-        errors.push({ index: i, questionId: q.questionId || `index_${i}`, errors: [e.message || String(e)] });
+        errors.push({
+          index: i,
+          questionId: q.questionId || `index_${i}`,
+          errors: [e.message || String(e)],
+        });
       }
     }
     return { inserted, errors };
@@ -311,22 +382,39 @@ export class AiGenerateService {
 
   // ── Retry ──────────────────────────────────────────────────────────
 
-  async retry(jobId: string, userId: string, req: any, encryptedApiKey?: string) {
-    const job = await this.prisma.aiGenerationJob.findUnique({ where: { jobId } });
+  async retry(
+    jobId: string,
+    userId: string,
+    req: any,
+    encryptedApiKey?: string,
+  ) {
+    const job = await this.prisma.aiGenerationJob.findUnique({
+      where: { jobId },
+    });
     if (!job) throw new NotFoundException(`Job ${jobId} not found`);
     if (job.retryCount >= job.maxRetries) {
-      throw new BadRequestException(`Maximum retries (${job.maxRetries}) exceeded for job ${jobId}`);
+      throw new BadRequestException(
+        `Maximum retries (${job.maxRetries}) exceeded for job ${jobId}`,
+      );
     }
-    if (job.status !== AiJobStatus.FAILED && job.status !== AiJobStatus.PARTIAL) {
-      throw new BadRequestException(`Only FAILED or PARTIAL jobs can be retried. Current: ${job.status}`);
+    if (
+      job.status !== AiJobStatus.FAILED &&
+      job.status !== AiJobStatus.PARTIAL
+    ) {
+      throw new BadRequestException(
+        `Only FAILED or PARTIAL jobs can be retried. Current: ${job.status}`,
+      );
     }
 
     await this.prisma.aiGenerationJob.update({
-      where: { id: job.id }, data: { retryCount: job.retryCount + 1 },
+      where: { id: job.id },
+      data: { retryCount: job.retryCount + 1 },
     });
 
     const dto: AiGenerateRequestDto = {
-      provider: job.provider, subject: job.subject, topic: job.topic,
+      provider: job.provider,
+      subject: job.subject,
+      topic: job.topic,
       subTopic: job.subTopic || undefined,
       questionTypes: job.questionTypes as any,
       difficulty: job.difficulty || undefined,
@@ -344,17 +432,24 @@ export class AiGenerateService {
     const skip = (page - 1) * limit;
     const [jobs, total] = await Promise.all([
       this.prisma.aiGenerationJob.findMany({
-        where: { requestedBy: userId }, orderBy: { createdAt: 'desc' },
-        skip, take: limit, include: { providerLogs: true },
+        where: { requestedBy: userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: { providerLogs: true },
       }),
       this.prisma.aiGenerationJob.count({ where: { requestedBy: userId } }),
     ]);
-    return { data: { jobs }, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+    return {
+      data: { jobs },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
   }
 
   async getJob(jobId: string) {
     const job = await this.prisma.aiGenerationJob.findUnique({
-      where: { jobId }, include: { providerLogs: true },
+      where: { jobId },
+      include: { providerLogs: true },
     });
     if (!job) throw new NotFoundException(`Job ${jobId} not found`);
     return { data: { job } };

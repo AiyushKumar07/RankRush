@@ -49,7 +49,11 @@ export class AiProviderFactory {
    * Returns providers that have env-level API keys configured.
    */
   static getEnvConfiguredProviders(): string[] {
-    const all = [new OpenAIProvider(), new GeminiProvider(), new ClaudeProvider()];
+    const all = [
+      new OpenAIProvider(),
+      new GeminiProvider(),
+      new ClaudeProvider(),
+    ];
     return all.filter((p) => p.isConfigured).map((p) => p.name);
   }
 

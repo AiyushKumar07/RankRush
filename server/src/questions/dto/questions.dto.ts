@@ -93,9 +93,9 @@ export class UpdateQuestionDto {
   @IsOptional() @IsString() chapter?: string;
   @IsOptional() @IsString() unit?: string;
   @IsOptional() @IsArray() correctAnswer?: string[];
-  
-  @IsOptional() 
-  @IsArray() 
+
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OptionDto)
   options?: OptionDto[];
@@ -104,18 +104,18 @@ export class UpdateQuestionDto {
   @IsOptional() @IsString() assertionStatement?: string;
   @IsOptional() @IsString() reasonStatement?: string;
   @IsOptional() @IsString() questionImageUrl?: string;
-  @IsOptional() 
-  @IsArray() 
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => MatchPairDto)
   matchPairs?: MatchPairDto[];
 
-  @IsOptional() 
+  @IsOptional()
   @ValidateNested()
   @Type(() => CaseStudyDto)
   caseStudy?: CaseStudyDto;
 
-  @IsOptional() 
+  @IsOptional()
   @ValidateNested()
   @Type(() => AnswerExplanationDto)
   answerExplanation?: AnswerExplanationDto;

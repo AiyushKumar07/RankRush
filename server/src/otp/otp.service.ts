@@ -69,7 +69,10 @@ export class OtpService {
       data: { userId, code, purpose, expiresAt },
     });
 
-    const purposeMap: Record<OtpPurpose, 'verification' | 'password-reset' | 'sensitive-action'> = {
+    const purposeMap: Record<
+      OtpPurpose,
+      'verification' | 'password-reset' | 'sensitive-action'
+    > = {
       EMAIL_VERIFICATION: 'verification',
       PASSWORD_RESET: 'password-reset',
       SENSITIVE_ACTION: 'sensitive-action',
@@ -85,7 +88,9 @@ export class OtpService {
 
     this.logger.log(`OTP sent to ${email} for ${purpose}`);
 
-    return { message: `OTP sent to ${email}. Valid for ${OTP_EXPIRY_MINUTES} minutes.` };
+    return {
+      message: `OTP sent to ${email}. Valid for ${OTP_EXPIRY_MINUTES} minutes.`,
+    };
   }
 
   async verifyOtp(
@@ -104,7 +109,9 @@ export class OtpService {
     });
 
     if (!otp) {
-      throw new BadRequestException('No valid OTP found. Please request a new one.');
+      throw new BadRequestException(
+        'No valid OTP found. Please request a new one.',
+      );
     }
 
     if (otp.attempts >= MAX_OTP_ATTEMPTS) {

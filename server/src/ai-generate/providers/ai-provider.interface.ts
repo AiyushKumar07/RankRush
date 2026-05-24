@@ -36,7 +36,11 @@ export interface AiProviderInterface {
   /**
    * Generate questions. An optional apiKey overrides the env key.
    */
-  generate(request: AiGenerationRequest, apiKey?: string, model?: string): Promise<AiGenerationResponse>;
+  generate(
+    request: AiGenerationRequest,
+    apiKey?: string,
+    model?: string,
+  ): Promise<AiGenerationResponse>;
 
   /**
    * Verify that an API key is valid by making a lightweight call.
@@ -46,5 +50,7 @@ export interface AiProviderInterface {
   /**
    * Fetch the list of available models for this provider using the given key.
    */
-  listModels(apiKey: string): Promise<{ models: { id: string; name: string }[] }>;
+  listModels(
+    apiKey: string,
+  ): Promise<{ models: { id: string; name: string }[] }>;
 }

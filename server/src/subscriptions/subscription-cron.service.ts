@@ -18,7 +18,7 @@ export class SubscriptionCronService {
 
     try {
       const now = new Date();
-      
+
       // Find all active subscriptions that are due for a refresh
       const dueSubscriptions = await this.prisma.studentSubscription.findMany({
         where: {
@@ -38,7 +38,9 @@ export class SubscriptionCronService {
         return;
       }
 
-      this.logger.log(`Found ${dueSubscriptions.length} subscriptions due for refresh.`);
+      this.logger.log(
+        `Found ${dueSubscriptions.length} subscriptions due for refresh.`,
+      );
 
       for (const subscription of dueSubscriptions) {
         try {
@@ -48,12 +50,12 @@ export class SubscriptionCronService {
             subscription.plan.tokenCount,
             'SUBSCRIPTION_REFRESH',
             subscription.id,
-            `Monthly refresh for ${subscription.plan.name}`
+            `Monthly refresh for ${subscription.plan.name}`,
           );
 
           // 2. Calculate the next refresh date (add 1 month)
           const nextDate = new Date(subscription.nextRefreshDate || now);
-          
+
           if (subscription.plan.refreshFrequency === 'MONTHLY') {
             nextDate.setMonth(nextDate.getMonth() + 1);
           } else if (subscription.plan.refreshFrequency === 'QUARTERLY') {
@@ -73,9 +75,14 @@ export class SubscriptionCronService {
             },
           });
 
-          this.logger.log(`Successfully refreshed tokens for user ${subscription.userId} on plan ${subscription.plan.name}`);
+          this.logger.log(
+            `Successfully refreshed tokens for user ${subscription.userId} on plan ${subscription.plan.name}`,
+          );
         } catch (err) {
-          this.logger.error(`Failed to refresh tokens for subscription ${subscription.id}: ${err.message}`, err.stack);
+          this.logger.error(
+            `Failed to refresh tokens for subscription ${subscription.id}: ${err.message}`,
+            err.stack,
+          );
         }
       }
 

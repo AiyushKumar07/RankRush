@@ -48,10 +48,7 @@ export class StudentController {
   }
 
   @Post('quizzes/:id/start')
-  startAttempt(
-    @CurrentUser('id') userId: string,
-    @Param('id') quizId: string,
-  ) {
+  startAttempt(@CurrentUser('id') userId: string, @Param('id') quizId: string) {
     return this.studentService.startAttempt(userId, quizId);
   }
 

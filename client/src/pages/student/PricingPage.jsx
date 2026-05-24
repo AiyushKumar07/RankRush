@@ -72,7 +72,9 @@ export default function PricingPage() {
         toast.error('Razorpay SDK not loaded');
       }
     } catch (err) {
-      toast.error('Failed to initiate payment');
+      console.error('Payment Error:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to initiate payment';
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to initiate payment');
     } finally {
       setPurchasing(null);
     }

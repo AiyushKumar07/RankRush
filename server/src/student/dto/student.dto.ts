@@ -3,8 +3,10 @@ import {
   IsString,
   IsInt,
   IsArray,
+  IsBoolean,
   Min,
   Max,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -35,18 +37,47 @@ export class QueryStudentQuizzesDto {
   limit?: number;
 }
 
+class AnswerDto {
+  @IsString()
+  questionId: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  selectedAnswers: string[];
+}
+
+class ProctoringViolationDto {
+  @IsString()
+  type: string;
+
+  @IsString()
+  timestamp: string;
+
+  @IsString()
+  details: string;
+}
+
 export class SubmitAttemptDto {
   @IsArray()
-  answers: Array<{
-    questionId: string;
-    selectedAnswers: string[];
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => AnswerDto)
+  answers: AnswerDto[];
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   timeTakenSecs?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isProctoringFailure?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProctoringViolationDto)
+  proctoringViolations?: ProctoringViolationDto[];
 }
 
 export class QueryActivityDto {

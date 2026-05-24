@@ -467,6 +467,7 @@ enum AttemptStatus {
   IN_PROGRESS
   COMPLETED
   ABANDONED
+  FAILED_PROCTORING
 }
 
 model QuizAttempt {
@@ -493,6 +494,7 @@ model QuizAttempt {
 
   // State
   status    AttemptStatus  @default(IN_PROGRESS)
+  proctoringViolations Json? // [{ type, timestamp, details }]
 
   // Per-question breakdown for topic analytics
   questionResults Json?   // [{ questionId, topic, subject, correct: bool }]

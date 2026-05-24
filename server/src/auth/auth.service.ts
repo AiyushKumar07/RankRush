@@ -223,7 +223,8 @@ export class AuthService {
     this.logger.log(`Student signup: ${dto.email}`);
 
     return {
-      message: 'Account created! Please verify your email with the OTP sent to your inbox.',
+      message:
+        'Account created! Please verify your email with the OTP sent to your inbox.',
       data: {
         userId: user.id,
         email: user.email,
@@ -292,7 +293,10 @@ export class AuthService {
       req,
     });
 
-    await this.mail.sendWelcome({ to: user.email, name: user.firstName || user.name });
+    await this.mail.sendWelcome({
+      to: user.email,
+      name: user.firstName || user.name,
+    });
 
     this.logger.log(`Email verified: ${user.email}`);
 
@@ -326,7 +330,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-    if (!user) throw new BadRequestException('No account found with this email');
+    if (!user)
+      throw new BadRequestException('No account found with this email');
 
     if (user.isVerified) {
       throw new BadRequestException('Email already verified');
@@ -350,8 +355,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    if (!user.isActive)
-      throw new ForbiddenException('Account deactivated');
+    if (!user.isActive) throw new ForbiddenException('Account deactivated');
 
     if (!user.isVerified) {
       await this.otp.sendOtp(
@@ -586,7 +590,10 @@ export class AuthService {
 
     this.logger.log(`Password reset completed: ${user.email}`);
 
-    return { message: 'Password reset successful. Please login with your new password.' };
+    return {
+      message:
+        'Password reset successful. Please login with your new password.',
+    };
   }
 
   // ─── Change Password (authenticated) ──────────────────────────────
@@ -597,7 +604,8 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
 
     const valid = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    if (!valid)
+      throw new UnauthorizedException('Current password is incorrect');
 
     await this.validatePasswordStrength(dto.newPassword);
 
@@ -696,10 +704,7 @@ export class AuthService {
   async cleanupExpiredSessions(): Promise<number> {
     const result = await this.prisma.session.deleteMany({
       where: {
-        OR: [
-          { expiresAt: { lt: new Date() } },
-          { isRevoked: true },
-        ],
+        OR: [{ expiresAt: { lt: new Date() } }, { isRevoked: true }],
         createdAt: {
           lt: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
@@ -712,7 +717,12 @@ export class AuthService {
   private async updateLoginStreak(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { lastActive: true, streak: true, longestStreak: true, loginXp: true },
+      select: {
+        lastActive: true,
+        streak: true,
+        longestStreak: true,
+        loginXp: true,
+      },
     });
     if (!user) return;
 

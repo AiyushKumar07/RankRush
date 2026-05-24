@@ -34,7 +34,7 @@ import {
 @Controller('api/questions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class QuestionsController {
-  constructor(private questionsService: QuestionsService) { }
+  constructor(private questionsService: QuestionsService) {}
 
   @Post('upload')
   @Permissions('questions:create', 'questions:upload')
@@ -60,10 +60,16 @@ export class QuestionsController {
           (error, result) => {
             if (error) {
               console.error('Cloudinary error:', error);
-              return reject(new BadRequestException(`Cloudinary upload failed: ${error.message || JSON.stringify(error)}`));
+              return reject(
+                new BadRequestException(
+                  `Cloudinary upload failed: ${error.message || JSON.stringify(error)}`,
+                ),
+              );
             }
             if (!result)
-              return reject(new BadRequestException('No result from Cloudinary'));
+              return reject(
+                new BadRequestException('No result from Cloudinary'),
+              );
             resolve({ url: result.secure_url, key: result.public_id });
           },
         );
@@ -95,7 +101,11 @@ export class QuestionsController {
     @Query('class') className?: string,
     @Query('subject') subject?: string,
   ) {
-    return this.questionsService.getDynamicFilterOptions({ examType, class: className, subject });
+    return this.questionsService.getDynamicFilterOptions({
+      examType,
+      class: className,
+      subject,
+    });
   }
 
   @Get(':id')

@@ -5,7 +5,13 @@ import { PERMISSIONS_KEY } from '../../common/decorators/permissions.decorator.j
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
   [Role.ADMIN]: ['*'],
-  [Role.TEACHER]: ['questions:read', 'questions:write', 'quizzes:read', 'quizzes:write', 'analytics:read'],
+  [Role.TEACHER]: [
+    'questions:read',
+    'questions:write',
+    'quizzes:read',
+    'quizzes:write',
+    'analytics:read',
+  ],
   [Role.STUDENT]: ['student:read', 'student:write'],
 };
 

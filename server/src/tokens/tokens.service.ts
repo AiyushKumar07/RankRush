@@ -134,7 +134,8 @@ export class TokensService {
     return {
       referralCode: user?.referralCode,
       totalReferrals: referrals.length,
-      successfulReferrals: referrals.filter((r) => r.status === 'SUCCESS').length,
+      successfulReferrals: referrals.filter((r) => r.status === 'SUCCESS')
+        .length,
       tokensEarned: rewards._sum.tokensAwarded || 0,
       history: referrals,
     };

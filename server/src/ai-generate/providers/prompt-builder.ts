@@ -123,7 +123,10 @@ CRITICAL RULES:
       .filter(Boolean)
       .join('\n\n');
 
-    const totalCount = request.questionTypes.reduce((sum, qt) => sum + qt.count, 0);
+    const totalCount = request.questionTypes.reduce(
+      (sum, qt) => sum + qt.count,
+      0,
+    );
 
     let prompt = `Generate exactly ${totalCount} questions with the following specification:
 
@@ -133,7 +136,8 @@ Topic: ${request.topic}`;
     if (request.subTopic) prompt += `\nSub-topic: ${request.subTopic}`;
     if (request.difficulty) prompt += `\nDifficulty: ${request.difficulty}`;
     if (request.className) prompt += `\nClass: ${request.className}`;
-    if (request.examType?.length) prompt += `\nExam Types: ${request.examType.join(', ')}`;
+    if (request.examType?.length)
+      prompt += `\nExam Types: ${request.examType.join(', ')}`;
 
     prompt += `\n\nQuestion Type Breakdown:\n${typeBreakdown}`;
 

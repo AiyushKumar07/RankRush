@@ -116,8 +116,8 @@ export class StudentService {
 
   // ── Dashboard (aggregate for the main page) ─────────────────────
   async getDashboard(userId: string) {
-    const [statsRes, recentActivity, topicInsights, badges] =
-      await Promise.all([
+    const [statsRes, recentActivity, topicInsights, badges] = await Promise.all(
+      [
         this.getStats(userId),
         this.prisma.studentActivity.findMany({
           where: { studentId: userId },
@@ -126,7 +126,8 @@ export class StudentService {
         }),
         this.getTopicInsights(userId),
         this.computeBadges(userId),
-      ]);
+      ],
+    );
 
     return {
       data: {
@@ -297,6 +298,7 @@ export class StudentService {
     const orderedQuestions = quiz.questions
       .sort((a, b) => a.order - b.order)
       .map((qq) => ({
+        questionId: qq.questionId,
         order: qq.order,
         marks: qq.marks,
         questionData: questionsMap.get(qq.questionId) || null,
@@ -369,19 +371,13 @@ export class StudentService {
   }
 
   // ── Submit a quiz attempt ───────────────────────────────────────
-  async submitAttempt(
-    userId: string,
-    quizId: string,
-    dto: SubmitAttemptDto,
-  ) {
+  async submitAttempt(userId: string, quizId: string, dto: SubmitAttemptDto) {
     // Find in-progress attempt
     const attempt = await this.prisma.quizAttempt.findFirst({
       where: { studentId: userId, quizId, status: 'IN_PROGRESS' },
     });
     if (!attempt) {
-      throw new NotFoundException(
-        'No in-progress attempt found for this quiz',
-      );
+      throw new NotFoundException('No in-progress attempt found for this quiz');
     }
 
     // Fetch quiz + questions with correct answers
@@ -418,7 +414,9 @@ export class StudentService {
     }> = [];
 
     const answersMap = new Map(
-      dto.answers.map((a) => [a.questionId, a.selectedAnswers]),
+      dto.answers
+        ? dto.answers.map((a) => [a.questionId, a.selectedAnswers])
+        : [],
     );
 
     for (const qq of quiz.questions) {
@@ -464,9 +462,7 @@ export class StudentService {
 
     score = Math.max(0, score);
     const percentage =
-      quiz.totalMarks > 0
-        ? Math.round((score / quiz.totalMarks) * 100)
-        : 0;
+      quiz.totalMarks > 0 ? Math.round((score / quiz.totalMarks) * 100) : 0;
 
     // Update the attempt
     const now = new Date();
@@ -474,25 +470,30 @@ export class StudentService {
       dto.timeTakenSecs ??
       Math.round((now.getTime() - attempt.startedAt.getTime()) / 1000);
 
-    const xpEarned = correctCount * XP_PER_CORRECT;
+    const xpEarned = dto.isProctoringFailure
+      ? 0
+      : correctCount * XP_PER_CORRECT;
 
     const updatedAttempt = await this.prisma.quizAttempt.update({
       where: { id: attempt.id },
       data: {
         answers: dto.answers as any,
-        score,
-        percentage,
+        score: dto.isProctoringFailure ? 0 : score,
+        percentage: dto.isProctoringFailure ? 0 : percentage,
         correctCount,
         incorrectCount,
         unansweredCount,
         timeTakenSecs: timeTaken,
-        status: 'COMPLETED',
+        status: dto.isProctoringFailure ? 'FAILED_PROCTORING' : 'COMPLETED',
         completedAt: now,
         questionResults: questionResults as any,
+        proctoringViolations: dto.proctoringViolations as any,
       },
     });
 
-    // Deduct token
+    // Deduct token (only if it's the first time submitting, but it was already deducted when they started the quiz in startAttempt! Wait, let's look closely at startAttempt vs submitAttempt)
+    // Looking at the code, token is actually deducted in submitAttempt.
+    // If it's a proctoring failure, they still lose their token.
     await this.tokensService.debitTokens(
       userId,
       1,
@@ -502,34 +503,59 @@ export class StudentService {
     );
 
     // Create activity entry
+    let activityIcon = percentage >= 80 ? 'Trophy' : 'Target';
+    let activityTone =
+      percentage >= 80 ? 'emerald' : percentage >= 50 ? 'cyan' : 'amber';
+    let activityMeta = `${percentage}% · +${xpEarned} XP`;
+    let activityTitle = quiz.title;
+
+    if (dto.isProctoringFailure) {
+      activityIcon = 'AlertTriangle';
+      activityTone = 'rose';
+      activityMeta = '0% · Disqualified';
+      activityTitle = `[Disqualified] ${quiz.title}`;
+    }
+
     await this.prisma.studentActivity.create({
       data: {
         studentId: userId,
-        type: 'quiz_completed',
-        title: quiz.title,
-        meta: `${percentage}% · +${xpEarned} XP`,
-        icon: percentage >= 80 ? 'Trophy' : 'Target',
-        tone: percentage >= 80 ? 'emerald' : percentage >= 50 ? 'cyan' : 'amber',
+        type: dto.isProctoringFailure
+          ? 'quiz_failed_proctoring'
+          : 'quiz_completed',
+        title: activityTitle,
+        meta: activityMeta,
+        icon: activityIcon,
+        tone: activityTone,
         relatedId: attempt.id,
       },
     });
 
-    this.logger.log(
-      `Student ${userId} completed quiz ${quizId}: ${percentage}% (${correctCount}/${quiz.totalQuestions})`,
-    );
+    if (dto.isProctoringFailure) {
+      this.logger.warn(
+        `Student ${userId} disqualified on quiz ${quizId} due to proctoring failure.`,
+      );
+    } else {
+      this.logger.log(
+        `Student ${userId} completed quiz ${quizId}: ${percentage}% (${correctCount}/${quiz.totalQuestions})`,
+      );
+    }
 
     return {
-      message: 'Quiz submitted successfully',
+      message: dto.isProctoringFailure
+        ? 'Quiz submission rejected due to proctoring violation'
+        : 'Quiz submitted successfully',
       data: {
-        score,
+        score: dto.isProctoringFailure ? 0 : score,
         totalMarks: quiz.totalMarks,
-        percentage,
+        percentage: dto.isProctoringFailure ? 0 : percentage,
         correctCount,
         incorrectCount,
         unansweredCount,
         timeTakenSecs: timeTaken,
         xpEarned,
         questionResults,
+        isProctoringFailure: dto.isProctoringFailure || false,
+        proctoringViolations: dto.proctoringViolations || [],
       },
     };
   }
@@ -540,7 +566,7 @@ export class StudentService {
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
 
-    const [activities, total] = await Promise.all([
+    const [activities, total, recentAttempts] = await Promise.all([
       this.prisma.studentActivity.findMany({
         where: { studentId: userId },
         orderBy: { createdAt: 'desc' },
@@ -549,6 +575,25 @@ export class StudentService {
       }),
       this.prisma.studentActivity.count({
         where: { studentId: userId },
+      }),
+      this.prisma.quizAttempt.findMany({
+        where: { studentId: userId },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        select: {
+          id: true,
+          quizId: true,
+          quizTitle: true,
+          quizSubject: true,
+          status: true,
+          score: true,
+          totalMarks: true,
+          percentage: true,
+          timeTakenSecs: true,
+          proctoringViolations: true,
+          createdAt: true,
+          completedAt: true,
+        },
       }),
     ]);
 
@@ -565,10 +610,9 @@ export class StudentService {
     startDate.setDate(startDate.getDate() - dayOfWeek);
     startDate.setHours(0, 0, 0, 0);
 
-    const attempts = await this.prisma.quizAttempt.findMany({
+    const heatmapAttempts = await this.prisma.quizAttempt.findMany({
       where: {
         studentId: userId,
-        status: 'COMPLETED',
         completedAt: {
           gte: startDate,
           lte: endDate,
@@ -578,20 +622,25 @@ export class StudentService {
     });
 
     const attemptCounts: Record<string, number> = {};
-    for (const a of attempts) {
+    for (const a of heatmapAttempts) {
       if (a.completedAt) {
         const dateStr = a.completedAt.toISOString().split('T')[0];
         attemptCounts[dateStr] = (attemptCounts[dateStr] || 0) + 1;
       }
     }
 
-    const heatmap: Array<{ date: string; count: number; level: number; future: boolean }> = [];
+    const heatmap: Array<{
+      date: string;
+      count: number;
+      level: number;
+      future: boolean;
+    }> = [];
     const current = new Date(startDate);
 
     while (current <= endDate) {
       const dateStr = current.toISOString().split('T')[0];
       const count = attemptCounts[dateStr] || 0;
-      
+
       let level = 0;
       if (count > 0) {
         if (count <= 2) level = 1;
@@ -621,6 +670,7 @@ export class StudentService {
           icon: a.icon,
           tone: a.tone,
         })),
+        attempts: recentAttempts,
         subjectPerformance,
         heatmap,
       },
@@ -691,10 +741,7 @@ export class StudentService {
       select: { questionResults: true },
     });
 
-    const topicStats: Record<
-      string,
-      { correct: number; total: number }
-    > = {};
+    const topicStats: Record<string, { correct: number; total: number }> = {};
 
     for (const attempt of attempts) {
       const results = attempt.questionResults as any[];
@@ -735,10 +782,8 @@ export class StudentService {
       select: { quizSubject: true, percentage: true },
     });
 
-    const subjectStats: Record<
-      string,
-      { totalPct: number; count: number }
-    > = {};
+    const subjectStats: Record<string, { totalPct: number; count: number }> =
+      {};
 
     for (const a of attempts) {
       if (!subjectStats[a.quizSubject]) {

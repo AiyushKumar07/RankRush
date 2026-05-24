@@ -16,6 +16,8 @@ import StudentLayout from './components/layout/StudentLayout';
 import StudentDashboardPage from './pages/student/StudentDashboardPage';
 import StudentQuizzesPage from './pages/student/StudentQuizzesPage';
 import StudentProfilePage from './pages/student/StudentProfilePage';
+import StudentActivityPage from './pages/student/StudentActivityPage';
+import QuizSessionPage from './pages/student/QuizSessionPage';
 import {
   StudentLeaderboardPage,
   StudentNotesPage,
@@ -110,6 +112,7 @@ export default function App() {
             <Route path="dashboard" element={<StudentDashboardPage />} />
             <Route path="quizzes" element={<StudentQuizzesPage />} />
             <Route path="profile" element={<StudentProfilePage />} />
+            <Route path="activity" element={<StudentActivityPage />} />
             
             {/* Coming Soon */}
             <Route path="leaderboard" element={<StudentLeaderboardPage />} />
@@ -122,6 +125,16 @@ export default function App() {
             <Route path="refer-and-earn" element={<ReferAndEarnPage />} />
             <Route path="billing" element={<BillingHistoryPage />} />
           </Route>
+
+          {/* Standalone Quiz Session (No Sidebar/Header) */}
+          <Route
+            path="/app/quizzes/:id/session"
+            element={
+              <RequireOnboarded studentRoute>
+                <QuizSessionPage />
+              </RequireOnboarded>
+            }
+          />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

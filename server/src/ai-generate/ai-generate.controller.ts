@@ -45,7 +45,12 @@ export class AiGenerateController {
     @CurrentUser('id') userId: string,
     @Req() req: any,
   ) {
-    return this.aiGenerateService.retry(dto.jobId, userId, req, dto.encryptedApiKey);
+    return this.aiGenerateService.retry(
+      dto.jobId,
+      userId,
+      req,
+      dto.encryptedApiKey,
+    );
   }
 
   /** POST /api/ai-generate/verify-key — Verify an API key */
@@ -58,10 +63,7 @@ export class AiGenerateController {
   /** POST /api/ai-generate/encrypt-key — Encrypt an API key for safe storage */
   @Post('encrypt-key')
   @Permissions('questions:create')
-  encryptKey(
-    @Body() dto: EncryptKeyDto,
-    @CurrentUser('id') userId: string,
-  ) {
+  encryptKey(@Body() dto: EncryptKeyDto, @CurrentUser('id') userId: string) {
     return this.aiGenerateService.encrypt(dto.apiKey, userId);
   }
 
