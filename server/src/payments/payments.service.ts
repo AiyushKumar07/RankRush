@@ -149,6 +149,11 @@ export class PaymentsService {
       return { message: 'Already processed' };
     }
 
+    const existingSuccessCount = await this.prisma.paymentTransaction.count({
+      where: { userId, status: 'SUCCESS' }
+    });
+    const isFirstPayment = existingSuccessCount === 0;
+
     await this.prisma.paymentTransaction.update({
       where: { id: transaction.id },
       data: {
@@ -157,6 +162,57 @@ export class PaymentsService {
         gatewaySignature: razorpaySignature,
       },
     });
+
+    if (isFirstPayment) {
+      const referral = await this.prisma.referral.findUnique({
+        where: { referredId: userId },
+      });
+
+      if (referral && referral.status === 'PENDING') {
+        await this.prisma.referral.update({
+          where: { id: referral.id },
+          data: { status: 'SUCCESS' },
+        });
+
+        const referredUser = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { firstName: true, name: true }
+        });
+        const refereeName = referredUser?.firstName || referredUser?.name || 'a friend';
+
+        // Reward referrer
+        await this.tokensService.creditTokens(
+          referral.referrerId,
+          2,
+          'REFERRAL_BONUS',
+          referral.id,
+          `Referral bonus for inviting ${refereeName}`,
+        );
+        await this.prisma.referralReward.create({
+          data: {
+            userId: referral.referrerId,
+            referralId: referral.id,
+            tokensAwarded: 2,
+          },
+        });
+
+        // Reward referred user
+        await this.tokensService.creditTokens(
+          userId,
+          2,
+          'REFERRAL_BONUS',
+          referral.id,
+          'Signup referral bonus',
+        );
+        await this.prisma.referralReward.create({
+          data: {
+            userId: userId,
+            referralId: referral.id,
+            tokensAwarded: 2,
+          },
+        });
+      }
+    }
 
     // Handle Redeem Code usage if applied
     if (transaction.redeemCode) {

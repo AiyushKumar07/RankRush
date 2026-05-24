@@ -253,49 +253,7 @@ export class AuthService {
       data: { isVerified: true },
     });
 
-    // Check for pending referral
-    const referral = await this.prisma.referral.findUnique({
-      where: { referredId: userId },
-    });
-
-    if (referral && referral.status === 'PENDING') {
-      await this.prisma.referral.update({
-        where: { id: referral.id },
-        data: { status: 'SUCCESS' },
-      });
-
-      // Reward referrer
-      await this.tokensService.creditTokens(
-        referral.referrerId,
-        2,
-        'REFERRAL_BONUS',
-        referral.id,
-        `Referral bonus for inviting ${user.firstName || user.name}`,
-      );
-      await this.prisma.referralReward.create({
-        data: {
-          userId: referral.referrerId,
-          referralId: referral.id,
-          tokensAwarded: 2,
-        },
-      });
-
-      // Reward referred user
-      await this.tokensService.creditTokens(
-        userId,
-        2,
-        'REFERRAL_BONUS',
-        referral.id,
-        'Signup referral bonus',
-      );
-      await this.prisma.referralReward.create({
-        data: {
-          userId: userId,
-          referralId: referral.id,
-          tokensAwarded: 2,
-        },
-      });
-    }
+    // Referral status is left as PENDING until the user makes their first payment.
 
     await this.updateLoginStreak(userId);
 
