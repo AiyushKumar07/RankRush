@@ -114,6 +114,19 @@ export default function SignupPage() {
     }
   }
 
+  const handleOtpPaste = (e) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!pasted) return
+    const next = [...otp]
+    for (let i = 0; i < 6; i++) {
+      next[i] = pasted[i] || ''
+    }
+    setOtp(next)
+    const focusIdx = Math.min(pasted.length, 5)
+    otpRefs.current[focusIdx]?.focus()
+  }
+
   const handleVerify = async () => {
     const code = otp.join('')
     if (code.length !== 6) {
@@ -294,11 +307,11 @@ export default function SignupPage() {
             <div className="input-shell"><School size={16} className="left" /><input placeholder="e.g. Allen Career Institute, Kota" /></div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="submit-btn back-btn" onClick={() => goTo(1)}><ArrowLeft size={16} />Back</button>
-            <button className="submit-btn" style={{ flex: 1 }} onClick={handleSignup} disabled={submitting}>
+          <div className="step2-actions">
+            <button className="submit-btn" onClick={handleSignup} disabled={submitting}>
               {submitting ? 'Creating account…' : 'Continue'}<ArrowRight size={16} />
             </button>
+            <button className="submit-btn back-btn" onClick={() => goTo(1)}><ArrowLeft size={16} />Back</button>
           </div>
         </div>
 
@@ -324,6 +337,7 @@ export default function SignupPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                  onPaste={handleOtpPaste}
                   maxLength={1}
                   inputMode="numeric"
                 />

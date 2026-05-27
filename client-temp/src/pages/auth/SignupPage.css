@@ -100,30 +100,36 @@
 }
 
 /* Email error */
-.input-shell.error { border-color: var(--rr-coral-500) !important; box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-coral-500) 18%, transparent) !important; }
+.input-shell.error {
+  border-color: #6b2b2b !important;
+  box-shadow: none !important;
+}
 .email-error {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin-top: 6px; padding: 8px 12px;
-  background: color-mix(in oklab, var(--rr-coral-500) 8%, var(--rr-surface));
-  border: 1px solid color-mix(in oklab, var(--rr-coral-500) 30%, transparent);
+  margin-top: 4px; padding: 7px 12px;
+  background: rgba(127, 29, 29, 0.18);
+  border: none;
   border-radius: var(--rr-r-sm);
-  font-size: 12px; color: var(--rr-coral-500);
+  font-size: 12px; color: #f87171; line-height: 1.4;
 }
 .email-error-link {
   color: var(--rr-violet-400) !important;
   font-weight: 600;
   white-space: nowrap;
   text-decoration: none;
+  font-size: 12px;
 }
 .email-error-link:hover { text-decoration: underline; }
 
-/* Back button */
+/* Step 2 action buttons */
+.step2-actions {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.step2-actions .submit-btn { width: 100%; }
 .submit-btn.back-btn {
   background: transparent;
   color: var(--rr-fg-2);
   border: 1px solid var(--rr-border-strong);
-  flex: 0 0 auto;
-  padding: 0 18px;
   box-shadow: none;
 }
 .submit-btn.back-btn:hover {
@@ -167,8 +173,8 @@
 
 .signup-page .submit-btn { height: 46px; margin-top: 6px; }
 .signup-page .submit-btn:hover { background: var(--rr-violet-600); transform: translateY(-1px); }
-.signup-page .submit-btn.lime { background: var(--rr-lime-400); color: var(--rr-ink-900); box-shadow: var(--rr-shadow-md), 0 12px 32px -8px rgba(204,245,61,.4); }
-.signup-page .submit-btn.lime:hover { background: var(--rr-lime-300); color: var(--rr-ink-900); }
+.signup-page .submit-btn.lime { background: var(--rr-lime-400); color: #0E0E13; box-shadow: var(--rr-shadow-md), 0 12px 32px -8px rgba(204,245,61,.4); }
+.signup-page .submit-btn.lime:hover { background: var(--rr-lime-300); color: #0E0E13; }
 
 .terms { font-size: 11px; color: var(--rr-fg-muted); text-align: center; margin-top: 12px; line-height: 1.5; }
 .terms a { color: var(--rr-violet-500); }
