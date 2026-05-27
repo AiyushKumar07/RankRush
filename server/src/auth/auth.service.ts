@@ -120,6 +120,17 @@ export class AuthService {
     }
   }
 
+  // ─── Check Email Availability ───────────────────────────────────────
+  async checkEmailAvailability(email: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return {
+      data: { available: !existing },
+    };
+  }
+
   // ─── Admin Register ─────────────────────────────────────────────────
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({

@@ -8,7 +8,7 @@
   font-size: clamp(32px, 4vw, 48px);
   letter-spacing: -0.025em;
   line-height: 1.02;
-  color: var(--rr-paper);
+  color: #FAFAF7;
   margin: 0;
   text-wrap: balance;
 }
@@ -22,11 +22,11 @@
   padding: 22px;
   margin: 40px 0;
 }
-.ar-rb .lbl { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px; display: flex; justify-content: space-between; }
+.ar-rb .lbl { font-family: var(--rr-font-mono); font-size: 10px; color: #9D9DA6; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px; display: flex; justify-content: space-between; }
 .ar-rb .lbl .live { color: var(--rr-coral-400); display: inline-flex; align-items: center; gap: 6px; }
 .ar-rb .lbl .live::before { content: ""; width: 6px; height: 6px; background: var(--rr-coral-400); border-radius: 50%; animation: rr-pulse 1.6s ease-in-out infinite; }
 .ar-rb .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
-.ar-rb .rank-num { font-family: var(--rr-font-display); font-weight: 700; font-size: 48px; letter-spacing: -0.03em; line-height: 1; color: var(--rr-paper); font-variant-numeric: tabular-nums; }
+.ar-rb .rank-num { font-family: var(--rr-font-display); font-weight: 700; font-size: 48px; letter-spacing: -0.03em; line-height: 1; color: #FAFAF7; font-variant-numeric: tabular-nums; }
 .ar-rb .delta {
   display: inline-flex; align-items: center; gap: 4px;
   background: color-mix(in oklab, var(--rr-lime-400) 22%, transparent);
@@ -47,15 +47,15 @@
   0%, 100% { width: 88%; }
   50% { width: 89.6%; }
 }
-.ar-rb .meta { display: flex; justify-content: space-between; font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 12px; }
-.ar-rb .meta b { color: var(--rr-paper); font-family: var(--rr-font-display); font-weight: 700; }
+.ar-rb .meta { display: flex; justify-content: space-between; font-family: var(--rr-font-mono); font-size: 10px; color: #9D9DA6; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 12px; }
+.ar-rb .meta b { color: #FAFAF7; font-family: var(--rr-font-display); font-weight: 700; }
 
 .ar-quote {
   font-family: var(--rr-font-display);
   font-weight: 500;
   font-size: 17px;
   letter-spacing: -0.005em;
-  color: var(--rr-paper);
+  color: #FAFAF7;
   line-height: 1.5;
   margin: 0 0 14px;
   text-wrap: pretty;
@@ -65,12 +65,12 @@
   width: 32px; height: 32px;
   border-radius: 50%;
   background: var(--rr-amber-500);
-  color: var(--rr-ink-900);
+  color: #0E0E13;
   display: grid; place-items: center;
   font-family: var(--rr-font-display);
   font-weight: 700;
   font-size: 13px;
 }
 .ar-quote-author .info { display: flex; flex-direction: column; gap: 1px; }
-.ar-quote-author .name { font-size: 12px; color: var(--rr-paper); font-weight: 600; }
-.ar-quote-author .role { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.08em; }
+.ar-quote-author .name { font-size: 12px; color: #FAFAF7; font-weight: 600; }
+.ar-quote-author .role { font-family: var(--rr-font-mono); font-size: 10px; color: #9D9DA6; text-transform: uppercase; letter-spacing: 0.08em; }

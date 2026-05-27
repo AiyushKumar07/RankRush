@@ -38,6 +38,13 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  checkEmail(@Body('email') email: string) {
+    return this.authService.checkEmailAvailability(email);
+  }
+
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('student-signup')
   studentSignup(@Body() dto: StudentSignupDto, @Req() req: any) {

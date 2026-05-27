@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
+import { authAPI } from '../../services/api'
 import AuthLayout from '../../components/layouts/AuthLayout'
 import './SignupPage.css'
 
@@ -24,7 +25,7 @@ function SignupRightPanel() {
         </div>
         <div className="perk">
           <div className="ico"><TrendingUp size={18} /></div>
-          <div><h4>Live rank bar across the app</h4><p>See where you stand among <b style={{ color: 'var(--rr-paper)' }}>12,481 students</b> after your first attempt — and watch it move every day.</p></div>
+          <div><h4>Live rank bar across the app</h4><p>See where you stand among <b style={{ color: '#FAFAF7' }}>12,481 students</b> after your first attempt — and watch it move every day.</p></div>
         </div>
         <div className="perk">
           <div className="ico"><Flame size={18} /></div>
@@ -42,8 +43,10 @@ function SignupRightPanel() {
 
 export default function SignupPage() {
   const [step, setStep] = useState(1)
-  const [selectedGoal, setSelectedGoal] = useState('jee-main')
+  const [selectedGoals, setSelectedGoals] = useState(['jee-main'])
   const [submitting, setSubmitting] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [checkingEmail, setCheckingEmail] = useState(false)
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -64,7 +67,7 @@ export default function SignupPage() {
     }
   }, [pendingVerification])
 
-  const goTo = useCallback((n) => setStep(n), [])
+  const goTo = useCallback((n) => { setEmailError(''); setStep(n); }, [])
 
   const pwStrength = (() => {
     if (password.length < 8) return 'weak'
@@ -167,7 +170,33 @@ export default function SignupPage() {
           </div>
           <div className="or-row"><hr /><span>or with email</span><hr /></div>
 
-          <form onSubmit={(e) => { e.preventDefault(); goTo(2) }}>
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            if (!firstName || !lastName || !email || !password) {
+              toast.error('Please fill in all fields')
+              return
+            }
+            if (password.length < 8) {
+              toast.error('Password must be at least 8 characters')
+              return
+            }
+            setCheckingEmail(true)
+            setEmailError('')
+            try {
+              const res = await authAPI.checkEmail(email)
+              if (!res.data.available) {
+                setEmailError('This email is already registered.')
+                setCheckingEmail(false)
+                return
+              }
+              goTo(2)
+            } catch {
+              // If check fails, allow proceeding — the signup call will catch it
+              goTo(2)
+            } finally {
+              setCheckingEmail(false)
+            }
+          }}>
             <div className="two-col">
               <div className="form-field">
                 <label>First name</label>
@@ -180,7 +209,13 @@ export default function SignupPage() {
             </div>
             <div className="form-field">
               <label>Email address</label>
-              <div className="input-shell"><Mail size={16} className="left" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+              <div className={`input-shell${emailError ? ' error' : ''}`}><Mail size={16} className="left" /><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailError('') }} placeholder="you@email.com" /></div>
+              {emailError && (
+                <div className="email-error">
+                  <span>{emailError}</span>
+                  <Link to="/login" className="email-error-link">Log in instead →</Link>
+                </div>
+              )}
             </div>
             <div className="form-field">
               <label>Password</label>
@@ -196,7 +231,9 @@ export default function SignupPage() {
               <label>Referral code <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--rr-fg-dim)', fontFamily: 'var(--rr-font-sans)' }}>(optional)</span></label>
               <div className="input-shell"><Gift size={16} className="left" /><input value={referralCode} onChange={(e) => setReferralCode(e.target.value)} placeholder="e.g. RRAB1C2D" /></div>
             </div>
-            <button className="submit-btn" type="submit">Continue<ArrowRight size={16} /></button>
+            <button className="submit-btn" type="submit" disabled={checkingEmail}>
+              {checkingEmail ? 'Checking…' : 'Continue'}<ArrowRight size={16} />
+            </button>
           </form>
           <p className="terms">By continuing you agree to RankRush's <a>Terms</a> and <a>Privacy Policy</a>.</p>
         </div>
@@ -227,10 +264,29 @@ export default function SignupPage() {
             <label>What are you targeting?</label>
           </div>
           <div className="goal-grid">
-            <div className={`goal${selectedGoal === 'jee-main' ? ' on' : ''}`} onClick={() => setSelectedGoal('jee-main')}><div className="ico"><Target size={16} /></div><div className="text"><span className="name">JEE Main</span><span className="desc">PCM · Engineering</span></div></div>
-            <div className={`goal${selectedGoal === 'jee-adv' ? ' on' : ''}`} onClick={() => setSelectedGoal('jee-adv')}><div className="ico"><Trophy size={16} /></div><div className="text"><span className="name">JEE Advanced</span><span className="desc">Top IIT seats</span></div></div>
-            <div className={`goal${selectedGoal === 'neet' ? ' on' : ''}`} onClick={() => setSelectedGoal('neet')}><div className="ico"><HeartPulse size={16} /></div><div className="text"><span className="name">NEET</span><span className="desc">PCB · Medical</span></div></div>
-            <div className={`goal${selectedGoal === 'boards' ? ' on' : ''}`} onClick={() => setSelectedGoal('boards')}><div className="ico"><BookOpen size={16} /></div><div className="text"><span className="name">Board exams</span><span className="desc">Class 10 / 12</span></div></div>
+            {[
+              { id: 'jee-main', icon: Target, name: 'JEE Main', desc: 'PCM · Engineering' },
+              { id: 'jee-adv', icon: Trophy, name: 'JEE Advanced', desc: 'Top IIT seats' },
+              { id: 'neet', icon: HeartPulse, name: 'NEET', desc: 'PCB · Medical' },
+              { id: 'boards', icon: BookOpen, name: 'Board exams', desc: 'Class 10 / 12' },
+            ].map(({ id, icon: Icon, name, desc }) => (
+              <div
+                key={id}
+                className={`goal${selectedGoals.includes(id) ? ' on' : ''}`}
+                onClick={() => setSelectedGoals(prev =>
+                  prev.includes(id)
+                    ? prev.filter(g => g !== id)
+                    : [...prev, id]
+                )}
+              >
+                <div className="ico"><Icon size={16} /></div>
+                <div className="text">
+                  <span className="name">{name}</span>
+                  <span className="desc">{desc}</span>
+                </div>
+                {selectedGoals.includes(id) && <span className="goal-check">✓</span>}
+              </div>
+            ))}
           </div>
 
           <div className="form-field">
@@ -239,9 +295,9 @@ export default function SignupPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="submit-btn" style={{ background: 'transparent', color: 'var(--rr-fg-2)', border: '1px solid var(--rr-border-strong)', flex: '0 0 auto', padding: '0 18px', boxShadow: 'none' }} onClick={() => goTo(1)}><ArrowLeft size={16} />Back</button>
+            <button className="submit-btn back-btn" onClick={() => goTo(1)}><ArrowLeft size={16} />Back</button>
             <button className="submit-btn" style={{ flex: 1 }} onClick={handleSignup} disabled={submitting}>
-              {submitting ? 'Creating account…' : 'Create account'}<ArrowRight size={16} />
+              {submitting ? 'Creating account…' : 'Continue'}<ArrowRight size={16} />
             </button>
           </div>
         </div>

@@ -27,7 +27,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register')) {
+    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register') || originalRequest.url?.includes('/auth/check-email')) {
       return Promise.reject(error.response?.data || error);
     }
 
@@ -96,6 +96,7 @@ export { clearTokens };
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
+  checkEmail: (email) => api.post('/auth/check-email', { email }),
   studentSignup: (data) => api.post('/auth/student-signup', data),
   verifyEmail: (data) => api.post('/auth/verify-email', data),
   resendOtp: (data) => api.post('/auth/resend-otp', data),

@@ -162,16 +162,18 @@
   display: flex; justify-content: space-between;
 }
 
-/* Right — marketing panel */
+/* Right — marketing panel
+   Always dark regardless of theme — uses hardcoded dark values
+   so ink/paper semantic swaps don't break the layout. */
 .auth-right {
-  background: var(--rr-ink-900);
-  color: var(--rr-paper);
+  background: #0E0E13;
+  color: #FAFAF7;
   padding: 56px;
   display: flex; flex-direction: column; justify-content: space-between;
   position: relative;
   overflow: hidden;
 }
-[data-theme="dark"] .auth-right { background: linear-gradient(135deg, #1B1A2E 0%, var(--rr-ink-900) 100%); }
+[data-theme="dark"] .auth-right { background: linear-gradient(135deg, #1B1A2E 0%, #0E0E13 100%); }
 @media (max-width: 980px) { .auth-right { display: none; } }
 .auth-right::before {
   content: ""; position: absolute; inset: 0;
