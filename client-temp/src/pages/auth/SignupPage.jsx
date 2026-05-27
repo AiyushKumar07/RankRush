@@ -1,0 +1,288 @@
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft, ArrowRight, User, Mail, Lock,
+  Target, Trophy, HeartPulse, BookOpen, School,
+  Coins, TrendingUp, Flame, Gift,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useAuth } from '../../context/AuthContext'
+import AuthLayout from '../../components/layouts/AuthLayout'
+import './SignupPage.css'
+
+const STEP_LABELS = { 1: 'Account basics', 2: 'Goals', 3: 'Verify email' }
+
+function SignupRightPanel() {
+  return (
+    <>
+      <span className="eyebrow">★ What you get on day one</span>
+      <h2>One token. One quiz. <em>One climb.</em></h2>
+      <div className="perk-list">
+        <div className="perk">
+          <div className="ico"><Coins size={18} /></div>
+          <div><h4>1 free token, instantly</h4><p>Enough to take your first calibration quiz. No card required, no trial countdown.</p></div>
+        </div>
+        <div className="perk">
+          <div className="ico"><TrendingUp size={18} /></div>
+          <div><h4>Live rank bar across the app</h4><p>See where you stand among <b style={{ color: 'var(--rr-paper)' }}>12,481 students</b> after your first attempt — and watch it move every day.</p></div>
+        </div>
+        <div className="perk">
+          <div className="ico"><Flame size={18} /></div>
+          <div><h4>Streak garden grows from day one</h4><p>Each day you study, a cell warms from chalk to amber. Hit 7 days, earn a bonus token.</p></div>
+        </div>
+        <div className="perk">
+          <div className="ico"><Gift size={18} /></div>
+          <div><h4>Refer 5 friends, earn 10 tokens</h4><p>2 tokens for you and 2 for them when they buy any paid plan.</p></div>
+        </div>
+      </div>
+      <div className="signup-counter"><b>247 students</b> joined in the last hour</div>
+    </>
+  )
+}
+
+export default function SignupPage() {
+  const [step, setStep] = useState(1)
+  const [selectedGoal, setSelectedGoal] = useState('jee-main')
+  const [submitting, setSubmitting] = useState(false)
+
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [referralCode, setReferralCode] = useState('')
+
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const otpRefs = useRef([])
+
+  const { studentSignup, verifyEmail, pendingVerification } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (pendingVerification) {
+      setStep(3)
+      setEmail(pendingVerification.email)
+    }
+  }, [pendingVerification])
+
+  const goTo = useCallback((n) => setStep(n), [])
+
+  const pwStrength = (() => {
+    if (password.length < 8) return 'weak'
+    const hasNum = /\d/.test(password)
+    const hasSym = /[^a-zA-Z0-9]/.test(password)
+    if (password.length >= 10 && hasNum && hasSym) return 'strong'
+    if (password.length >= 8 && (hasNum || hasSym)) return 'med'
+    return 'weak'
+  })()
+
+  const handleSignup = async (e) => {
+    e?.preventDefault()
+    if (!firstName || !lastName || !email || !password) {
+      toast.error('Please fill in all fields')
+      return
+    }
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await studentSignup({ firstName, lastName, email, password, referralCode: referralCode || undefined })
+      toast.success('Account created! Check your email for the OTP.')
+      setStep(3)
+    } catch (err) {
+      toast.error(err?.message || 'Signup failed. Try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleOtpChange = (idx, value) => {
+    if (!/^\d?$/.test(value)) return
+    const next = [...otp]
+    next[idx] = value
+    setOtp(next)
+    if (value && idx < 5) otpRefs.current[idx + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (idx, e) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus()
+    }
+  }
+
+  const handleVerify = async () => {
+    const code = otp.join('')
+    if (code.length !== 6) {
+      toast.error('Enter the 6-digit code')
+      return
+    }
+    const userId = pendingVerification?.userId
+    if (!userId) {
+      toast.error('No pending verification. Please sign up again.')
+      setStep(1)
+      return
+    }
+    setSubmitting(true)
+    try {
+      await verifyEmail(userId, code)
+      toast.success('Email verified! Welcome to RankRush.')
+      navigate('/app')
+    } catch (err) {
+      toast.error(err?.message || 'Invalid OTP. Try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="signup-page">
+      <AuthLayout rightPanel={<SignupRightPanel />}>
+
+        {/* Step badge */}
+        <div className="step-label">Step <b>{step}</b> of 3 · {STEP_LABELS[step]}</div>
+        <div className="stepper">
+          <div className={`step-dot${step === 1 ? ' active' : ''}${step > 1 ? ' done' : ''}`}><span>1</span></div>
+          <div className={`step-line${step > 1 ? ' done' : ''}`}></div>
+          <div className={`step-dot${step === 2 ? ' active' : ''}${step > 2 ? ' done' : ''}`}><span>2</span></div>
+          <div className={`step-line${step > 2 ? ' done' : ''}`}></div>
+          <div className={`step-dot${step === 3 ? ' active' : ''}`}><span>3</span></div>
+        </div>
+
+        {/* STEP 1 */}
+        <div className={`step-screen${step === 1 ? ' on' : ''}`}>
+          <span className="eyebrow">Get started</span>
+          <h1>Create your <em>RankRush</em> account.</h1>
+          <p className="sub">Already have one? <Link to="/login">Sign in →</Link></p>
+
+          <div className="oauth-row">
+            <button className="oauth-btn" type="button">
+              <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+              Google
+            </button>
+            <button className="oauth-btn" type="button">
+              <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              Apple
+            </button>
+          </div>
+          <div className="or-row"><hr /><span>or with email</span><hr /></div>
+
+          <form onSubmit={(e) => { e.preventDefault(); goTo(2) }}>
+            <div className="two-col">
+              <div className="form-field">
+                <label>First name</label>
+                <div className="input-shell"><User size={16} className="left" /><input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" /></div>
+              </div>
+              <div className="form-field">
+                <label>Last name</label>
+                <div className="input-shell"><User size={16} className="left" /><input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" /></div>
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Email address</label>
+              <div className="input-shell"><Mail size={16} className="left" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+            </div>
+            <div className="form-field">
+              <label>Password</label>
+              <div className="input-shell"><Lock size={16} className="left" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" /></div>
+              {password && (
+                <>
+                  <div className={`pw-strength ${pwStrength}`}><span></span><span></span><span></span></div>
+                  <div className="pw-hint"><span>Use 10+ characters · 1 number · 1 symbol</span><span className={`lvl ${pwStrength}`}>{pwStrength === 'strong' ? 'Strong' : pwStrength === 'med' ? 'Medium' : 'Weak'}</span></div>
+                </>
+              )}
+            </div>
+            <div className="form-field">
+              <label>Referral code <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--rr-fg-dim)', fontFamily: 'var(--rr-font-sans)' }}>(optional)</span></label>
+              <div className="input-shell"><Gift size={16} className="left" /><input value={referralCode} onChange={(e) => setReferralCode(e.target.value)} placeholder="e.g. RRAB1C2D" /></div>
+            </div>
+            <button className="submit-btn" type="submit">Continue<ArrowRight size={16} /></button>
+          </form>
+          <p className="terms">By continuing you agree to RankRush's <a>Terms</a> and <a>Privacy Policy</a>.</p>
+        </div>
+
+        {/* STEP 2 */}
+        <div className={`step-screen${step === 2 ? ' on' : ''}`}>
+          <span className="eyebrow">Step 02</span>
+          <h1>Tell us what <em>you're prepping for.</em></h1>
+          <p className="sub">We use this to calibrate your quiz library. Change anytime in Profile.</p>
+
+          <div className="two-col">
+            <div className="form-field">
+              <label>Class / Standard</label>
+              <select defaultValue="Class 12">
+                <option>Class 9</option><option>Class 10</option><option>Class 11</option>
+                <option>Class 12</option><option>Dropper</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Board</label>
+              <select defaultValue="CBSE">
+                <option>CBSE</option><option>ICSE</option><option>State board</option><option>IB</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>What are you targeting?</label>
+          </div>
+          <div className="goal-grid">
+            <div className={`goal${selectedGoal === 'jee-main' ? ' on' : ''}`} onClick={() => setSelectedGoal('jee-main')}><div className="ico"><Target size={16} /></div><div className="text"><span className="name">JEE Main</span><span className="desc">PCM · Engineering</span></div></div>
+            <div className={`goal${selectedGoal === 'jee-adv' ? ' on' : ''}`} onClick={() => setSelectedGoal('jee-adv')}><div className="ico"><Trophy size={16} /></div><div className="text"><span className="name">JEE Advanced</span><span className="desc">Top IIT seats</span></div></div>
+            <div className={`goal${selectedGoal === 'neet' ? ' on' : ''}`} onClick={() => setSelectedGoal('neet')}><div className="ico"><HeartPulse size={16} /></div><div className="text"><span className="name">NEET</span><span className="desc">PCB · Medical</span></div></div>
+            <div className={`goal${selectedGoal === 'boards' ? ' on' : ''}`} onClick={() => setSelectedGoal('boards')}><div className="ico"><BookOpen size={16} /></div><div className="text"><span className="name">Board exams</span><span className="desc">Class 10 / 12</span></div></div>
+          </div>
+
+          <div className="form-field">
+            <label>School or coaching centre <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--rr-fg-dim)', fontFamily: 'var(--rr-font-sans)' }}>(optional)</span></label>
+            <div className="input-shell"><School size={16} className="left" /><input placeholder="e.g. Allen Career Institute, Kota" /></div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="submit-btn" style={{ background: 'transparent', color: 'var(--rr-fg-2)', border: '1px solid var(--rr-border-strong)', flex: '0 0 auto', padding: '0 18px', boxShadow: 'none' }} onClick={() => goTo(1)}><ArrowLeft size={16} />Back</button>
+            <button className="submit-btn" style={{ flex: 1 }} onClick={handleSignup} disabled={submitting}>
+              {submitting ? 'Creating account…' : 'Create account'}<ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* STEP 3 */}
+        <div className={`step-screen${step === 3 ? ' on' : ''}`}>
+          <div className="welcome-card">
+            <div className="coin">+1</div>
+            <h2>Welcome{firstName ? `, ${firstName}` : ''}.</h2>
+            <p>Your first token is on us. Take your first quiz today to start a streak.</p>
+          </div>
+          <span className="eyebrow">Step 03 · Almost there</span>
+          <h1>Verify your <em>email.</em></h1>
+          <p className="sub">We sent a 6-digit code to <b style={{ color: 'var(--rr-fg)' }}>{email || pendingVerification?.email}</b>. Didn't get it? <a style={{ cursor: 'pointer' }} onClick={() => toast('OTP resent!', { icon: '📧' })}>Resend</a>.</p>
+
+          <div className="form-field" style={{ marginTop: 8 }}>
+            <label>Verification code</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+              {otp.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => (otpRefs.current[i] = el)}
+                  style={{ padding: 0, textAlign: 'center', fontFamily: 'var(--rr-font-mono)', fontSize: 22, fontWeight: 600, height: 56, background: 'var(--rr-surface)', border: '1.5px solid var(--rr-border-strong)', borderRadius: 'var(--rr-r-md)', color: 'var(--rr-fg)', width: '100%' }}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                  maxLength={1}
+                  inputMode="numeric"
+                />
+              ))}
+            </div>
+          </div>
+
+          <button className="submit-btn lime" onClick={handleVerify} disabled={submitting}>
+            {submitting ? 'Verifying…' : 'Verify & enter dashboard'}<ArrowRight size={16} />
+          </button>
+
+          <p className="terms" style={{ marginTop: 16 }}>Used the wrong email? <a onClick={() => { goTo(1); }} style={{ cursor: 'pointer' }}>Go back to step 1</a></p>
+        </div>
+
+      </AuthLayout>
+    </div>
+  )
+}

@@ -1,0 +1,142 @@
+/* Admin auth — single centered card on dark, deliberately different from student.
+   Communicates: this is a privileged surface. */
+.admin-auth-page { background: var(--rr-bg); min-height: 100vh; display: grid; place-items: center; position: relative; overflow: hidden; }
+
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 0%, transparent 80%);
+  pointer-events: none;
+}
+.bg-glow {
+  position: absolute; pointer-events: none;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, color-mix(in oklab, var(--rr-violet-500) 12%, transparent), transparent 60%);
+}
+
+.admin-card {
+  position: relative;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border-strong);
+  border-radius: var(--rr-r-xl);
+  padding: 36px 32px 28px;
+  box-shadow: var(--rr-shadow-xl);
+  z-index: 1;
+}
+
+.admin-card .top {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rr-border);
+  margin-bottom: 24px;
+}
+.admin-card .top .row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  justify-content: space-between;
+}
+.admin-card .top .env-tag {
+  font-family: var(--rr-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  background: color-mix(in oklab, var(--rr-coral-500) 14%, transparent);
+  color: var(--rr-coral-500);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in oklab, var(--rr-coral-500) 30%, transparent);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.admin-card .top .env-tag::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--rr-coral-500); animation: rr-pulse 1.6s ease-in-out infinite; }
+
+.admin-card h1 {
+  font-family: var(--rr-font-display);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+.admin-card h1 em { font-style: italic; font-weight: 500; color: var(--rr-violet-500); }
+.admin-card .sub { font-size: 13px; color: var(--rr-fg-muted); margin: 0; line-height: 1.5; }
+
+/* Restricted note */
+.restricted {
+  display: flex; align-items: center; gap: 10px;
+  background: color-mix(in oklab, var(--rr-amber-500) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--rr-amber-500) 22%, transparent);
+  border-radius: var(--rr-r-md);
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  color: var(--rr-fg-2);
+  line-height: 1.4;
+}
+.restricted b { color: var(--rr-fg); font-weight: 600; }
+
+.admin-card .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.admin-card .form-field label { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-muted); font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+.admin-card .form-field label a { color: var(--rr-violet-500); font-weight: 600; }
+.admin-card .input-shell { position: relative; }
+.admin-card .input-shell .left { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--rr-fg-muted); pointer-events: none; }
+.admin-card .input-shell input {
+  height: 44px;
+  padding: 0 14px 0 40px;
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border-strong);
+  border-radius: var(--rr-r-md);
+  color: var(--rr-fg);
+  font-family: var(--rr-font-sans);
+  font-size: 14px;
+  width: 100%;
+  transition: all var(--rr-dur-fast);
+}
+.admin-card .input-shell input:focus { outline: none; border-color: var(--rr-violet-400); box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-violet-400) 18%, transparent); }
+.admin-card .input-shell .toggle-pw { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; color: var(--rr-fg-muted); cursor: pointer; width: 28px; height: 28px; border-radius: var(--rr-r-sm); display: grid; place-items: center; }
+
+.totp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.totp-row input { text-align: center; font-family: var(--rr-font-mono); font-size: 18px; letter-spacing: 0.2em; padding: 0; height: 48px; background: var(--rr-bg-alt); border: 1px solid var(--rr-border-strong); border-radius: var(--rr-r-md); color: var(--rr-fg); }
+
+.admin-card .submit-btn {
+  height: 46px;
+  width: 100%;
+  background: var(--rr-violet-500);
+  color: white;
+  border: 0;
+  border-radius: var(--rr-r-md);
+  font-family: var(--rr-font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer;
+  box-shadow: var(--rr-shadow-sm), var(--rr-shadow-glow);
+  transition: all var(--rr-dur-fast);
+  margin-top: 6px;
+}
+.admin-card .submit-btn:hover { background: var(--rr-violet-600); transform: translateY(-1px); }
+
+.admin-card .foot {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rr-border);
+  text-align: center;
+}
+.admin-card .foot a { font-size: 12px; color: var(--rr-fg-muted); }
+.admin-card .foot a:hover { color: var(--rr-violet-500); }
+
+.below-card {
+  text-align: center;
+  margin-top: 24px;
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  color: var(--rr-fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  position: relative; z-index: 1;
+}
+.below-card a { color: var(--rr-fg-muted); }
+.below-card a:hover { color: var(--rr-fg); }

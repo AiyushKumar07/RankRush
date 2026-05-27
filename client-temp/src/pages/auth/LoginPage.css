@@ -1,0 +1,76 @@
+/* Login — right panel marketing (RankBar hero + testimonial) */
+.auth-right .ar-top { display: flex; flex-direction: column; gap: 14px; max-width: 480px; }
+.auth-right .ar-top .eyebrow { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-lime-400); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+.auth-right .ar-top .eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--rr-lime-400); }
+.auth-right .ar-top h2 {
+  font-family: var(--rr-font-display);
+  font-weight: 600;
+  font-size: clamp(32px, 4vw, 48px);
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  color: var(--rr-paper);
+  margin: 0;
+  text-wrap: balance;
+}
+.auth-right .ar-top h2 em { font-style: italic; color: var(--rr-lime-400); font-weight: 500; }
+
+/* Rank bar mini visual */
+.ar-rb {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--rr-r-xl);
+  padding: 22px;
+  margin: 40px 0;
+}
+.ar-rb .lbl { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px; display: flex; justify-content: space-between; }
+.ar-rb .lbl .live { color: var(--rr-coral-400); display: inline-flex; align-items: center; gap: 6px; }
+.ar-rb .lbl .live::before { content: ""; width: 6px; height: 6px; background: var(--rr-coral-400); border-radius: 50%; animation: rr-pulse 1.6s ease-in-out infinite; }
+.ar-rb .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.ar-rb .rank-num { font-family: var(--rr-font-display); font-weight: 700; font-size: 48px; letter-spacing: -0.03em; line-height: 1; color: var(--rr-paper); font-variant-numeric: tabular-nums; }
+.ar-rb .delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: color-mix(in oklab, var(--rr-lime-400) 22%, transparent);
+  color: var(--rr-lime-400);
+  font-family: var(--rr-font-display); font-weight: 700; font-size: 13px;
+  padding: 4px 10px; border-radius: var(--rr-r-full);
+  border: 1px solid color-mix(in oklab, var(--rr-lime-400) 35%, transparent);
+}
+.ar-rb .bar { height: 12px; background: rgba(255,255,255,0.06); border-radius: var(--rr-r-full); overflow: hidden; }
+.ar-rb .bar .fill {
+  height: 100%; width: 88%;
+  background: linear-gradient(90deg, var(--rr-violet-400), var(--rr-cyan-400));
+  border-radius: var(--rr-r-full);
+  box-shadow: 0 0 20px rgba(132,114,255,0.4);
+  animation: bar-bob 3s ease-in-out infinite;
+}
+@keyframes bar-bob {
+  0%, 100% { width: 88%; }
+  50% { width: 89.6%; }
+}
+.ar-rb .meta { display: flex; justify-content: space-between; font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 12px; }
+.ar-rb .meta b { color: var(--rr-paper); font-family: var(--rr-font-display); font-weight: 700; }
+
+.ar-quote {
+  font-family: var(--rr-font-display);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.005em;
+  color: var(--rr-paper);
+  line-height: 1.5;
+  margin: 0 0 14px;
+  text-wrap: pretty;
+}
+.ar-quote-author { display: flex; align-items: center; gap: 10px; }
+.ar-quote-author .av {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--rr-amber-500);
+  color: var(--rr-ink-900);
+  display: grid; place-items: center;
+  font-family: var(--rr-font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+.ar-quote-author .info { display: flex; flex-direction: column; gap: 1px; }
+.ar-quote-author .name { font-size: 12px; color: var(--rr-paper); font-weight: 600; }
+.ar-quote-author .role { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-ink-300); text-transform: uppercase; letter-spacing: 0.08em; }

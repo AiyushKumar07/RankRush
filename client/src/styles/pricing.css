@@ -1,0 +1,61 @@
+/* =====================================================================
+   RankRush — Pricing / Tokens content (new-design page)
+   Shell from `app-shell.css`; tokens/atoms from `rr-tokens.css`.
+   Scoped under `.rr-app.pricing`.
+   ===================================================================== */
+
+/* ---------- Header ---------- */
+.rr-app.pricing .pr-head { text-align: center; max-width: 640px; margin: 0 auto 28px; }
+.rr-app.pricing .pr-head .eyebrow { justify-content: center; margin-bottom: 14px; }
+.rr-app.pricing .pr-head h1 { font-family: var(--rr-font-display); font-weight: 600; font-size: clamp(28px, 5vw, 40px); letter-spacing: -0.03em; line-height: 1.05; margin: 0; }
+.rr-app.pricing .pr-head p { font-size: 15px; color: var(--rr-fg-muted); margin: 12px 0 0; }
+
+/* ---------- Promo code ---------- */
+.rr-app.pricing .promo { max-width: 440px; margin: 0 auto 36px; }
+.rr-app.pricing .promo form { display: flex; gap: 8px; }
+.rr-app.pricing .promo .field-wrap { position: relative; flex: 1; display: flex; align-items: center; }
+.rr-app.pricing .promo .field-wrap > svg { position: absolute; left: 14px; width: 16px; height: 16px; color: var(--rr-fg-dim); pointer-events: none; }
+.rr-app.pricing .promo input { height: 44px; width: 100%; padding: 0 14px 0 40px; background: var(--rr-surface); border: 1px solid var(--rr-border-strong); border-radius: var(--rr-r-md); color: var(--rr-fg); font-family: var(--rr-font-mono); font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: var(--rr-shadow-xs); transition: all var(--rr-dur-fast); }
+.rr-app.pricing .promo input::placeholder { font-family: var(--rr-font-sans); text-transform: none; letter-spacing: normal; color: var(--rr-fg-dim); }
+.rr-app.pricing .promo input:focus { outline: none; border-color: var(--rr-violet-400); box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-violet-400) 18%, transparent); }
+.rr-app.pricing .promo input[disabled] { opacity: 0.6; }
+
+/* ---------- Plans ---------- */
+.rr-app.pricing .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+@media (max-width: 900px) { .rr-app.pricing .plans { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; } }
+.rr-app.pricing .plan-card { position: relative; background: var(--rr-surface); border: 1px solid var(--rr-border); border-radius: var(--rr-r-xl); box-shadow: var(--rr-shadow-sm); padding: 26px; display: flex; flex-direction: column; transition: transform var(--rr-dur-base) var(--rr-ease-soft), box-shadow var(--rr-dur-base), border-color var(--rr-dur-base); }
+.rr-app.pricing .plan-card:hover { transform: translateY(-4px); box-shadow: var(--rr-shadow-lg); }
+.rr-app.pricing .plan-card.popular { border-color: var(--rr-violet-400); box-shadow: var(--rr-shadow-lg), var(--rr-shadow-glow); }
+.rr-app.pricing .plan-ribbon { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--rr-violet-500); color: white; font-family: var(--rr-font-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; padding: 5px 14px; border-radius: var(--rr-r-full); display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--rr-shadow-glow); white-space: nowrap; }
+.rr-app.pricing .plan-ribbon svg { width: 12px; height: 12px; }
+.rr-app.pricing .plan-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.rr-app.pricing .plan-top h3 { font-family: var(--rr-font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.02em; margin: 0 0 4px; }
+.rr-app.pricing .plan-top .desc { font-size: 12px; color: var(--rr-fg-muted); line-height: 1.4; }
+.rr-app.pricing .plan-icon { width: 46px; height: 46px; border-radius: var(--rr-r-md); display: grid; place-items: center; flex-shrink: 0; }
+.rr-app.pricing .plan-icon svg { width: 22px; height: 22px; }
+.rr-app.pricing .plan-icon.emerald { background: color-mix(in oklab, var(--rr-emerald-500) 16%, transparent); color: var(--rr-emerald-500); }
+.rr-app.pricing .plan-icon.cyan { background: color-mix(in oklab, var(--rr-cyan-500) 16%, transparent); color: var(--rr-cyan-600); }
+.rr-app.pricing[data-theme="dark"] .plan-icon.cyan { color: var(--rr-cyan-300); }
+.rr-app.pricing .plan-icon.violet { background: var(--rr-violet-50); color: var(--rr-violet-600); }
+.rr-app.pricing[data-theme="dark"] .plan-icon.violet { background: color-mix(in oklab, var(--rr-violet-500) 20%, transparent); color: var(--rr-violet-200); }
+
+.rr-app.pricing .plan-price { display: flex; align-items: flex-end; gap: 8px; padding: 16px; background: var(--rr-bg-alt); border: 1px solid var(--rr-border); border-radius: var(--rr-r-md); margin-bottom: 18px; }
+.rr-app.pricing .plan-price .cur { font-size: 16px; font-weight: 600; color: var(--rr-fg-muted); align-self: flex-start; margin-top: 6px; }
+.rr-app.pricing .plan-price .amt { font-family: var(--rr-font-display); font-weight: 700; font-size: 42px; letter-spacing: -0.03em; line-height: 1; color: var(--rr-fg); font-variant-numeric: tabular-nums; }
+.rr-app.pricing .plan-price .amt.disc { color: var(--rr-emerald-500); }
+.rr-app.pricing .plan-price .was { font-family: var(--rr-font-display); font-weight: 700; font-size: 22px; color: var(--rr-fg-dim); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--rr-coral-500) 60%, transparent); }
+.rr-app.pricing .plan-price .per { font-size: 13px; color: var(--rr-fg-muted); margin-bottom: 4px; }
+.rr-app.pricing .plan-tokens { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--rr-violet-500); margin-bottom: 18px; }
+.rr-app.pricing .plan-tokens svg { width: 15px; height: 15px; }
+
+.rr-app.pricing .plan-features { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+.rr-app.pricing .plan-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--rr-fg-2); }
+.rr-app.pricing .plan-features .tick { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: color-mix(in oklab, var(--rr-emerald-500) 16%, transparent); color: var(--rr-emerald-500); margin-top: 1px; }
+.rr-app.pricing .plan-features .tick svg { width: 11px; height: 11px; }
+.rr-app.pricing .plan-card .cta { width: 100%; }
+
+/* ---------- Trust ---------- */
+.rr-app.pricing .trust { text-align: center; margin-top: 40px; }
+.rr-app.pricing .trust .lbl { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--rr-fg-dim); margin-bottom: 10px; }
+.rr-app.pricing .trust .brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--rr-font-display); font-weight: 700; font-size: 20px; color: var(--rr-fg); }
+.rr-app.pricing .trust .brand svg { width: 22px; height: 22px; color: var(--rr-cyan-600); }

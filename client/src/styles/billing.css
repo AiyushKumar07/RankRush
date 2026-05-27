@@ -1,0 +1,50 @@
+/* =====================================================================
+   RankRush — Billing / Transaction history content (new-design page)
+   Shell from `app-shell.css`; tokens/atoms from `rr-tokens.css`.
+   Scoped under `.rr-app.billing`.
+   ===================================================================== */
+
+/* ---------- Header ---------- */
+.rr-app.billing .bl-head { margin-bottom: 22px; }
+.rr-app.billing .bl-head .eyebrow { margin-bottom: 10px; }
+.rr-app.billing .bl-head h1 { font-family: var(--rr-font-display); font-weight: 600; font-size: clamp(24px, 4vw, 30px); letter-spacing: -0.02em; margin: 0; }
+.rr-app.billing .bl-head p { font-size: 14px; color: var(--rr-fg-muted); margin: 8px 0 0; max-width: 56ch; }
+
+/* ---------- Summary ---------- */
+.rr-app.billing .bl-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+@media (max-width: 720px) { .rr-app.billing .bl-summary { grid-template-columns: 1fr; } }
+.rr-app.billing .bl-sum { background: var(--rr-surface); border: 1px solid var(--rr-border); border-radius: var(--rr-r-lg); box-shadow: var(--rr-shadow-xs); padding: 18px; display: flex; align-items: center; gap: 14px; }
+.rr-app.billing .bl-sum .ic { width: 40px; height: 40px; border-radius: var(--rr-r-md); display: grid; place-items: center; flex-shrink: 0; }
+.rr-app.billing .bl-sum .ic svg { width: 19px; height: 19px; }
+.rr-app.billing .bl-sum.violet .ic { background: var(--rr-violet-50); color: var(--rr-violet-600); }
+.rr-app.billing[data-theme="dark"] .bl-sum.violet .ic { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); color: var(--rr-violet-200); }
+.rr-app.billing .bl-sum.emerald .ic { background: color-mix(in oklab, var(--rr-emerald-500) 16%, transparent); color: var(--rr-emerald-500); }
+.rr-app.billing .bl-sum.cyan .ic { background: color-mix(in oklab, var(--rr-cyan-500) 16%, transparent); color: var(--rr-cyan-600); }
+.rr-app.billing[data-theme="dark"] .bl-sum.cyan .ic { color: var(--rr-cyan-300); }
+.rr-app.billing .bl-sum .v { font-family: var(--rr-font-display); font-weight: 700; font-size: 24px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rr-app.billing .bl-sum .k { font-size: 12px; color: var(--rr-fg-muted); margin-top: 4px; }
+
+/* ---------- Tabs ---------- */
+.rr-app.billing .bl-tabs { display: inline-flex; gap: 4px; background: var(--rr-bg); border: 1px solid var(--rr-border); border-radius: var(--rr-r-md); padding: 4px; margin-bottom: 16px; }
+.rr-app.billing .bl-tabs button { padding: 8px 16px; border-radius: var(--rr-r-sm); font-size: 13px; font-weight: 500; color: var(--rr-fg-muted); background: transparent; border: 0; }
+.rr-app.billing .bl-tabs button:hover { color: var(--rr-fg); }
+.rr-app.billing .bl-tabs button.on { background: var(--rr-ink-900); color: var(--rr-bg); box-shadow: var(--rr-shadow-sm); }
+.rr-app.billing[data-theme="dark"] .bl-tabs button.on { background: var(--rr-paper); color: var(--rr-ink-900); }
+
+/* ---------- Table ---------- */
+.rr-app.billing .bl-table-card { background: var(--rr-surface); border: 1px solid var(--rr-border); border-radius: var(--rr-r-lg); box-shadow: var(--rr-shadow-xs); overflow: hidden; }
+.rr-app.billing .bl-scroll { overflow-x: auto; }
+.rr-app.billing table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.rr-app.billing thead th { text-align: left; font-family: var(--rr-font-mono); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-dim); padding: 14px 20px; background: var(--rr-bg-alt); border-bottom: 1px solid var(--rr-border); white-space: nowrap; }
+.rr-app.billing tbody td { padding: 14px 20px; border-bottom: 1px solid var(--rr-border); vertical-align: middle; }
+.rr-app.billing tbody tr:last-child td { border-bottom: 0; }
+.rr-app.billing tbody tr:hover { background: var(--rr-bg-alt); }
+.rr-app.billing .td-date { font-size: 13px; color: var(--rr-fg-2); white-space: nowrap; }
+.rr-app.billing .td-desc .d { font-size: 13px; font-weight: 500; color: var(--rr-fg); text-transform: capitalize; }
+.rr-app.billing .td-desc .tok { font-family: var(--rr-font-mono); font-size: 11px; margin-top: 2px; }
+.rr-app.billing .td-desc .tok.pos { color: var(--rr-emerald-500); }
+.rr-app.billing .td-desc .tok.neg { color: var(--rr-coral-500); }
+.rr-app.billing .td-amt { font-family: var(--rr-font-display); font-weight: 700; font-size: 14px; color: var(--rr-fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rr-app.billing .bl-empty { padding: 56px 24px; text-align: center; color: var(--rr-fg-muted); }
+.rr-app.billing .bl-empty svg { width: 28px; height: 28px; color: var(--rr-fg-dim); margin: 0 auto 12px; display: block; }
+.rr-app.billing .bl-empty p { font-size: 13px; }

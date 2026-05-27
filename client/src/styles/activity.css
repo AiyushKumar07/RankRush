@@ -1,0 +1,213 @@
+/* =====================================================================
+   RankRush — Student Activity page (new-design)
+   Shell (sidebar + topbar) from `app-shell.css`; tokens from `rr-tokens.css`.
+   Scoped under `.rr-app.activity`.
+   ===================================================================== */
+
+/* ---------- Page header ---------- */
+.rr-app.activity .act-head { margin-bottom: 24px; }
+.rr-app.activity .act-head .eyebrow { margin-bottom: 10px; }
+.rr-app.activity .act-head h1 {
+  font-family: var(--rr-font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 4vw, 34px);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0;
+}
+.rr-app.activity .act-head h1 .accent { color: var(--rr-violet-500); }
+.rr-app.activity .act-head p { font-size: 14px; color: var(--rr-fg-muted); margin: 10px 0 0; max-width: 56ch; }
+
+/* ---------- Stat strip ---------- */
+.rr-app.activity .stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) { .rr-app.activity .stat-strip { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .rr-app.activity .stat-strip { grid-template-columns: 1fr; } }
+.rr-app.activity .stat-strip .stat {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-lg);
+  box-shadow: var(--rr-shadow-xs);
+  padding: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.rr-app.activity .stat-strip .stat .ico {
+  width: 38px; height: 38px;
+  border-radius: var(--rr-r-sm);
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.rr-app.activity .stat-strip .stat .ico svg { width: 17px; height: 17px; }
+.rr-app.activity .stat-strip .stat .lbl { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-muted); }
+.rr-app.activity .stat-strip .stat .v { font-family: var(--rr-font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--rr-fg); }
+.rr-app.activity .stat-strip .stat.amber .ico { background: color-mix(in oklab, var(--rr-amber-500) 16%, transparent); color: var(--rr-amber-500); }
+.rr-app.activity .stat-strip .stat.violet .ico { background: var(--rr-violet-50); color: var(--rr-violet-600); }
+.rr-app.activity[data-theme="dark"] .stat-strip .stat.violet .ico { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); color: var(--rr-violet-200); }
+.rr-app.activity .stat-strip .stat.emerald .ico { background: color-mix(in oklab, var(--rr-emerald-500) 16%, transparent); color: var(--rr-emerald-500); }
+.rr-app.activity .stat-strip .stat.cyan .ico { background: color-mix(in oklab, var(--rr-cyan-500) 16%, transparent); color: var(--rr-cyan-600); }
+.rr-app.activity[data-theme="dark"] .stat-strip .stat.cyan .ico { color: var(--rr-cyan-300); }
+
+/* ---------- Heatmap ---------- */
+.rr-app.activity .heatmap-card {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-lg);
+  box-shadow: var(--rr-shadow-xs);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.rr-app.activity .heatmap-card .card-head { margin-bottom: 16px; }
+.rr-app.activity .heatmap-card .card-head .lbl { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-muted); margin-bottom: 4px; }
+.rr-app.activity .heatmap-card .card-head h2 { font-family: var(--rr-font-display); font-weight: 600; font-size: 18px; letter-spacing: -0.015em; margin: 0; }
+
+/* Heatmap grid */
+.rr-app.activity .heatmap-wrap { overflow-x: auto; }
+.rr-app.activity .heatmap-container { display: flex; align-items: flex-end; gap: 16px; }
+.rr-app.activity .heatmap-dow { display: flex; flex-direction: column; justify-content: space-between; font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-dim); padding-bottom: 2px; }
+.rr-app.activity .heatmap-months { display: flex; font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-dim); margin-bottom: 6px; }
+.rr-app.activity .heatmap-grid { display: flex; }
+.rr-app.activity .heatmap-col { display: flex; flex-direction: column; }
+.rr-app.activity .heatmap-cell {
+  border-radius: 3px;
+  border: 1px solid var(--rr-border);
+  background: var(--rr-bg-alt);
+  transition: transform 150ms var(--rr-ease-soft);
+  cursor: pointer;
+}
+.rr-app.activity .heatmap-cell:hover { transform: scale(1.35); }
+.rr-app.activity .heatmap-cell.l1 { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); border-color: color-mix(in oklab, var(--rr-violet-500) 28%, transparent); }
+.rr-app.activity .heatmap-cell.l2 { background: color-mix(in oklab, var(--rr-violet-500) 38%, transparent); border-color: color-mix(in oklab, var(--rr-violet-400) 40%, transparent); }
+.rr-app.activity .heatmap-cell.l3 { background: color-mix(in oklab, var(--rr-violet-400) 60%, transparent); border-color: color-mix(in oklab, var(--rr-violet-300) 50%, transparent); }
+.rr-app.activity .heatmap-cell.l4 { background: var(--rr-violet-500); border-color: var(--rr-violet-400); }
+.rr-app.activity .heatmap-cell.future { opacity: 0.3; cursor: default; }
+
+.rr-app.activity .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; justify-content: flex-end; font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-dim); }
+.rr-app.activity .heatmap-legend .swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--rr-border); }
+.rr-app.activity .heatmap-legend .swatch.l0 { background: var(--rr-bg-alt); }
+.rr-app.activity .heatmap-legend .swatch.l1 { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); border-color: color-mix(in oklab, var(--rr-violet-500) 28%, transparent); }
+.rr-app.activity .heatmap-legend .swatch.l2 { background: color-mix(in oklab, var(--rr-violet-500) 38%, transparent); border-color: color-mix(in oklab, var(--rr-violet-400) 40%, transparent); }
+.rr-app.activity .heatmap-legend .swatch.l3 { background: color-mix(in oklab, var(--rr-violet-400) 60%, transparent); border-color: color-mix(in oklab, var(--rr-violet-300) 50%, transparent); }
+.rr-app.activity .heatmap-legend .swatch.l4 { background: var(--rr-violet-500); border-color: var(--rr-violet-400); }
+
+.rr-app.activity .heatmap-totals { display: flex; gap: 16px; margin-top: 14px; font-size: 12px; color: var(--rr-fg-muted); }
+.rr-app.activity .heatmap-totals b { color: var(--rr-fg); font-weight: 600; }
+
+/* Tooltip */
+.rr-app.activity .hm-tooltip {
+  position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--rr-r-sm);
+  background: var(--rr-ink-900); color: var(--rr-paper);
+  font-size: 11px; white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--rr-shadow-md);
+  z-index: 10;
+}
+.rr-app.activity .hm-tooltip b { color: var(--rr-lime-400); }
+
+/* ---------- Attempt History ---------- */
+.rr-app.activity .history-card {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-lg);
+  box-shadow: var(--rr-shadow-xs);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.rr-app.activity .history-card .card-head {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--rr-border);
+}
+.rr-app.activity .history-card .card-head .lbl { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-muted); margin-bottom: 4px; }
+.rr-app.activity .history-card .card-head h2 { font-family: var(--rr-font-display); font-weight: 600; font-size: 18px; letter-spacing: -0.015em; margin: 0; }
+
+.rr-app.activity .history-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rr-app.activity .history-table thead th {
+  text-align: left;
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rr-fg-muted);
+  font-weight: 500;
+  background: var(--rr-bg-alt);
+  border-bottom: 1px solid var(--rr-border);
+  padding: 10px 18px;
+  white-space: nowrap;
+}
+.rr-app.activity .history-table thead th.right { text-align: right; }
+.rr-app.activity .history-table tbody td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rr-border);
+  font-size: 13px;
+  color: var(--rr-fg-2);
+  vertical-align: middle;
+}
+.rr-app.activity .history-table tbody td.right { text-align: right; }
+.rr-app.activity .history-table tbody tr:last-child td { border-bottom: 0; }
+.rr-app.activity .history-table tbody tr:hover { background: var(--rr-bg-alt); }
+.rr-app.activity .history-table .quiz-cell { display: flex; flex-direction: column; gap: 2px; }
+.rr-app.activity .history-table .quiz-cell .nm { font-weight: 500; color: var(--rr-fg); }
+.rr-app.activity .history-table .quiz-cell .sub { font-size: 11px; color: var(--rr-fg-muted); }
+
+/* Status badges in table */
+.rr-app.activity .status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+}
+.rr-app.activity .status-badge svg { width: 14px; height: 14px; }
+.rr-app.activity .status-badge.completed { color: var(--rr-emerald-500); }
+.rr-app.activity .status-badge.failed { color: var(--rr-coral-500); }
+.rr-app.activity .status-badge.in-progress { color: var(--rr-fg-muted); }
+.rr-app.activity .score-cell { font-weight: 600; color: var(--rr-fg); }
+.rr-app.activity .score-cell small { color: var(--rr-fg-muted); font-weight: 400; }
+.rr-app.activity .score-cell .pct {
+  margin-left: 8px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--rr-bg-alt);
+  color: var(--rr-fg-muted);
+  font-weight: 500;
+}
+.rr-app.activity .time-cell { color: var(--rr-fg-2); font-family: var(--rr-font-mono); font-size: 12px; }
+.rr-app.activity .date-cell { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-dim); }
+
+/* ---------- Activity Feed ---------- */
+.rr-app.activity .feed-card {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-lg);
+  box-shadow: var(--rr-shadow-xs);
+  padding: 24px;
+}
+.rr-app.activity .feed-card .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.rr-app.activity .feed-card .card-head .lbl { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rr-fg-muted); margin-bottom: 4px; }
+.rr-app.activity .feed-card .card-head h2 { font-family: var(--rr-font-display); font-weight: 600; font-size: 18px; letter-spacing: -0.015em; margin: 0; }
+
+.rr-app.activity .feed-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+}
+.rr-app.activity .feed-row + .feed-row { border-top: 1px solid var(--rr-border); }
+.rr-app.activity .feed-row .ico {
+  width: 36px; height: 36px; border-radius: var(--rr-r-sm);
+  display: grid; place-items: center;
+  background: var(--rr-bg-alt); color: var(--rr-fg-2);
+}
+.rr-app.activity .feed-row .ico svg { width: 16px; height: 16px; }
+.rr-app.activity .feed-row.emerald .ico { background: color-mix(in oklab, var(--rr-emerald-500) 14%, transparent); color: var(--rr-emerald-500); }
+.rr-app.activity .feed-row.amber .ico { background: color-mix(in oklab, var(--rr-amber-500) 16%, transparent); color: var(--rr-amber-500); }
+.rr-app.activity .feed-row.violet .ico { background: var(--rr-violet-50); color: var(--rr-violet-600); }
+.rr-app.activity[data-theme="dark"] .feed-row.violet .ico { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); color: var(--rr-violet-200); }
+.rr-app.activity .feed-row.cyan .ico { background: color-mix(in oklab, var(--rr-cyan-500) 16%, transparent); color: var(--rr-cyan-600); }
+.rr-app.activity .feed-row .t { font-size: 13px; font-weight: 500; color: var(--rr-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr-app.activity .feed-row .m { font-size: 11px; color: var(--rr-fg-muted); }
+.rr-app.activity .feed-row .when { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-dim); white-space: nowrap; }

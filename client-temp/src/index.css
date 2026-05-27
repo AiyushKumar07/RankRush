@@ -1,0 +1,240 @@
+@import "tailwindcss";
+
+/* =====================================================================
+   RankRush — Design Tokens
+   Single source of truth. Imported via main.jsx.
+   - Tailwind 4 @theme block exposes tokens as utilities (bg-rr-violet-500, etc.)
+   - :root + [data-theme="dark"] define the runtime CSS variables used by
+     components (var(--rr-bg), var(--rr-surface), etc.)
+   Components should prefer var(--rr-*) over hex literals so theme switching
+   stays in one place.
+   ===================================================================== */
+
+@theme {
+  /* --- Brand --- */
+  --color-rr-violet-50:  #F1EEFF;
+  --color-rr-violet-100: #E0D9FF;
+  --color-rr-violet-200: #C2B7FF;
+  --color-rr-violet-300: #A091FF;
+  --color-rr-violet-400: #8472FF;
+  --color-rr-violet-500: #6D5BFF;
+  --color-rr-violet-600: #5742F0;
+  --color-rr-violet-700: #4332C2;
+  --color-rr-violet-800: #322695;
+  --color-rr-violet-900: #221B66;
+
+  --color-rr-lime-300:   #DCFF66;
+  --color-rr-lime-400:   #CCF53D;
+  --color-rr-lime-500:   #B7E224;
+
+  --color-rr-cyan-300:   #6BEDDB;
+  --color-rr-cyan-400:   #2BDDC8;
+  --color-rr-cyan-500:   #06D8C2;
+  --color-rr-cyan-600:   #00B5A2;
+
+  --color-rr-coral-400:  #FF7A5C;
+  --color-rr-coral-500:  #F25A38;
+  --color-rr-amber-400:  #FFC65C;
+  --color-rr-amber-500:  #F5A623;
+  --color-rr-emerald-500:#22C55E;
+
+  /* --- Neutrals (light surface refs — dark mode swaps via [data-theme]) --- */
+  --color-rr-paper:   #FAFAF7;
+  --color-rr-paper-2: #F4F2EC;
+  --color-rr-card:    #FFFFFF;
+  --color-rr-line:    #ECEAE2;
+  --color-rr-line-2:  #DEDBD0;
+  --color-rr-ink-900: #0E0E13;
+  --color-rr-ink-700: #2A2A33;
+  --color-rr-ink-500: #54545E;
+  --color-rr-ink-400: #76767F;
+  --color-rr-ink-300: #9D9DA6;
+  --color-rr-ink-200: #BFBFC6;
+
+  /* --- Fonts --- */
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", "Geist", sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, monospace;
+
+  /* --- Radii --- */
+  --radius-rr-xs:  6px;
+  --radius-rr-sm:  8px;
+  --radius-rr-md:  12px;
+  --radius-rr-lg:  16px;
+  --radius-rr-xl:  20px;
+  --radius-rr-2xl: 24px;
+}
+
+/* =====================================================================
+   Runtime CSS variables (theme-switched)
+   ===================================================================== */
+:root {
+  /* Semantic */
+  --rr-bg:             #FAFAF7;
+  --rr-bg-alt:         #F4F2EC;
+  --rr-surface:        #FFFFFF;
+  --rr-border:         #ECEAE2;
+  --rr-border-strong:  #DEDBD0;
+  --rr-fg:             #0E0E13;
+  --rr-fg-2:           #2A2A33;
+  --rr-fg-muted:       #54545E;
+  --rr-fg-dim:         #76767F;
+  --rr-fg-ghost:       #9D9DA6;
+
+  /* Brand (raw refs — for inline styles in JS) */
+  --rr-violet-50:  #F1EEFF;
+  --rr-violet-100: #E0D9FF;
+  --rr-violet-200: #C2B7FF;
+  --rr-violet-300: #A091FF;
+  --rr-violet-400: #8472FF;
+  --rr-violet-500: #6D5BFF;
+  --rr-violet-600: #5742F0;
+  --rr-violet-700: #4332C2;
+  --rr-lime-300:   #DCFF66;
+  --rr-lime-400:   #CCF53D;
+  --rr-lime-500:   #B7E224;
+  --rr-cyan-300:   #6BEDDB;
+  --rr-cyan-400:   #2BDDC8;
+  --rr-cyan-500:   #06D8C2;
+  --rr-cyan-600:   #00B5A2;
+  --rr-coral-400:  #FF7A5C;
+  --rr-coral-500:  #F25A38;
+  --rr-amber-400:  #FFC65C;
+  --rr-amber-500:  #F5A623;
+  --rr-emerald-500:#22C55E;
+  --rr-paper:      #FAFAF7;
+  --rr-ink-900:    #0E0E13;
+  --rr-ink-700:    #2A2A33;
+  --rr-ink-300:    #9D9DA6;
+
+  /* Shadows */
+  --rr-shadow-xs:   0 1px 2px rgba(14,14,19,.05);
+  --rr-shadow-sm:   0 2px 4px rgba(14,14,19,.05), 0 1px 2px rgba(14,14,19,.04);
+  --rr-shadow-md:   0 6px 16px -4px rgba(14,14,19,.08), 0 2px 4px -2px rgba(14,14,19,.05);
+  --rr-shadow-lg:   0 12px 32px -8px rgba(14,14,19,.12), 0 4px 8px -4px rgba(14,14,19,.06);
+  --rr-shadow-xl:   0 24px 48px -12px rgba(14,14,19,.16), 0 8px 16px -8px rgba(14,14,19,.08);
+  --rr-shadow-glow: 0 8px 28px -8px rgba(109,91,255,.35);
+
+  /* Radii */
+  --rr-r-xs: 6px; --rr-r-sm: 8px; --rr-r-md: 12px;
+  --rr-r-lg: 16px; --rr-r-xl: 20px; --rr-r-2xl: 24px;
+  --rr-r-full: 9999px;
+
+  /* Type */
+  --rr-font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rr-font-display: "Bricolage Grotesque", "Geist", sans-serif;
+  --rr-font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Motion */
+  --rr-ease-out:    cubic-bezier(.16,1,.3,1);
+  --rr-ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --rr-ease-soft:   cubic-bezier(.4,0,.2,1);
+  --rr-dur-fast: 140ms;
+  --rr-dur-base: 220ms;
+  --rr-dur-slow: 420ms;
+}
+
+[data-theme="dark"] {
+  --rr-bg:            #0B0B12;
+  --rr-bg-alt:        #10101A;
+  --rr-surface:       #16161F;
+  --rr-border:        #23232E;
+  --rr-border-strong: #2E2E3B;
+  --rr-fg:            #F4F4F7;
+  --rr-fg-2:          #DBDBE0;
+  --rr-fg-muted:      #A6A6AE;
+  --rr-fg-dim:        #84848E;
+  --rr-fg-ghost:      #5E5E68;
+
+  --rr-paper:    #0B0B12;
+  --rr-ink-900:  #F4F4F7;
+  --rr-ink-700:  #DBDBE0;
+  --rr-ink-300:  #5E5E68;
+
+  --rr-shadow-xs: 0 1px 2px rgba(0,0,0,.4);
+  --rr-shadow-sm: 0 2px 4px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.3);
+  --rr-shadow-md: 0 6px 16px -4px rgba(0,0,0,.5), 0 2px 4px -2px rgba(0,0,0,.35);
+  --rr-shadow-lg: 0 12px 32px -8px rgba(0,0,0,.55), 0 4px 8px -4px rgba(0,0,0,.4);
+  --rr-shadow-xl: 0 24px 48px -12px rgba(0,0,0,.6), 0 8px 16px -8px rgba(0,0,0,.5);
+  --rr-shadow-glow: 0 8px 28px -4px rgba(132,114,255,.35);
+}
+
+/* =====================================================================
+   Base
+   ===================================================================== */
+@layer base {
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: hidden; }
+  body {
+    background: var(--rr-bg);
+    color: var(--rr-fg);
+    font-family: var(--rr-font-sans);
+    font-feature-settings: "ss01","cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 15px;
+    line-height: 1.5;
+    transition: background var(--rr-dur-base) var(--rr-ease-soft),
+                color var(--rr-dur-base) var(--rr-ease-soft);
+  }
+  ::selection { background: var(--rr-violet-200); color: var(--rr-ink-900); }
+  [data-theme="dark"] ::selection { background: var(--rr-violet-700); color: #F4F4F7; }
+  button { font-family: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  .font-mono { font-family: var(--rr-font-mono); }
+  .font-display { font-family: var(--rr-font-display); }
+}
+
+/* =====================================================================
+   Component primitives (CSS classes — opt-in)
+   These are the same component classes used in the HTML mocks. Components
+   can either use these via className, or use Tailwind utilities directly.
+   ===================================================================== */
+
+/* Brand mark */
+.rr-mark {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(140deg, var(--rr-violet-500) 0%, var(--rr-violet-700) 100%);
+  display: grid; place-items: center;
+  box-shadow: var(--rr-shadow-glow);
+  flex-shrink: 0;
+}
+.rr-mark.sm { width: 22px; height: 22px; border-radius: 6px; }
+.rr-mark.lg { width: 44px; height: 44px; border-radius: 12px; }
+.rr-mark svg { width: 60%; height: 60%; }
+.rr-name { font-family: var(--rr-font-display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+.rr-name b { color: var(--rr-violet-500); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--rr-font-sans); font-weight: 500; font-size: 14px;
+  height: 40px; padding: 0 18px;
+  border-radius: var(--rr-r-md);
+  border: 1px solid transparent;
+  transition: all var(--rr-dur-fast) var(--rr-ease-soft);
+  white-space: nowrap; background: transparent; color: var(--rr-fg);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:focus-visible { outline: 2px solid var(--rr-violet-500); outline-offset: 2px; }
+.btn[disabled] { opacity: 0.5; pointer-events: none; }
+.btn i { font-size: 16px; }
+
+.btn-primary { background: var(--rr-ink-900); color: var(--rr-bg); box-shadow: var(--rr-shadow-sm); }
+[data-theme="dark"] .btn-primary { background: var(--rr-paper); color: #0E0E13; }
+.btn-accent { background: var(--rr-violet-500); color: white; box-shadow: var(--rr-shadow-sm), var(--rr-shadow-glow); }
+.btn-accent:hover { background: var(--rr-violet-600); color: white; }
+.btn-secondary { background: var(--rr-surface); color: var(--rr-fg); border-color: var(--rr-border-strong); }
+.btn-secondary:hover { background: var(--rr-bg-alt); }
+.btn-ghost { background: transparent; color: var(--rr-fg-2); }
+.btn-ghost:hover { background: var(--rr-bg-alt); color: var(--rr-fg); }
+.btn-lime { background: var(--rr-lime-400); color: #0E0E13; }
+.btn-lime:hover { background: var(--rr-lime-300); color: #0E0E13; }
+.btn-sm { height: 32px; padding: 0 14px; font-size: 12px; border-radius: var(--rr-r-sm); }
+.btn-lg { height: 52px; padding: 0 26px; font-size: 15px; }

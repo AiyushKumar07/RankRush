@@ -1,0 +1,101 @@
+/* =====================================================================
+   RankRush — Student app shell (shared sidebar + topbar + main)
+   ---------------------------------------------------------------------
+   Rendered by <StudentShell>. Every new-design student page wraps its
+   content in that shell, whose root carries `class="rr-scope rr-app <page>"`
+   plus `data-theme` / `data-plan`. Shared atoms/tokens live in
+   `rr-tokens.css`; per-page content styles live in `<page>.css` scoped
+   under `.rr-app.<page>`. These rules are page-agnostic (`.rr-app …`).
+   ===================================================================== */
+
+/* ---------- Shell grid ---------- */
+.rr-app {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--rr-bg-alt);
+  overflow-x: hidden;
+}
+@media (max-width: 980px) { .rr-app { grid-template-columns: 64px minmax(0, 1fr); } }
+@media (max-width: 720px) { .rr-app { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Sidebar ---------- */
+.rr-app .sidebar { background: var(--rr-bg); border-right: 1px solid var(--rr-border); padding: 18px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+@media (max-width: 980px) { .rr-app .sidebar { padding: 18px 8px; } }
+@media (max-width: 720px) { .rr-app .sidebar { display: none; } }
+.rr-app .sidebar .rr-brand { padding: 4px 8px; }
+@media (max-width: 980px) { .rr-app .sidebar .rr-name, .rr-app .sidebar .sb-label, .rr-app .sidebar .sb-item span, .rr-app .sidebar .sb-footer { display: none; } .rr-app .sidebar .sb-item { justify-content: center; padding: 10px; } }
+.rr-app .sb-group { display: flex; flex-direction: column; gap: 2px; }
+.rr-app .sb-label { font-family: var(--rr-font-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--rr-fg-dim); text-transform: uppercase; padding: 8px 10px 4px; }
+.rr-app .sb-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--rr-r-sm); color: var(--rr-fg-2); font-size: 13px; font-weight: 500; transition: all var(--rr-dur-fast); position: relative; cursor: pointer; }
+.rr-app .sb-item:hover { background: var(--rr-bg-alt); color: var(--rr-fg); }
+.rr-app .sb-item.active { background: var(--rr-violet-50); color: var(--rr-violet-700); }
+.rr-app[data-theme="dark"] .sb-item.active { background: color-mix(in oklab, var(--rr-violet-500) 18%, transparent); color: var(--rr-violet-200); }
+.rr-app .sb-item.active::before { content: ""; position: absolute; left: -16px; top: 6px; bottom: 6px; width: 3px; background: var(--rr-violet-500); border-radius: 2px; }
+.rr-app .sb-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+.rr-app .sb-item .pill { margin-left: auto; font-family: var(--rr-font-mono); font-size: 9px; background: var(--rr-bg-alt); padding: 2px 6px; border-radius: 999px; color: var(--rr-fg-muted); letter-spacing: 0.04em; }
+.rr-app .sb-item.active .pill { background: var(--rr-violet-100); color: var(--rr-violet-700); }
+.rr-app[data-theme="dark"] .sb-item.active .pill { background: color-mix(in oklab, var(--rr-violet-500) 26%, transparent); color: var(--rr-violet-100); }
+.rr-app[data-plan="free"] .sb-item[data-pricing] .pill { background: var(--rr-lime-400); color: var(--rr-ink-900); font-weight: 700; }
+/* "Coming soon" sidebar items — muted, non-clickable */
+.rr-app .sb-item.soon { opacity: 0.55; pointer-events: none; cursor: default; }
+.rr-app .sb-item.soon svg { color: var(--rr-fg-dim); }
+.rr-app .pill.soon { background: color-mix(in oklab, var(--rr-amber-500) 16%, transparent); color: var(--rr-amber-500); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.rr-app[data-theme="dark"] .pill.soon { color: var(--rr-amber-400); }
+
+.rr-app .sb-footer { margin-top: auto; background: var(--rr-bg-alt); border: 1px solid var(--rr-border); border-radius: var(--rr-r-md); padding: 14px; }
+.rr-app .sb-footer .avatar-block { display: flex; align-items: center; gap: 10px; }
+.rr-app .sb-footer .avatar-link { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; border-radius: var(--rr-r-sm); }
+.rr-app .sb-footer .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(140deg, var(--rr-violet-500), var(--rr-violet-700)); display: grid; place-items: center; color: white; font-family: var(--rr-font-display); font-weight: 700; font-size: 13px; flex-shrink: 0; overflow: hidden; }
+.rr-app .sb-footer .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rr-app .sb-footer .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rr-app .sb-footer .name { font-size: 13px; font-weight: 600; color: var(--rr-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr-app .sb-footer .plan { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.rr-app .sb-footer .logout { margin-left: auto; flex-shrink: 0; width: 30px; height: 30px; border-radius: var(--rr-r-sm); border: 1px solid var(--rr-border); background: var(--rr-surface); color: var(--rr-fg-muted); display: grid; place-items: center; transition: all var(--rr-dur-fast); }
+.rr-app .sb-footer .logout:hover { color: var(--rr-coral-500); border-color: color-mix(in oklab, var(--rr-coral-500) 40%, transparent); }
+.rr-app .sb-footer .logout svg { width: 15px; height: 15px; }
+
+/* ---------- Topbar ---------- */
+.rr-app .topbar { background: var(--rr-bg); border-bottom: 1px solid var(--rr-border); padding: 12px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 30; }
+@media (max-width: 720px) { .rr-app .topbar { padding: 12px 16px; } }
+.rr-app .tb-search { flex: 1; max-width: 520px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px 0 14px; background: var(--rr-bg-alt); border: 1px solid var(--rr-border); border-radius: var(--rr-r-md); color: var(--rr-fg-muted); font-size: 13px; }
+.rr-app .tb-search svg { width: 16px; height: 16px; flex-shrink: 0; }
+.rr-app .tb-search input { background: transparent; border: 0; outline: 0; flex: 1; min-width: 0; font-family: var(--rr-font-sans); font-size: 13px; color: var(--rr-fg); }
+.rr-app .tb-search kbd { font-family: var(--rr-font-mono); font-size: 10px; background: var(--rr-surface); border: 1px solid var(--rr-border-strong); padding: 2px 6px; border-radius: 4px; color: var(--rr-fg-muted); margin-left: auto; }
+@media (max-width: 540px) { .rr-app .tb-search kbd { display: none; } }
+.rr-app .tb-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.rr-app .tb-icon-btn { width: 38px; height: 38px; border-radius: var(--rr-r-md); border: 1px solid var(--rr-border); background: var(--rr-bg-alt); color: var(--rr-fg-2); display: grid; place-items: center; position: relative; }
+.rr-app .tb-icon-btn svg { width: 17px; height: 17px; }
+.rr-app .tb-icon-btn .indicator { position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; background: var(--rr-coral-500); border-radius: 50%; }
+.rr-app .token-wallet { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(120deg, var(--rr-violet-500), var(--rr-violet-700)); color: white; height: 38px; padding: 0 4px 0 14px; border-radius: var(--rr-r-full); font-size: 13px; font-weight: 500; box-shadow: var(--rr-shadow-sm); }
+.rr-app .token-wallet svg { width: 14px; height: 14px; }
+.rr-app .token-wallet .coin { background: var(--rr-lime-400); color: var(--rr-ink-900); font-family: var(--rr-font-display); font-weight: 700; font-size: 13px; height: 28px; min-width: 28px; padding: 0 8px; border-radius: var(--rr-r-full); display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.rr-app .token-wallet.pro { background: linear-gradient(120deg, var(--rr-cyan-500), var(--rr-cyan-600)); }
+.rr-app .token-wallet.pro .coin { background: var(--rr-paper); color: var(--rr-cyan-600); }
+@media (max-width: 540px) { .rr-app .token-wallet .label-text { display: none; } }
+.rr-app .plan-switch { display: inline-flex; align-items: center; background: var(--rr-bg-alt); border: 1px dashed var(--rr-border-strong); border-radius: var(--rr-r-full); padding: 3px 4px 3px 12px; gap: 4px; }
+.rr-app .plan-switch .sw-label { font-family: var(--rr-font-mono); font-size: 9px; color: var(--rr-fg-dim); text-transform: uppercase; letter-spacing: 0.12em; margin-right: 4px; }
+.rr-app .plan-switch button { background: transparent; border: 0; padding: 4px 10px; border-radius: var(--rr-r-full); font-size: 11px; font-weight: 600; color: var(--rr-fg-muted); }
+.rr-app .plan-switch button.active { background: var(--rr-ink-900); color: var(--rr-bg); }
+.rr-app[data-theme="dark"] .plan-switch button.active { background: var(--rr-paper); color: var(--rr-ink-900); }
+@media (max-width: 720px) { .rr-app .plan-switch { display: none; } }
+
+/* ---------- Main content frame ---------- */
+.rr-app main { min-width: 0; }
+.rr-app .main { padding: 32px; max-width: 1100px; margin: 0 auto; width: 100%; padding-bottom: 80px; }
+.rr-app .main.wide { max-width: 1240px; }
+@media (max-width: 720px) { .rr-app .main { padding: 24px 16px 64px; } }
+.rr-app .crumb { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-dim); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
+
+/* Loading / empty states shared by the content pages */
+.rr-app .rr-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 80px 0; color: var(--rr-fg-muted); font-size: 14px; }
+.rr-app .rr-loading svg { width: 18px; height: 18px; }
+.rr-app .rr-empty { text-align: center; padding: 56px 24px; color: var(--rr-fg-muted); }
+.rr-app .rr-empty svg { width: 28px; height: 28px; color: var(--rr-fg-dim); margin: 0 auto 12px; display: block; }
+.rr-app .rr-empty .title { font-family: var(--rr-font-display); font-weight: 600; font-size: 18px; color: var(--rr-fg); margin-bottom: 4px; letter-spacing: -0.01em; }
+.rr-app .rr-empty .sub { font-size: 13px; }
+
+/* Section heading used across content pages */
+.rr-app .sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.rr-app .sec-head h2 { font-family: var(--rr-font-display); font-weight: 600; font-size: 20px; letter-spacing: -0.02em; margin: 0; }
+.rr-app .sec-head .sub { font-size: 13px; color: var(--rr-fg-muted); }
