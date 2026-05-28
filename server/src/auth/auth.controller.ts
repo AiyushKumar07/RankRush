@@ -7,6 +7,8 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
@@ -34,8 +36,8 @@ export class AuthController {
   // ─── Public Routes ──────────────────────────────────────────────────
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register(@Body() dto: RegisterDto, @Req() req: any) {
+    return this.authService.register(dto, req);
   }
 
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -124,6 +126,14 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @Post('password-strength')
+  @HttpCode(HttpStatus.OK)
+  passwordStrength(@Body('password') password: string) {
+    return this.authService.passwordStrength(password);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@CurrentUser('id') userId: string) {
     return this.authService.getProfile(userId);
@@ -133,6 +143,17 @@ export class AuthController {
   @Get('sessions')
   getSessions(@CurrentUser('id') userId: string) {
     return this.authService.getActiveSessions(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  revokeSession(
+    @CurrentUser('id') userId: string,
+    @Param('id') sessionId: string,
+    @Req() req: any,
+  ) {
+    return this.authService.revokeSessionById(userId, sessionId, req);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

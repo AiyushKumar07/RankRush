@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,9 @@ import {
   checkPasswordStrength,
   validateEmail as secureValidateEmail,
 } from 'secure-auth-helper';
+import { v2 as cloudinary } from 'cloudinary';
+import { UAParser } from 'ua-parser-js';
+import geoip from 'geoip-lite';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OtpService } from '../otp/otp.service.js';
@@ -47,13 +51,6 @@ export class AuthService {
     private tokensService: TokensService,
   ) {}
 
-  private signAccessToken(userId: string, role: string) {
-    return this.jwt.sign(
-      { sub: userId, role },
-      { expiresIn: ACCESS_TOKEN_EXPIRY },
-    );
-  }
-
   private generateRefreshToken(): string {
     return crypto.randomBytes(64).toString('hex');
   }
@@ -67,7 +64,6 @@ export class AuthService {
       select: { role: true },
     });
 
-    const accessToken = this.signAccessToken(userId, user!.role);
     const refreshToken = this.generateRefreshToken();
 
     const expiresAt = new Date();
@@ -75,7 +71,28 @@ export class AuthService {
 
     const hashedRefresh = await bcrypt.hash(refreshToken, 10);
 
-    await this.prisma.session.create({
+    // Max 3 active sessions logic
+    const activeSessions = await this.prisma.session.findMany({
+      where: {
+        userId,
+        isRevoked: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'asc' }, // Oldest first
+    });
+
+    if (activeSessions.length >= 3) {
+      // Need to revoke oldest sessions to make room (leave only 2 active)
+      const sessionsToRevokeCount = activeSessions.length - 2;
+      const sessionsToRevoke = activeSessions.slice(0, sessionsToRevokeCount);
+
+      await this.prisma.session.updateMany({
+        where: { id: { in: sessionsToRevoke.map(s => s.id) } },
+        data: { isRevoked: true },
+      });
+    }
+
+    const session = await this.prisma.session.create({
       data: {
         userId,
         refreshToken: hashedRefresh,
@@ -84,6 +101,11 @@ export class AuthService {
         expiresAt,
       },
     });
+
+    const accessToken = this.jwt.sign(
+      { sub: userId, role: user!.role, jti: session.id },
+      { expiresIn: ACCESS_TOKEN_EXPIRY },
+    );
 
     return { accessToken, refreshToken };
   }
@@ -98,6 +120,62 @@ export class AuthService {
         verdict: result.verdict,
       });
     }
+  }
+
+  async passwordStrength(password: string) {
+    if (!password) {
+      return {
+        data: {
+          score: 0,
+          verdict: 'weak' as const,
+          suggestions: ['Enter a password'],
+          ok: false,
+        },
+      };
+    }
+    const r = checkPasswordStrength(password);
+    return {
+      data: {
+        score: r.score,
+        verdict: r.verdict,
+        suggestions: r.suggestions,
+        ok: r.score >= 2,
+      },
+    };
+  }
+
+  private levenshtein(a: string, b: string): number {
+    const m = a.length;
+    const n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp: number[] = new Array(n + 1);
+    for (let j = 0; j <= n; j++) dp[j] = j;
+    for (let i = 1; i <= m; i++) {
+      let prev = dp[0];
+      dp[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const tmp = dp[j];
+        if (a[i - 1] === b[j - 1]) {
+          dp[j] = prev;
+        } else {
+          dp[j] = 1 + Math.min(prev, dp[j - 1], dp[j]);
+        }
+        prev = tmp;
+      }
+    }
+    return dp[n];
+  }
+
+  private arePasswordsSimilar(a: string, b: string): boolean {
+    if (!a || !b) return false;
+    const x = a.toLowerCase();
+    const y = b.toLowerCase();
+    if (x === y) return true;
+    if (x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x))) return true;
+    const d = this.levenshtein(x, y);
+    const maxLen = Math.max(x.length, y.length);
+    return maxLen > 0 && d / maxLen < 0.5;
   }
 
   private async validateEmailQuality(email: string): Promise<void> {
@@ -126,13 +204,29 @@ export class AuthService {
       where: { email },
       select: { id: true },
     });
+
+    let disposable = false;
+    let invalidSyntax = false;
+    try {
+      const result = await secureValidateEmail(email);
+      disposable = !!result.validations.is_disposable;
+      invalidSyntax = !result.validations.syntax;
+    } catch (err) {
+      // Validator service unavailable — fall through; signup will re-check.
+      this.logger.warn(`Email validation service unavailable: ${err}`);
+    }
+
     return {
-      data: { available: !existing },
+      data: {
+        available: !existing,
+        disposable,
+        invalidSyntax,
+      },
     };
   }
 
   // ─── Admin Register ─────────────────────────────────────────────────
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, req?: any) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -150,11 +244,11 @@ export class AuthService {
       select: { id: true, name: true, email: true, role: true },
     });
 
-    const token = this.signAccessToken(user.id, user.role);
+    const { accessToken, refreshToken } = await this.createSession(user.id, req);
 
     return {
       message: 'Registration successful',
-      data: { user, token },
+      data: { user, token: accessToken, refreshToken },
     };
   }
 
@@ -554,7 +648,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hashed },
+      data: { password: hashed, passwordChangedAt: new Date() },
     });
 
     // Revoke all sessions after password reset
@@ -595,13 +689,19 @@ export class AuthService {
     if (!valid)
       throw new UnauthorizedException('Current password is incorrect');
 
+    if (this.arePasswordsSimilar(dto.currentPassword, dto.newPassword)) {
+      throw new BadRequestException(
+        'New password is too similar to your current password',
+      );
+    }
+
     await this.validatePasswordStrength(dto.newPassword);
 
     const hashed = await bcrypt.hash(dto.newPassword, 12);
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashed },
+      data: { password: hashed, passwordChangedAt: new Date() },
     });
 
     await this.audit.log({
@@ -632,6 +732,7 @@ export class AuthService {
         isOnboarded: true,
         firstName: true,
         lastName: true,
+        dob: true,
         class: true,
         school: true,
         target: true,
@@ -686,7 +787,59 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return { data: { sessions } };
+    const parsedSessions = sessions.map(session => {
+      let friendlyName = 'Unknown Device';
+      if (session.userAgent) {
+        const parser = new UAParser(session.userAgent);
+        const res = parser.getResult();
+        const os = res.os.name || 'Unknown OS';
+        const browser = res.browser.name || 'Unknown Browser';
+        friendlyName = `${res.device.model || os} · ${browser}`;
+      }
+      
+      let location = 'Unknown Location';
+      if (session.ipAddress) {
+        const geo = geoip.lookup(session.ipAddress);
+        if (geo) {
+          location = `${geo.city || 'Unknown City'}, ${geo.country || 'Unknown Country'}`;
+        }
+      }
+
+      return {
+        ...session,
+        userAgent: friendlyName,
+        rawUserAgent: session.userAgent,
+        location,
+      };
+    });
+
+    return { data: { sessions: parsedSessions } };
+  }
+
+  async revokeSessionById(userId: string, sessionId: string, req?: any) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, userId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await this.prisma.session.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
+
+    await this.audit.log({
+      action: 'SESSION_REVOKED',
+      entityType: 'Session',
+      entityId: sessionId,
+      performedBy: userId,
+      details: { event: 'session_revoked_by_id' },
+      req,
+    });
+
+    return { message: 'Session revoked successfully' };
   }
 
   // ─── Cleanup Expired Sessions ─────────────────────────────────────

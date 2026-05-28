@@ -46,6 +46,7 @@ export default function SignupPage() {
   const [selectedGoals, setSelectedGoals] = useState(['jee-main'])
   const [submitting, setSubmitting] = useState(false)
   const [emailError, setEmailError] = useState('')
+  const [emailErrorAllowLogin, setEmailErrorAllowLogin] = useState(false)
   const [checkingEmail, setCheckingEmail] = useState(false)
 
   const [firstName, setFirstName] = useState('')
@@ -67,7 +68,7 @@ export default function SignupPage() {
     }
   }, [pendingVerification])
 
-  const goTo = useCallback((n) => { setEmailError(''); setStep(n); }, [])
+  const goTo = useCallback((n) => { setEmailError(''); setEmailErrorAllowLogin(false); setStep(n); }, [])
 
   const pwStrength = (() => {
     if (password.length < 8) return 'weak'
@@ -195,10 +196,22 @@ export default function SignupPage() {
             }
             setCheckingEmail(true)
             setEmailError('')
+            setEmailErrorAllowLogin(false)
             try {
               const res = await authAPI.checkEmail(email)
-              if (!res.data.available) {
+              if (res?.data?.invalidSyntax) {
+                setEmailError('Enter a valid email address.')
+                setCheckingEmail(false)
+                return
+              }
+              if (res?.data?.disposable) {
+                setEmailError('Temporary / disposable email addresses are not allowed. Please use a permanent inbox.')
+                setCheckingEmail(false)
+                return
+              }
+              if (!res?.data?.available) {
                 setEmailError('This email is already registered.')
+                setEmailErrorAllowLogin(true)
                 setCheckingEmail(false)
                 return
               }
@@ -222,11 +235,13 @@ export default function SignupPage() {
             </div>
             <div className="form-field">
               <label>Email address</label>
-              <div className={`input-shell${emailError ? ' error' : ''}`}><Mail size={16} className="left" /><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailError('') }} placeholder="you@email.com" /></div>
+              <div className={`input-shell${emailError ? ' error' : ''}`}><Mail size={16} className="left" /><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailError(''); setEmailErrorAllowLogin(false) }} placeholder="you@email.com" /></div>
               {emailError && (
                 <div className="email-error">
                   <span>{emailError}</span>
-                  <Link to="/login" className="email-error-link">Log in instead →</Link>
+                  {emailErrorAllowLogin && (
+                    <Link to="/login" className="email-error-link">Log in instead →</Link>
+                  )}
                 </div>
               )}
             </div>

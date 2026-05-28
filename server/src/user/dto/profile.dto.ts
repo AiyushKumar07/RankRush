@@ -7,6 +7,7 @@ import {
   ArrayMinSize,
   Matches,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 
 const VALID_TARGETS = ['Boards', 'NEET', 'JEE', 'Other'] as const;
@@ -23,6 +24,10 @@ export class CompleteProfileDto {
   lastName: string;
 
   @IsString()
+  @IsOptional()
+  dob?: string;
+
+  @IsString()
   @IsNotEmpty()
   @MaxLength(20)
   class: string;
@@ -31,6 +36,21 @@ export class CompleteProfileDto {
   @IsNotEmpty()
   @MaxLength(100)
   school: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  board?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  stream?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  city?: string;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -63,13 +83,32 @@ export class UpdateProfileDto {
 
   @IsString()
   @IsOptional()
+  dob?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(20)
   class?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  board?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  stream?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(100)
   school?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  city?: string;
 
   @IsArray()
   @IsOptional()
@@ -87,4 +126,47 @@ export class UpdateProfileDto {
   @IsOptional()
   @MaxLength(500)
   address?: string;
+}
+
+export class UpdatePreferenceDto {
+  @IsString()
+  @IsOptional()
+  @IsIn(['light', 'dark', 'auto'])
+  theme?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  reduceMotion?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  compactLayout?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  emailWeeklyRank?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  emailProductUpdates?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  pushStreakExpire?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  pushRankMovement?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  pushWeakTopics?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  pushFriendJoins?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  pushStreakReminder?: boolean;
 }

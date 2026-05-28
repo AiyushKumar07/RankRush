@@ -25,12 +25,17 @@ model User {
   isVerified   Boolean  @default(false)
   lastLogin    DateTime?
   refreshToken String?
+  username     String?  @unique
 
   // Student profile fields
   firstName      String?
   lastName       String?
+  dob            String?
   class          String?
+  board          String?
+  stream         String?
   school         String?
+  city           String?
   target         String[]  // "Boards" | "NEET" | "JEE" | "Other"
   contactNumber  String?
   profilePicture String?
@@ -42,6 +47,10 @@ model User {
   longestStreak  Int       @default(0)
   loginXp        Int       @default(0)
   lastActive     DateTime?
+  bestRank       Int?
+
+  // Security audit
+  passwordChangedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -65,8 +74,37 @@ model User {
   referralsMade   Referral[] @relation("Referrer")
   referralRewards ReferralReward[]
 
+  // Preferences
+  preferences    UserPreference?
+
   @@index([role])
   @@index([isVerified])
+}
+
+// ─── User Preference ────────────────────────────────────────────────
+model UserPreference {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String @unique @db.ObjectId
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Appearance
+  theme         String  @default("light") // "light" | "dark" | "auto"
+  reduceMotion  Boolean @default(false)
+  compactLayout Boolean @default(false)
+
+  // Email Notifications (Coming Soon)
+  emailWeeklyRank     Boolean @default(false)
+  emailProductUpdates Boolean @default(false)
+
+  // Push Notifications (In-app)
+  pushStreakExpire    Boolean @default(true)
+  pushRankMovement    Boolean @default(true)
+  pushWeakTopics      Boolean @default(false)
+  pushFriendJoins     Boolean @default(true)
+  pushStreakReminder  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─── Session ──────────────────────────────────────────────────────────

@@ -32,8 +32,8 @@ export default function TokenWallet({ balance = 0, plan = "free" }) {
       <span>Tokens</span>
       <span
         style={{
-          background: isPro ? "var(--rr-paper)" : "var(--rr-lime-400)",
-          color: isPro ? "var(--rr-cyan-600)" : "var(--rr-ink-900)",
+          background: isPro ? "#FAFAF7" : "var(--rr-lime-400)",
+          color: isPro ? "var(--rr-cyan-600)" : "#0E0E13",
           fontFamily: "var(--rr-font-display)",
           fontWeight: 700,
           fontSize: 13,

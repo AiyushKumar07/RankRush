@@ -5,9 +5,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
-import { CompleteProfileDto, UpdateProfileDto } from './dto/profile.dto.js';
+import { CompleteProfileDto, UpdateProfileDto, UpdatePreferenceDto } from './dto/profile.dto.js';
+import { BloomFilterService } from './bloom-filter.service.js';
 
 @Injectable()
 export class UserService {
@@ -16,6 +18,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private bloomFilter: BloomFilterService,
   ) {}
 
   async getProfile(userId: string) {
@@ -31,19 +34,85 @@ export class UserService {
         isOnboarded: true,
         firstName: true,
         lastName: true,
+        dob: true,
+        username: true,
         class: true,
+        board: true,
+        stream: true,
         school: true,
+        city: true,
         target: true,
         contactNumber: true,
         profilePicture: true,
         address: true,
+        streak: true,
+        longestStreak: true,
+        bestRank: true,
+        passwordChangedAt: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
-    return { data: { user } };
+
+    const [quizCount, accuracyAgg] = await Promise.all([
+      this.prisma.quizAttempt.count({
+        where: { studentId: userId, status: 'COMPLETED' },
+      }),
+      this.prisma.quizAttempt.aggregate({
+        where: { studentId: userId, status: 'COMPLETED' },
+        _avg: { percentage: true },
+      }),
+    ]);
+
+    const stats = {
+      streak: user.streak ?? 0,
+      longestStreak: user.longestStreak ?? 0,
+      quizzes: quizCount,
+      accuracy: accuracyAgg._avg.percentage != null
+        ? Math.round(accuracyAgg._avg.percentage)
+        : 0,
+      bestRank: user.bestRank,
+    };
+
+    return { data: { user: { ...user, stats } } };
+  }
+
+  private async generateUniqueUsername(firstName: string, lastName?: string): Promise<string> {
+    const fName = firstName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const lName = lastName ? lastName.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    
+    let username = '';
+    
+    while (true) {
+      const trimmedUuid = crypto.randomUUID().split('-')[0];
+      username = `${fName}-${trimmedUuid}`;
+      
+      let exists = this.bloomFilter.mightContain(username);
+      if (exists) {
+        const existing = await this.prisma.user.findUnique({ where: { username } });
+        if (!existing) exists = false;
+      }
+      
+      if (!exists) break;
+      
+      if (lName) {
+        const fullUuid = crypto.randomUUID();
+        username = `${lName}-${fullUuid}`;
+        
+        exists = this.bloomFilter.mightContain(username);
+        if (exists) {
+          const existing = await this.prisma.user.findUnique({ where: { username } });
+          if (!existing) exists = false;
+        }
+        
+        if (!exists) break;
+      }
+    }
+    
+    this.bloomFilter.add(username);
+    return username;
   }
 
   async completeProfile(userId: string, dto: CompleteProfileDto, req?: any) {
@@ -58,14 +127,24 @@ export class UserService {
       );
     }
 
+    let username = user.username;
+    if (!username && dto.firstName) {
+      username = await this.generateUniqueUsername(dto.firstName, dto.lastName);
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
+        username: username,
         name: `${dto.firstName} ${dto.lastName}`,
+        dob: dto.dob,
         class: dto.class,
+        board: dto.board,
+        stream: dto.stream,
         school: dto.school,
+        city: dto.city,
         target: dto.target,
         contactNumber: dto.contactNumber,
         address: dto.address,
@@ -118,8 +197,12 @@ export class UserService {
       updateData.name =
         `${dto.firstName ?? user.firstName ?? ''} ${dto.lastName ?? user.lastName ?? ''}`.trim();
     }
+    if (dto.dob !== undefined) updateData.dob = dto.dob;
     if (dto.class !== undefined) updateData.class = dto.class;
+    if (dto.board !== undefined) updateData.board = dto.board;
+    if (dto.stream !== undefined) updateData.stream = dto.stream;
     if (dto.school !== undefined) updateData.school = dto.school;
+    if (dto.city !== undefined) updateData.city = dto.city;
     if (dto.target !== undefined) updateData.target = dto.target;
     if (dto.contactNumber !== undefined)
       updateData.contactNumber = dto.contactNumber;
@@ -136,8 +219,13 @@ export class UserService {
         isOnboarded: true,
         firstName: true,
         lastName: true,
+        dob: true,
+        username: true,
         class: true,
+        board: true,
+        stream: true,
         school: true,
+        city: true,
         target: true,
         contactNumber: true,
         profilePicture: true,
@@ -226,5 +314,106 @@ export class UserService {
       message: 'Profile picture uploaded',
       data: { profilePicture: updated.profilePicture },
     };
+  }
+
+  async getPreferences(userId: string) {
+    let prefs = await this.prisma.userPreference.findUnique({
+      where: { userId },
+    });
+
+    if (!prefs) {
+      prefs = await this.prisma.userPreference.create({
+        data: { userId },
+      });
+    }
+
+    return { data: prefs };
+  }
+
+  async updatePreferences(userId: string, dto: UpdatePreferenceDto, req?: any) {
+    let prefs = await this.prisma.userPreference.findUnique({
+      where: { userId },
+    });
+
+    if (!prefs) {
+      prefs = await this.prisma.userPreference.create({
+        data: { userId, ...dto },
+      });
+    } else {
+      prefs = await this.prisma.userPreference.update({
+        where: { userId },
+        data: dto,
+      });
+    }
+
+    await this.audit.log({
+      action: 'PROFILE_UPDATED',
+      entityType: 'UserPreference',
+      entityId: userId,
+      performedBy: userId,
+      details: { updatedFields: Object.keys(dto) },
+      req,
+    });
+
+    return { message: 'Preferences updated', data: prefs };
+  }
+
+  async resetProgress(userId: string, req?: any) {
+    // Delete all quiz attempts
+    await this.prisma.quizAttempt.deleteMany({
+      where: { studentId: userId },
+    });
+
+    // Delete all student activities
+    await this.prisma.studentActivity.deleteMany({
+      where: { studentId: userId },
+    });
+
+    // Reset user gamification stats
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        streak: 0,
+        longestStreak: 0,
+        loginXp: 0,
+      },
+    });
+
+    await this.audit.log({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      performedBy: userId,
+      details: { event: 'progress_reset' },
+      req,
+    });
+
+    this.logger.log(`Progress reset for user ${userId}`);
+
+    return { message: 'Progress has been reset', data: updated };
+  }
+
+  async deleteAccount(userId: string, req?: any) {
+    // Relying on Prisma's onDelete: Cascade where applicable.
+    // Ensure the user actually exists.
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.delete({
+      where: { id: userId },
+    });
+
+    await this.audit.log({
+      action: 'DELETE',
+      entityType: 'User',
+      entityId: userId,
+      performedBy: userId,
+      details: { event: 'account_deleted', email: user.email },
+      req,
+    });
+
+    this.logger.log(`Account deleted for user ${userId}`);
+
+    return { message: 'Account permanently deleted' };
   }
 }

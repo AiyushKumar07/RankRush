@@ -5,13 +5,16 @@ import {
   Patch,
   Body,
   UseGuards,
+  Delete,
+  HttpCode,
+  HttpStatus,
   UseInterceptors,
   UploadedFile,
   Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service.js';
-import { CompleteProfileDto, UpdateProfileDto } from './dto/profile.dto.js';
+import { CompleteProfileDto, UpdateProfileDto, UpdatePreferenceDto } from './dto/profile.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
@@ -56,5 +59,31 @@ export class UserController {
     @Req() req: any,
   ) {
     return this.userService.uploadProfilePicture(userId, file, req);
+  }
+
+  @Get('preferences')
+  getPreferences(@CurrentUser('id') userId: string) {
+    return this.userService.getPreferences(userId);
+  }
+
+  @Patch('preferences')
+  updatePreferences(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdatePreferenceDto,
+    @Req() req: any,
+  ) {
+    return this.userService.updatePreferences(userId, dto, req);
+  }
+
+  @Post('reset-progress')
+  @HttpCode(HttpStatus.OK)
+  resetProgress(@CurrentUser('id') userId: string, @Req() req: any) {
+    return this.userService.resetProgress(userId, req);
+  }
+
+  @Delete('account')
+  @HttpCode(HttpStatus.OK)
+  deleteAccount(@CurrentUser('id') userId: string, @Req() req: any) {
+    return this.userService.deleteAccount(userId, req);
   }
 }

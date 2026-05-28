@@ -103,11 +103,13 @@ export const authAPI = {
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   changePassword: (data) => api.post('/auth/change-password', data),
+  passwordStrength: (password) => api.post('/auth/password-strength', { password }),
   refreshToken: (data) => api.post('/auth/refresh-token', data),
   logout: (data) => api.post('/auth/logout', data),
   logoutAll: () => api.post('/auth/logout-all'),
   getProfile: () => api.get('/auth/profile'),
   getSessions: () => api.get('/auth/sessions'),
+  revokeSession: (sessionId) => api.delete(`/auth/sessions/${sessionId}`),
   getUsers: () => api.get('/auth/users'),
 };
 
@@ -119,6 +121,10 @@ export const userAPI = {
     api.post('/user/profile/picture', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  getPreferences: () => api.get('/user/preferences'),
+  updatePreferences: (data) => api.patch('/user/preferences', data),
+  resetProgress: () => api.post('/user/reset-progress'),
+  deleteAccount: () => api.delete('/user/account'),
 };
 
 export const studentAPI = {

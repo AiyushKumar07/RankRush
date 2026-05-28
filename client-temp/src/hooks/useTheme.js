@@ -1,27 +1,54 @@
 /**
- * useTheme — minimal light/dark hook.
+ * useTheme — light/dark/auto hook.
  *
- * Reads/writes data-theme="light" | "dark" on <html>, persists in localStorage,
- * falls back to OS preference on first load. Pair with <ThemeToggle />.
+ * `preference` is the user choice ("light" | "dark" | "auto") and is persisted
+ * to localStorage. `theme` is the resolved value applied to <html data-theme=…>.
+ * In "auto" mode the resolved value follows `prefers-color-scheme` live.
  */
 import { useEffect, useState, useCallback } from "react";
 
+const STORAGE_KEY = "rr-theme";
+
+function resolve(pref) {
+  if (pref === "light" || pref === "dark") return pref;
+  if (typeof window === "undefined") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "light";
-    const stored = localStorage.getItem("rr-theme");
-    if (stored === "light" || stored === "dark") return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  const [preference, setPreferenceState] = useState(() => {
+    if (typeof window === "undefined") return "auto";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === "light" || stored === "dark" || stored === "auto" ? stored : "auto";
   });
+  const [theme, setTheme] = useState(() => resolve(preference));
+
+  useEffect(() => {
+    setTheme(resolve(preference));
+    localStorage.setItem(STORAGE_KEY, preference);
+  }, [preference]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("rr-theme", theme);
   }, [theme]);
 
-  const toggle = useCallback(() => setTheme(t => (t === "light" ? "dark" : "light")), []);
+  useEffect(() => {
+    if (preference !== "auto" || typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setTheme(mq.matches ? "dark" : "light");
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [preference]);
 
-  return { theme, setTheme, toggle };
+  const setPreference = useCallback((p) => {
+    setPreferenceState(p === "light" || p === "dark" || p === "auto" ? p : "auto");
+  }, []);
+
+  const toggle = useCallback(() => {
+    setPreferenceState(p => (resolve(p) === "light" ? "dark" : "light"));
+  }, []);
+
+  return { theme, preference, setTheme: setPreference, setPreference, toggle };
 }
 
 /**
