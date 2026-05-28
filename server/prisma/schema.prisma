@@ -595,6 +595,19 @@ enum RefreshFrequency {
   YEARLY
 }
 
+enum Cadence {
+  MONTHLY
+  ANNUAL
+  ONE_TIME
+}
+
+enum FeatureValueType {
+  CHECK
+  CROSS
+  TEXT
+  NUMBER
+}
+
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -641,44 +654,99 @@ model SubscriptionPlan {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
-  
-  price       Float
+
+  // Display-only metadata used by the public pricing page
+  icon        String?      // lucide key: "leaf" | "rocket" | "crown" | ...
+  badge       String?      // "Current" | "Most picked" | ...
+  ctaLabel    String?      // override for the card CTA, e.g. "Go Pro"
+  ctaVariant  String?      // "secondary" | "accent" | "lime"
+
   currency    String   @default("INR")
-  
-  tokenCount  Int      // e.g. 10, 25, 50
-  
-  isRecurring Boolean  @default(false)
-  refreshFrequency RefreshFrequency?
-  
+
   isActive    Boolean  @default(true)
-  isPopular   Boolean  @default(false)
+  isPopular   Boolean  @default(false)   // featured card
+  isFree      Boolean  @default(false)   // free tier — usually has no pricing rows
   sortOrder   Int      @default(0)
-  
+
+  pricings      PlanPricing[]
+  features      PlanFeature[]
   subscriptions StudentSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model PlanPricing {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  planId      String   @db.ObjectId
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  cadence     Cadence
+  price       Float
+  originalPrice Float?                 // for "save %" strike-through
+  tokenCount  Int                      // tokens granted per refresh cycle
+  tokenPeriodLabel String?             // "per month", "per year", "once"
+  note        String?                  // "Renews monthly", "≈ ₹82.50 / month · 2 months free"
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([planId, cadence])
+  @@index([planId])
+}
+
+model PlanFeature {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  planId        String   @db.ObjectId
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  sectionKey    String                  // "tokens-quizzes" | "insights" | "collaboration" | "support" | "card"
+  sectionLabel  String                  // "Tokens & quizzes"
+
+  label         String                  // "Monthly token allowance"
+  valueType     FeatureValueType        // CHECK | CROSS | TEXT | NUMBER
+  value         String?                 // null for CHECK/CROSS; otherwise the text/number value
+
+  included      Boolean  @default(true) // false = strike/dimmed on card
+  showOnCard    Boolean  @default(true)
+  showInCompare Boolean  @default(true)
+  isComingSoon  Boolean  @default(false) // renders a "Coming soon" chip next to the row
+
+  // Stable key used by EntitlementsService to enforce access (e.g. MOCK_TESTS, PYQ_ACCESS).
+  // null = display-only feature, no server-side gating.
+  entitlementKey String?
+
+  sortOrder     Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([planId])
+}
+
 model StudentSubscription {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   planId    String   @db.ObjectId
   plan      SubscriptionPlan @relation(fields: [planId], references: [id])
-  
+
+  pricingId String?  @db.ObjectId   // the cadence variant the user subscribed to
+  cadence   Cadence?                 // denormalised for fast queries
+
   status    SubscriptionStatus @default(ACTIVE)
-  
+
   startDate DateTime @default(now())
   endDate   DateTime?
   nextRefreshDate DateTime?
-  
+
   isAutoRenewEnabled Boolean @default(true)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([userId])
   @@index([status])
 }
@@ -687,23 +755,25 @@ model PaymentTransaction {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  planId    String?  @db.ObjectId // Optional, if linked to a plan
-  
+
+  planId    String?  @db.ObjectId
+  pricingId String?  @db.ObjectId   // which cadence variant was purchased
+  cadence   Cadence?                 // denormalised for reporting
+
   amount    Float
   currency  String   @default("INR")
   status    PaymentStatus @default(PENDING)
   mode      PaymentMode
-  
+
   gatewayPaymentId String?
   gatewayOrderId   String?
   gatewaySignature String?
-  
-  redeemCode       String?  // Track if a promo code was used for this transaction
-  
+
+  redeemCode       String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([userId])
   @@index([status])
 }

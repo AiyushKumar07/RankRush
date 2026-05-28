@@ -1,0 +1,162 @@
+.plan-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: var(--rr-font-sans);
+  color: var(--rr-fg);
+}
+.pe-section {
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  padding: 16px;
+  background: var(--rr-bg-alt);
+}
+.pe-title {
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rr-fg-muted);
+  font-weight: 500;
+}
+.pe-title-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+
+.plan-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--rr-fg-muted);
+  font-weight: 500;
+}
+.plan-edit label input,
+.plan-edit label select {
+  height: 38px;
+  padding: 0 12px;
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border-strong);
+  border-radius: var(--rr-r-sm);
+  color: var(--rr-fg);
+  font-family: var(--rr-font-sans);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  transition: border-color var(--rr-dur-fast), box-shadow var(--rr-dur-fast);
+}
+.plan-edit label input:focus {
+  outline: none;
+  border-color: var(--rr-violet-400);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--rr-violet-400) 18%, transparent);
+}
+.plan-edit label input[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.pe-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pe-row.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.pe-toggles {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.pe-toggle {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  cursor: pointer;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 12px !important;
+  color: var(--rr-fg-2) !important;
+}
+.pe-toggle-label { user-select: none; }
+.pe-toggle .tog {
+  position: relative;
+  width: 32px; height: 18px;
+  background: var(--rr-border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--rr-dur-fast);
+  flex-shrink: 0;
+}
+.pe-toggle .tog::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform var(--rr-dur-fast);
+}
+.pe-toggle .tog.on { background: var(--rr-violet-500); }
+.pe-toggle .tog.on::after { transform: translateX(14px); }
+
+.pe-pricings, .pe-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pe-pricing-row, .pe-feature-row {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pe-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pe-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 1fr 1fr 0.6fr;
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .pe-pricing-grid, .pe-feature-grid { grid-template-columns: 1fr 1fr; }
+}
+.pe-feature-label { grid-column: span 1; }
+
+.pe-pricing-actions, .pe-feature-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pe-icon-btn {
+  width: 28px; height: 28px;
+  display: inline-grid; place-items: center;
+  background: transparent;
+  border: 1px solid var(--rr-border-strong);
+  border-radius: var(--rr-r-sm);
+  color: var(--rr-fg-muted);
+  cursor: pointer;
+  transition: color var(--rr-dur-fast), border-color var(--rr-dur-fast);
+}
+.pe-icon-btn:hover { color: var(--rr-coral-500); border-color: color-mix(in oklab, var(--rr-coral-500) 40%, transparent); }
+.pe-icon-btn.danger:hover { color: var(--rr-coral-500); border-color: var(--rr-coral-500); }
+
+.pe-empty {
+  font-size: 12px;
+  color: var(--rr-fg-muted);
+  padding: 12px 0;
+}

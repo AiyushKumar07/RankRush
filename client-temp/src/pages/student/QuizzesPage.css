@@ -279,6 +279,29 @@
 }
 .quiz-card:hover { transform: translateY(-3px); box-shadow: var(--rr-shadow-md); border-color: var(--rr-border-strong); }
 
+.quiz-card.locked { opacity: 0.86; }
+.quiz-card.locked:hover { transform: none; }
+.quiz-card .quiz-lock-chip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--rr-lime-400), var(--rr-emerald-500));
+  color: #0E0E13;
+  z-index: 2;
+  pointer-events: none;
+}
+.quiz-card { position: relative; }
+
 /* subject color band */
 .quiz-card .band { height: 4px; background: var(--rr-violet-500); }
 .quiz-card[data-subj="math"] .band { background: var(--rr-violet-500); }

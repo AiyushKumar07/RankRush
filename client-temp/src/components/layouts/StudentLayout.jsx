@@ -7,37 +7,65 @@
  *   <720px — sidebar hidden, hamburger opens drawer overlay
  */
 import { useState, useEffect, useCallback } from "react";
-import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Home, BookOpen, Flame, Trophy, Users, MessageCircle, Bookmark, Video,
-  Coins, Gift, Receipt, Crown, Search, Bell, Menu, X, LogOut,
+  Outlet,
+  NavLink,
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import {
+  Home,
+  BookOpen,
+  Flame,
+  Trophy,
+  Users,
+  MessageCircle,
+  Bookmark,
+  Video,
+  Coins,
+  Gift,
+  Receipt,
+  Crown,
+  Search,
+  Bell,
+  Menu,
+  X,
+  LogOut,
 } from "lucide-react";
 import RRBrand from "../brand/RRBrand";
 import ThemeToggle from "../ui/ThemeToggle";
 import TokenWallet from "../ui/TokenWallet";
 import { useAuth } from "../../context/AuthContext";
 import { usePlan } from "../../hooks/useTheme";
+import { EntitlementsProvider } from "../../hooks/useEntitlements";
 import "./StudentLayout.css";
 
 const STUDY = [
-  { to: "/app",          icon: Home,     label: "Home" },
-  { to: "/app/quizzes",  icon: BookOpen, label: "Quizzes", pill: "147" },
-  { to: "/app/activity", icon: Flame,    label: "Activity" },
+  { to: "/app", icon: Home, label: "Home" },
+  { to: "/app/quizzes", icon: BookOpen, label: "Quizzes", pill: "147" },
+  { to: "/app/activity", icon: Flame, label: "Activity" },
 ];
 
 const COMING_SOON = [
-  { icon: Trophy,         label: "Leaderboard" },
-  { icon: Users,          label: "Study Groups" },
-  { icon: MessageCircle,  label: "Chat" },
-  { icon: Bookmark,       label: "Notes" },
-  { icon: Video,          label: "Lectures" },
+  { icon: Trophy, label: "Leaderboard" },
+  { icon: Users, label: "Study Groups" },
+  { icon: MessageCircle, label: "Chat" },
+  { icon: Bookmark, label: "Notes" },
+  { icon: Video, label: "Lectures" },
 ];
 
 const ACCOUNT = [
-  { to: "/app/tokens",  icon: Coins,    label: "Tokens",       pill: "12" },
-  { to: "/app/refer",   icon: Gift,     label: "Refer & Earn" },
-  { to: "/app/billing", icon: Receipt,  label: "Billing" },
-  { to: "/app/pricing", icon: Crown,    label: "Pricing",      pill: "PRO", isPricing: true },
+  { to: "/app/tokens", icon: Coins, label: "Tokens", pill: "12" },
+  { to: "/app/refer", icon: Gift, label: "Refer & Earn" },
+  { to: "/app/billing", icon: Receipt, label: "Billing" },
+  {
+    to: "/app/pricing",
+    icon: Crown,
+    label: "Pricing",
+    pill: "PRO",
+    isPricing: true,
+  },
 ];
 
 export default function StudentLayout() {
@@ -49,71 +77,94 @@ export default function StudentLayout() {
   const location = useLocation();
 
   const displayUser = {
-    name: user?.firstName ? `${user.firstName} ${user.lastName?.[0] || ''}.` : user?.name || 'Student',
-    initial: user?.firstName?.[0] || user?.name?.[0] || 'S',
+    name: user?.firstName
+      ? `${user.firstName} ${user.lastName?.[0] || ""}.`
+      : user?.name || "Student",
+    initial: user?.firstName?.[0] || user?.name?.[0] || "S",
   };
 
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleLogout = useCallback(async () => {
     await logout();
-    navigate('/login');
+    navigate("/login");
   }, [logout, navigate]);
 
   return (
-    <div className="student-app">
-      {/* Drawer backdrop (mobile) */}
-      {drawerOpen && <div className="drawer-backdrop" onClick={closeDrawer} />}
+    <EntitlementsProvider>
+      <div className="student-app">
+        {/* Drawer backdrop (mobile) */}
+        {drawerOpen && (
+          <div className="drawer-backdrop" onClick={closeDrawer} />
+        )}
 
-      {/* SIDEBAR */}
-      <aside className={`student-sidebar ${drawerOpen ? "open" : ""}`}>
-        <div className="sidebar-top-row">
-          <RRBrand to="/app" />
-          <button className="drawer-close" onClick={closeDrawer} aria-label="Close menu">
-            <X size={20} />
-          </button>
-        </div>
+        {/* SIDEBAR */}
+        <aside className={`student-sidebar ${drawerOpen ? "open" : ""}`}>
+          <div className="sidebar-top-row">
+            <RRBrand to="/app" />
+            <button
+              className="drawer-close"
+              onClick={closeDrawer}
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        <SidebarGroup label="Study">
-          {STUDY.map(item => <SidebarItem key={item.to} {...item} />)}
-        </SidebarGroup>
+          <SidebarGroup label="Study">
+            {STUDY.map((item) => (
+              <SidebarItem key={item.to} {...item} />
+            ))}
+          </SidebarGroup>
 
-        <SidebarGroup label="Coming soon">
-          {COMING_SOON.map(item => <SidebarItem key={item.label} {...item} soon />)}
-        </SidebarGroup>
+          <SidebarGroup label="Coming soon">
+            {COMING_SOON.map((item) => (
+              <SidebarItem key={item.label} {...item} soon />
+            ))}
+          </SidebarGroup>
 
-        <SidebarGroup label="Account">
-          {ACCOUNT.map(item => <SidebarItem key={item.label} {...item} plan={plan} />)}
-        </SidebarGroup>
+          <SidebarGroup label="Account">
+            {ACCOUNT.map((item) => (
+              <SidebarItem key={item.label} {...item} plan={plan} />
+            ))}
+          </SidebarGroup>
 
-        <div className="sidebar-footer-wrap">
-          <Link to="/app/profile" className="sidebar-footer">
-            <div className="sidebar-avatar">{displayUser.initial}</div>
-            <div className="sidebar-user-meta">
-              <div className="sidebar-user-name">{displayUser.name}</div>
-              <div className="sidebar-user-plan">
-                {plan === "pro" ? "Pro" : "Free"}{user?.class ? ` · ${user.class}` : ""}
+          <div className="sidebar-footer-wrap">
+            <Link to="/app/profile" className="sidebar-footer">
+              <div className="sidebar-avatar">{displayUser.initial}</div>
+              <div className="sidebar-user-meta">
+                <div className="sidebar-user-name">{displayUser.name}</div>
+                <div className="sidebar-user-plan">
+                  {plan === "pro" ? "Pro" : "Free"}
+                  {user?.class ? ` · ${user.class}` : ""}
+                </div>
               </div>
-            </div>
-          </Link>
-          <button className="sidebar-logout" onClick={handleLogout} title="Sign out">
-            <LogOut size={16} />
-          </button>
-        </div>
-      </aside>
+            </Link>
+            <button
+              className="sidebar-logout"
+              onClick={handleLogout}
+              title="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </aside>
 
-      {/* MAIN */}
-      <main className="student-main">
-        <Topbar
-          tokenBalance={tokenBalance}
-          plan={plan}
-          onMenuClick={() => setDrawerOpen(true)}
-        />
-        <Outlet />
-      </main>
-    </div>
+        {/* MAIN */}
+        <main className="student-main">
+          <Topbar
+            tokenBalance={tokenBalance}
+            plan={plan}
+            onMenuClick={() => setDrawerOpen(true)}
+          />
+          <Outlet />
+        </main>
+      </div>
+    </EntitlementsProvider>
   );
 }
 
@@ -128,7 +179,9 @@ function SidebarGroup({ label, children }) {
 
 function SidebarItem({ to, icon: Icon, label, pill, soon, isPricing, plan }) {
   const inner = ({ isActive } = {}) => (
-    <div className={`sb-item ${isActive ? "active" : ""} ${soon ? "soon" : ""}`}>
+    <div
+      className={`sb-item ${isActive ? "active" : ""} ${soon ? "soon" : ""}`}
+    >
       <Icon size={17} className="sb-icon" />
       <span className="sb-text">{label}</span>
       {pill && (
@@ -166,7 +219,11 @@ function SidebarItem({ to, icon: Icon, label, pill, soon, isPricing, plan }) {
 function Topbar({ tokenBalance, plan, onMenuClick }) {
   return (
     <div className="student-topbar">
-      <button className="hamburger" onClick={onMenuClick} aria-label="Open menu">
+      <button
+        className="hamburger"
+        onClick={onMenuClick}
+        aria-label="Open menu"
+      >
         <Menu size={20} />
       </button>
 

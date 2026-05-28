@@ -1,10 +1,21 @@
-import { Controller, Post, Get, Body, Param, Patch, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PaymentsService } from './payments.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
-import { Role } from '@prisma/client';
+import { Cadence, Role } from '@prisma/client';
+
+const CADENCE_VALUES: Cadence[] = [Cadence.MONTHLY, Cadence.ANNUAL, Cadence.ONE_TIME];
+
+function parseCadence(value: unknown): Cadence {
+  if (typeof value === 'string' && (CADENCE_VALUES as string[]).includes(value)) {
+    return value as Cadence;
+  }
+  throw new BadRequestException(
+    `cadence must be one of ${CADENCE_VALUES.join(', ')}`,
+  );
+}
 
 @Controller('api/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,9 +34,15 @@ export class PaymentsController {
   createOrder(
     @CurrentUser('id') userId: string,
     @Body('planId') planId: string,
+    @Body('cadence') cadence: string,
     @Body('redeemCode') redeemCode?: string,
   ) {
-    return this.paymentsService.createOrder(userId, planId, redeemCode);
+    return this.paymentsService.createOrder(
+      userId,
+      planId,
+      parseCadence(cadence),
+      redeemCode,
+    );
   }
 
   @Post('verify')
@@ -41,6 +58,11 @@ export class PaymentsController {
       razorpayPaymentId,
       razorpaySignature,
     );
+  }
+
+  @Get('history')
+  getHistory(@CurrentUser('id') userId: string) {
+    return this.paymentsService.getUserPaymentHistory(userId);
   }
 
   // --- Admin Endpoints ---

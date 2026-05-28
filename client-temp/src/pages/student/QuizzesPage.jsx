@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { SegmentedTabs, FilterChipGroup } from "../../components/ui/Tabs";
 import QuizCard from "../../components/student/QuizCard";
+import { useEntitlements } from "../../hooks/useEntitlements";
 import "./QuizzesPage.css";
 
 const SUBJECT_TABS = [
@@ -47,7 +48,7 @@ const QUIZZES = [
   { id: "5", subject: "bio", topic: "Botany · Photosynthesis", title: "Light + dark reactions, C3 vs C4 plants", questionCount: 20, duration: "14 min", attempts: "912 attempts", difficulty: 3, status: "new", cost: 1 },
   { id: "6", subject: "physics", topic: "Thermodynamics · First law", title: "Heat, work, and the conservation of energy", questionCount: 20, duration: "16 min", attempts: "1.5k attempts", difficulty: 3, status: "new", cost: 1 },
   { id: "7", subject: "chem", topic: "Organic · Aldol condensation", title: "Aldol reactions — mechanism, products, conditions", questionCount: 24, duration: "20 min", attempts: "638 attempts", difficulty: 5, status: "new", cost: 1 },
-  { id: "8", subject: "mixed", topic: "JEE Main · Mock test 04", title: "Full-length mock — 90 questions across PCM", questionCount: 90, duration: "3 hours", attempts: "4.2k attempts", difficulty: 4, status: "new", cost: 3, subjectLabel: "Mixed · PCM" },
+  { id: "8", subject: "mixed", topic: "JEE Main · Mock test 04", title: "Full-length mock — 90 questions across PCM", questionCount: 90, duration: "3 hours", attempts: "4.2k attempts", difficulty: 4, status: "new", cost: 3, subjectLabel: "Mixed · PCM", paperType: "FULL_MOCK" },
   { id: "9", subject: "math", topic: "Trigonometry · Identities", title: "Sum-to-product & double-angle identities", questionCount: 20, duration: "10 min", attempts: "2.8k attempts", difficulty: 3, status: "done", cost: 1, statusText: "✓ Completed · 16 / 20" },
   { id: "10", subject: "physics", topic: "Optics · Wave optics", title: "Young's double-slit, interference patterns", questionCount: 18, duration: "14 min", attempts: "1.1k attempts", difficulty: 3, status: "new", cost: 1 },
   { id: "11", subject: "bio", topic: "Genetics · Mendel's laws", title: "Inheritance, dihybrid crosses, linkage", questionCount: 18, duration: "12 min", attempts: "734 attempts", difficulty: 2, status: "new", cost: 1 },
@@ -61,6 +62,18 @@ export default function QuizzesPage() {
   const [status, setStatus] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
   const [currentPage, setCurrentPage] = useState(1);
+  const { hasFeature, loading: entLoading } = useEntitlements();
+
+  const resolveLock = (quiz) => {
+    if (entLoading) return null;
+    if (quiz.paperType === "FULL_MOCK" && !hasFeature("MOCK_TESTS")) {
+      return "Full-length mock tests require Starter or Pro.";
+    }
+    if ((quiz.paperType === "PYQ" || quiz.subject === "papers") && !hasFeature("PYQ_ACCESS")) {
+      return "Previous-year papers require Starter or Pro.";
+    }
+    return null;
+  };
 
   return (
     <div className="main">
@@ -223,7 +236,12 @@ export default function QuizzesPage() {
 
       <div className="quiz-grid">
         {QUIZZES.map((quiz) => (
-          <QuizCard key={quiz.id} quizId={quiz.id} {...quiz} />
+          <QuizCard
+            key={quiz.id}
+            quizId={quiz.id}
+            {...quiz}
+            lockMessage={resolveLock(quiz)}
+          />
         ))}
       </div>
 

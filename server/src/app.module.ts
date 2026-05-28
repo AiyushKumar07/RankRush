@@ -18,6 +18,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware.js';
 import { TokensModule } from './tokens/tokens.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { EntitlementsModule } from './entitlements/entitlements.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     TokensModule,
     PaymentsModule,
     SubscriptionsModule,
+    EntitlementsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

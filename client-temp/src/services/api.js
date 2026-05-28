@@ -125,6 +125,7 @@ export const userAPI = {
   updatePreferences: (data) => api.patch('/user/preferences', data),
   resetProgress: () => api.post('/user/reset-progress'),
   deleteAccount: () => api.delete('/user/account'),
+  getEntitlements: () => api.get('/user/me/entitlements'),
 };
 
 export const studentAPI = {
@@ -147,7 +148,16 @@ export const quizzesAPI = {
 };
 
 export const subscriptionPlansAPI = {
+  // Public
+  list: () => api.get('/subscriptions/plans'),
+
+  // Student
+  mySubscription: () => api.get('/subscriptions/me'),
+  cancelMySubscription: () => api.post('/subscriptions/me/cancel'),
+
+  // Admin
   getAll: () => api.get('/subscriptions/admin/plans'),
+  getById: (id) => api.get(`/subscriptions/admin/plans/${id}`),
   create: (data) => api.post('/subscriptions/admin/plans', data),
   update: (id, data) => api.patch(`/subscriptions/admin/plans/${id}`, data),
   toggleStatus: (id, isActive) => api.patch(`/subscriptions/admin/plans/${id}/toggle`, { isActive }),
@@ -162,6 +172,13 @@ export const analyticsAPI = {
 };
 
 export const paymentsAPI = {
+  // Student
+  createOrder: (data) => api.post('/payments/create-order', data),
+  verifyPayment: (data) => api.post('/payments/verify', data),
+  validateCode: (code) => api.post('/payments/validate-code', { code }),
+  getHistory: () => api.get('/payments/history'),
+
+  // Admin
   createRedeemCode: (data) => api.post('/payments/admin/redeem-codes', data),
   getAllRedeemCodes: () => api.get('/payments/admin/redeem-codes'),
   toggleRedeemCodeStatus: (id, isActive) => api.patch(`/payments/admin/redeem-codes/${id}/toggle`, { isActive }),

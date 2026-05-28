@@ -16,6 +16,7 @@ import {
   TokensPage,
   ReferPage,
   PricingPage,
+  BillingPage,
   ProfilePage,
   AdminDashboardPage,
   AdminQuizzesPage,
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/app/tokens" element={<TokensPage />} />
           <Route path="/app/refer" element={<ReferPage />} />
           <Route path="/app/pricing" element={<PricingPage />} />
+          <Route path="/app/billing" element={<BillingPage />} />
           <Route path="/app/profile" element={<ProfilePage />} />
         </Route>
 

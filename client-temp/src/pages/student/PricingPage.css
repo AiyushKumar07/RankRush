@@ -297,6 +297,36 @@
   font-variant-numeric: tabular-nums;
 }
 
+.compare-table tbody td .row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.coming-soon-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--rr-font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in oklab, var(--rr-amber-500, #f59e0b) 14%, transparent);
+  color: var(--rr-amber-500, #f59e0b);
+  border: 1px solid color-mix(in oklab, var(--rr-amber-500, #f59e0b) 28%, transparent);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.plan-card.featured .coming-soon-chip {
+  background: color-mix(in oklab, var(--rr-lime-400) 14%, transparent);
+  color: var(--rr-lime-400);
+  border-color: color-mix(in oklab, var(--rr-lime-400) 32%, transparent);
+}
+
 @media (max-width: 720px) {
   .compare-table { overflow-x: auto; }
   .compare-table table { min-width: 640px; }

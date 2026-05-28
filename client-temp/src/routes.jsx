@@ -13,6 +13,7 @@ const ActivityPage = lazy(() => import('./pages/student/ActivityPage'))
 const TokensPage = lazy(() => import('./pages/student/TokensPage'))
 const ReferPage = lazy(() => import('./pages/student/ReferPage'))
 const PricingPage = lazy(() => import('./pages/student/PricingPage'))
+const BillingPage = lazy(() => import('./pages/student/BillingPage'))
 const ProfilePage = lazy(() => import('./pages/student/ProfilePage'))
 
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
@@ -33,6 +34,7 @@ export {
   TokensPage,
   ReferPage,
   PricingPage,
+  BillingPage,
   ProfilePage,
   AdminDashboardPage,
   AdminQuizzesPage,

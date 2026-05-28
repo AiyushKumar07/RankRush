@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TokensService } from '../tokens/tokens.service.js';
+import { Cadence } from '@prisma/client';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
@@ -62,13 +63,25 @@ export class PaymentsService {
     return redeemCode;
   }
 
-  async createOrder(userId: string, planId: string, redeemCodeString?: string) {
+  async createOrder(
+    userId: string,
+    planId: string,
+    cadence: Cadence,
+    redeemCodeString?: string,
+  ) {
     const plan = await this.prisma.subscriptionPlan.findUnique({
       where: { id: planId },
     });
     if (!plan) throw new BadRequestException('Plan not found');
 
-    let finalPrice = plan.price;
+    const pricing = await this.prisma.planPricing.findUnique({
+      where: { planId_cadence: { planId, cadence } },
+    });
+    if (!pricing || !pricing.isActive) {
+      throw new BadRequestException('Selected pricing variant is unavailable');
+    }
+
+    let finalPrice = pricing.price;
     let appliedCode: string | null = null;
 
     if (redeemCodeString) {
@@ -96,14 +109,17 @@ export class PaymentsService {
       );
     }
 
+    const isRecurring = cadence !== Cadence.ONE_TIME;
     const payment = await this.prisma.paymentTransaction.create({
       data: {
         userId,
         planId,
-        amount: finalPrice, // Store discounted price
+        pricingId: pricing.id,
+        cadence,
+        amount: finalPrice,
         currency: plan.currency,
         status: 'PENDING',
-        mode: plan.isRecurring ? 'SUBSCRIPTION' : 'ONE_TIME',
+        mode: isRecurring ? 'SUBSCRIPTION' : 'ONE_TIME',
         gatewayOrderId: order.id,
         redeemCode: appliedCode,
       },
@@ -225,38 +241,52 @@ export class PaymentsService {
       });
     }
 
-    if (transaction.planId) {
-      const plan = await this.prisma.subscriptionPlan.findUnique({
-        where: { id: transaction.planId },
-      });
+    if (transaction.planId && transaction.pricingId && transaction.cadence) {
+      const [plan, pricing] = await Promise.all([
+        this.prisma.subscriptionPlan.findUnique({ where: { id: transaction.planId } }),
+        this.prisma.planPricing.findUnique({ where: { id: transaction.pricingId } }),
+      ]);
 
-      if (plan) {
-        if (plan.isRecurring) {
-          const nextDate = new Date();
-          if (plan.refreshFrequency === 'MONTHLY') {
-            nextDate.setMonth(nextDate.getMonth() + 1);
-          } else if (plan.refreshFrequency === 'QUARTERLY') {
-            nextDate.setMonth(nextDate.getMonth() + 3);
-          } else if (plan.refreshFrequency === 'YEARLY') {
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
+      if (plan && pricing) {
+        const cadence = transaction.cadence;
+        if (cadence !== Cadence.ONE_TIME) {
+          // One-cycle model: card is charged once. MONTHLY = 1 batch of tokens, expires after 1 month.
+          // ANNUAL = monthly refreshes for 12 months, then expires.
+          const startDate = new Date();
+          const nextRefreshDate = new Date(startDate);
+          nextRefreshDate.setMonth(nextRefreshDate.getMonth() + 1);
+
+          const endDate = new Date(startDate);
+          if (cadence === Cadence.ANNUAL) {
+            endDate.setFullYear(endDate.getFullYear() + 1);
           } else {
-            nextDate.setMonth(nextDate.getMonth() + 1); // Default to monthly
+            endDate.setMonth(endDate.getMonth() + 1);
           }
+
+          // Cancel any previous active subscription for this user — only one active at a time.
+          await this.prisma.studentSubscription.updateMany({
+            where: { userId, status: 'ACTIVE' },
+            data: { status: 'CANCELLED', endDate: startDate },
+          });
 
           await this.prisma.studentSubscription.create({
             data: {
               userId,
               planId: plan.id,
+              pricingId: pricing.id,
+              cadence,
               status: 'ACTIVE',
               isAutoRenewEnabled: true,
-              nextRefreshDate: nextDate,
+              startDate,
+              endDate,
+              nextRefreshDate,
             },
           });
         }
 
         await this.tokensService.creditTokens(
           userId,
-          plan.tokenCount,
+          pricing.tokenCount,
           'PURCHASE',
           transaction.id,
           `Purchased ${plan.name}`,
@@ -265,6 +295,39 @@ export class PaymentsService {
     }
 
     return { success: true, message: 'Payment verified successfully' };
+  }
+
+  async getUserPaymentHistory(userId: string) {
+    const transactions = await this.prisma.paymentTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const planIds = [...new Set(transactions.map((t) => t.planId).filter(Boolean) as string[])];
+    const plans = planIds.length
+      ? await this.prisma.subscriptionPlan.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, name: true, icon: true },
+        })
+      : [];
+    const planMap = new Map(plans.map((p) => [p.id, p]));
+
+    return transactions.map((t) => ({
+      id: t.id,
+      amount: t.amount,
+      currency: t.currency,
+      status: t.status,
+      mode: t.mode,
+      cadence: t.cadence,
+      planId: t.planId,
+      planName: t.planId ? planMap.get(t.planId)?.name ?? null : null,
+      planIcon: t.planId ? planMap.get(t.planId)?.icon ?? null : null,
+      gatewayPaymentId: t.gatewayPaymentId,
+      gatewayOrderId: t.gatewayOrderId,
+      redeemCode: t.redeemCode,
+      createdAt: t.createdAt,
+    }));
   }
 
   // --- Admin Redeem Code Management ---

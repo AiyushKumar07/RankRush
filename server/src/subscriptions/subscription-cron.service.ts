@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cadence } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokensService } from '../tokens/tokens.service';
 
@@ -19,17 +20,31 @@ export class SubscriptionCronService {
     try {
       const now = new Date();
 
-      // Find all active subscriptions that are due for a refresh
+      // Expire subscriptions past their endDate first — no refresh happens after expiry.
+      const expired = await this.prisma.studentSubscription.updateMany({
+        where: {
+          status: 'ACTIVE',
+          endDate: { not: null, lte: now },
+        },
+        data: { status: 'EXPIRED' },
+      });
+      if (expired.count > 0) {
+        this.logger.log(`Expired ${expired.count} subscriptions past endDate.`);
+      }
+
+      // Find all still-active subscriptions due for a token refresh
+      // (one-cycle model: MONTHLY plans never refresh — their nextRefreshDate == endDate,
+      // so they get expired above before reaching this query. ANNUAL plans refresh monthly
+      // until endDate is hit.)
       const dueSubscriptions = await this.prisma.studentSubscription.findMany({
         where: {
           status: 'ACTIVE',
           isAutoRenewEnabled: true,
-          nextRefreshDate: {
-            lte: now, // less than or equal to current time
-          },
+          cadence: { not: Cadence.ONE_TIME },
+          nextRefreshDate: { lte: now },
         },
         include: {
-          plan: true,
+          plan: { include: { pricings: true } },
         },
       });
 
@@ -44,35 +59,34 @@ export class SubscriptionCronService {
 
       for (const subscription of dueSubscriptions) {
         try {
+          const pricing = subscription.pricingId
+            ? subscription.plan.pricings.find((p) => p.id === subscription.pricingId)
+            : subscription.plan.pricings.find((p) => p.cadence === subscription.cadence);
+
+          if (!pricing) {
+            this.logger.warn(
+              `No pricing found for subscription ${subscription.id} (plan=${subscription.plan.name}). Skipping.`,
+            );
+            continue;
+          }
+
           // 1. Credit the tokens
           await this.tokensService.creditTokens(
             subscription.userId,
-            subscription.plan.tokenCount,
+            pricing.tokenCount,
             'SUBSCRIPTION_REFRESH',
             subscription.id,
-            `Monthly refresh for ${subscription.plan.name}`,
+            `Refresh for ${subscription.plan.name} (${subscription.cadence})`,
           );
 
-          // 2. Calculate the next refresh date (add 1 month)
+          // 2. Always advance by 1 month — annual buys 12 monthly refreshes within endDate.
           const nextDate = new Date(subscription.nextRefreshDate || now);
-
-          if (subscription.plan.refreshFrequency === 'MONTHLY') {
-            nextDate.setMonth(nextDate.getMonth() + 1);
-          } else if (subscription.plan.refreshFrequency === 'QUARTERLY') {
-            nextDate.setMonth(nextDate.getMonth() + 3);
-          } else if (subscription.plan.refreshFrequency === 'YEARLY') {
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
-          } else {
-            // Default fallback is monthly
-            nextDate.setMonth(nextDate.getMonth() + 1);
-          }
+          nextDate.setMonth(nextDate.getMonth() + 1);
 
           // 3. Update the subscription record
           await this.prisma.studentSubscription.update({
             where: { id: subscription.id },
-            data: {
-              nextRefreshDate: nextDate,
-            },
+            data: { nextRefreshDate: nextDate },
           });
 
           this.logger.log(

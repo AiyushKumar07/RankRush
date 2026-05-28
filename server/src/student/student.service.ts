@@ -14,6 +14,7 @@ import {
   QueryActivityDto,
 } from './dto/student.dto.js';
 import { TokensService } from '../tokens/tokens.service.js';
+import { EntitlementsService } from '../entitlements/entitlements.service.js';
 
 // ── Gamification constants (simple formula) ──────────────────────
 const XP_PER_CORRECT = 10;
@@ -45,6 +46,7 @@ export class StudentService {
     private prisma: PrismaService,
     private audit: AuditService,
     private tokensService: TokensService,
+    private entitlements: EntitlementsService,
   ) {}
 
   // ── Stats (shared by sidebar, profile, dashboard) ───────────────
@@ -339,6 +341,34 @@ export class StudentService {
     if (!quiz) throw new NotFoundException('Quiz not found');
     if (quiz.status !== 'ACTIVE') {
       throw new BadRequestException('This quiz is not currently available');
+    }
+
+    // Plan-tier gating: PYQ and Mock papers are gated separately from token cost.
+    if (quiz.paperType === 'FULL_MOCK') {
+      await this.entitlements.requireFeature(
+        userId,
+        'MOCK_TESTS',
+        'Full-length mock tests require Starter or Pro.',
+      );
+    } else if (quiz.paperType === 'PYQ') {
+      await this.entitlements.requireFeature(
+        userId,
+        'PYQ_ACCESS',
+        'Previous-year papers require Starter or Pro.',
+      );
+      // Enforce the per-plan year cap parsed from the same feature's value:
+      // Starter "Last 5 years" → 5, Pro "All years" → Infinity.
+      if (quiz.year != null) {
+        const cap = await this.entitlements.getCap(userId, 'PYQ_ACCESS');
+        if (Number.isFinite(cap) && cap > 0) {
+          const minYear = new Date().getFullYear() - cap;
+          if (quiz.year < minYear) {
+            throw new BadRequestException(
+              `Your plan covers the last ${cap} years of PYQs. Upgrade to Pro for full access.`,
+            );
+          }
+        }
+      }
     }
 
     // Check token balance

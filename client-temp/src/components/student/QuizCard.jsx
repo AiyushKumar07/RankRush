@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, CircleCheck, Users, ArrowRight } from "lucide-react";
+import { Clock, CircleCheck, Users, ArrowRight, Lock, Crown } from "lucide-react";
 
 const SUBJ_COLORS = {
   math: "var(--rr-violet-500)",
@@ -41,7 +41,9 @@ export default function QuizCard({
   subjectLabel,
   quizId = "1",
   locked = false,
+  lockMessage,
 }) {
+  const isLocked = locked || !!lockMessage;
   const isDone = status === "done";
   const isProgress = status === "progress";
 
@@ -64,10 +66,16 @@ export default function QuizCard({
 
   return (
     <article
-      className={`quiz-card${locked ? " locked" : ""}`}
+      className={`quiz-card${isLocked ? " locked" : ""}`}
       data-subj={subject}
+      title={lockMessage || undefined}
     >
       <div className="band" />
+      {lockMessage && (
+        <span className="quiz-lock-chip" title={lockMessage}>
+          <Crown size={11} />Pro
+        </span>
+      )}
       <div className="body">
         <div className="top">
           <span className="subj-badge">
@@ -136,6 +144,15 @@ export default function QuizCard({
             className="btn btn-secondary btn-sm"
           >
             Review
+            <ArrowRight size={14} />
+          </Link>
+        ) : lockMessage ? (
+          <Link
+            to="/app/pricing"
+            className="btn btn-secondary btn-sm"
+            title={lockMessage}
+          >
+            <Lock size={12} />Unlock
             <ArrowRight size={14} />
           </Link>
         ) : (
