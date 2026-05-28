@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, ArrowRight, User, Mail, Lock,
   Target, Trophy, HeartPulse, BookOpen, School,
@@ -60,6 +60,7 @@ export default function SignupPage() {
 
   const { studentSignup, verifyEmail, pendingVerification } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     if (pendingVerification) {
@@ -67,6 +68,12 @@ export default function SignupPage() {
       setEmail(pendingVerification.email)
     }
   }, [pendingVerification])
+
+  // Prefill referral code from ?rid= when the user lands via a referral link.
+  useEffect(() => {
+    const rid = searchParams.get('rid')
+    if (rid && !referralCode) setReferralCode(rid.toUpperCase())
+  }, [searchParams, referralCode])
 
   const goTo = useCallback((n) => { setEmailError(''); setEmailErrorAllowLogin(false); setStep(n); }, [])
 

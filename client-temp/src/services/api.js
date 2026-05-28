@@ -171,6 +171,11 @@ export const analyticsAPI = {
   getAuditLogs: (params) => api.get('/analytics/audit-logs', { params }),
 };
 
+export const tokensAPI = {
+  getBalance: () => api.get('/tokens/balance'),
+  getReferrals: () => api.get('/tokens/referrals'),
+};
+
 export const paymentsAPI = {
   // Student
   createOrder: (data) => api.post('/payments/create-order', data),

@@ -1,10 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import {
   Leaf, Rocket, Crown, Sparkles, Star, Zap, Gem, Shield,
   CircleCheck, CircleX, Check, Plus, ArrowRight,
 } from 'lucide-react'
-import { subscriptionPlansAPI } from '../../services/api'
+import { paymentsAPI, subscriptionPlansAPI } from '../../services/api'
+import { useEntitlements } from '../../hooks/useEntitlements'
+import { useAuth } from '../../context/AuthContext'
 import './PricingPage.css'
+
+const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js'
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (typeof window.Razorpay !== 'undefined') return resolve(true)
+    const existing = document.querySelector(`script[src="${RAZORPAY_SCRIPT}"]`)
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true))
+      existing.addEventListener('error', () => resolve(false))
+      return
+    }
+    const script = document.createElement('script')
+    script.src = RAZORPAY_SCRIPT
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 const CADENCES = ['MONTHLY', 'ANNUAL', 'ONE_TIME']
 const CADENCE_LABELS = { MONTHLY: 'Monthly', ANNUAL: 'Annual', ONE_TIME: 'One-time' }
@@ -66,11 +89,93 @@ function renderFeatureValue(feature) {
 }
 
 export default function PricingPage() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const { refresh: refreshEntitlements, planName } = useEntitlements()
+
   const [cadence, setCadence] = useState('MONTHLY')
   const [openFaq, setOpenFaq] = useState(new Set([0]))
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [buying, setBuying] = useState(null) // planId currently being purchased
+
+  const handleBuy = async (plan) => {
+    if (!plan?.id || plan.isFree) return
+    if (!user) {
+      toast.error('Please log in to upgrade')
+      navigate('/login')
+      return
+    }
+    const pricing = pickPricing(plan, cadence)
+    if (!pricing) {
+      toast.error('This cadence is unavailable for the selected plan')
+      return
+    }
+
+    setBuying(plan.id)
+    const t = toast.loading('Opening checkout…')
+    try {
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        toast.error('Failed to load Razorpay. Check your connection.', { id: t })
+        return
+      }
+
+      const orderRes = await paymentsAPI.createOrder({ planId: plan.id, cadence })
+      const order = orderRes?.data ?? orderRes
+      if (!order?.orderId || !order?.keyId) {
+        toast.error('Could not create order. Try again.', { id: t })
+        return
+      }
+      toast.dismiss(t)
+
+      const checkout = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'RankRush',
+        description: `${plan.name} · ${CADENCE_LABELS[cadence] || cadence}`,
+        prefill: {
+          name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          email: user.email,
+        },
+        theme: { color: '#0E0E13' },
+        handler: async (response) => {
+          const v = toast.loading('Verifying payment…')
+          try {
+            await paymentsAPI.verifyPayment({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            })
+            await refreshEntitlements()
+            toast.success(`You're on ${plan.name}. Tokens credited.`, { id: v })
+            navigate('/app/billing')
+          } catch (err) {
+            toast.error(err?.message || 'Payment verification failed', { id: v })
+          } finally {
+            setBuying(null)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setBuying(null)
+            toast.dismiss(t)
+          },
+        },
+      })
+      checkout.on('payment.failed', (resp) => {
+        toast.error(resp?.error?.description || 'Payment failed')
+        setBuying(null)
+      })
+      checkout.open()
+    } catch (err) {
+      toast.error(err?.message || 'Could not start checkout', { id: t })
+      setBuying(null)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -134,7 +239,15 @@ export default function PricingPage() {
       {!loading && !error && (
         <div className="plans-grid">
           {plans.map((plan) => (
-            <PlanCardView key={plan.id} plan={plan} cadence={cadence} />
+            <PlanCardView
+              key={plan.id}
+              plan={plan}
+              cadence={cadence}
+              currentPlanName={planName}
+              isBuying={buying === plan.id}
+              isAnyBuying={!!buying}
+              onBuy={() => handleBuy(plan)}
+            />
           ))}
         </div>
       )}
@@ -213,14 +326,23 @@ export default function PricingPage() {
               Cancel any time. Your rank thanks you in advance.
             </p>
             <div className="row">
-              <button className="btn btn-lime btn-lg">
-                {featured.ctaLabel || `Go ${featured.name}`}
-                {featuredPricing && ` · ${formatCurrency(featuredPricing.price, featured.currency)}${featuredPricing.cadence === 'MONTHLY' ? '/mo' : featuredPricing.cadence === 'ANNUAL' ? '/yr' : ''}`}
+              <button
+                className="btn btn-lime btn-lg"
+                onClick={() => handleBuy(featured)}
+                disabled={!!buying}
+              >
+                {buying === featured.id ? 'Opening checkout…' : (featured.ctaLabel || `Go ${featured.name}`)}
+                {featuredPricing && buying !== featured.id && ` · ${formatCurrency(featuredPricing.price, featured.currency)}${featuredPricing.cadence === 'MONTHLY' ? '/mo' : featuredPricing.cadence === 'ANNUAL' ? '/yr' : ''}`}
                 <ArrowRight size={14} />
               </button>
               {starter && starterPricing && (
-                <button className="btn btn-ghost btn-lg" style={{ color: '#FAFAF7', border: '1px solid rgba(255,255,255,0.15)' }}>
-                  Try {starter.name} at {formatCurrency(starterPricing.price, starter.currency)}
+                <button
+                  className="btn btn-ghost btn-lg"
+                  style={{ color: '#FAFAF7', border: '1px solid rgba(255,255,255,0.15)' }}
+                  onClick={() => handleBuy(starter)}
+                  disabled={!!buying}
+                >
+                  {buying === starter.id ? 'Opening checkout…' : `Try ${starter.name} at ${formatCurrency(starterPricing.price, starter.currency)}`}
                 </button>
               )}
             </div>
@@ -232,12 +354,21 @@ export default function PricingPage() {
   )
 }
 
-function PlanCardView({ plan, cadence }) {
+function PlanCardView({ plan, cadence, currentPlanName, isBuying, isAnyBuying, onBuy }) {
   const Icon = getPlanIcon(plan.icon)
   const pricing = pickPricing(plan, cadence)
   const cardFeatures = (plan.features || []).filter((f) => f.showOnCard)
   const isPopular = plan.isPopular
   const isFree = plan.isFree
+  const isCurrent = currentPlanName && plan.name && currentPlanName.toLowerCase() === plan.name.toLowerCase()
+  const buttonDisabled = isFree || isCurrent || isAnyBuying
+  const buttonLabel = isBuying
+    ? 'Opening checkout…'
+    : isCurrent
+      ? "You're on this plan"
+      : isFree
+        ? "You're on this plan"
+        : (plan.ctaLabel || `Choose ${plan.name}`)
 
   return (
     <div className={`plan-card${isPopular ? ' featured' : ''}`}>
@@ -314,10 +445,11 @@ function PlanCardView({ plan, cadence }) {
         <button
           className={`btn btn-${plan.ctaVariant || (isPopular ? 'lime' : 'secondary')}`}
           style={{ width: '100%' }}
-          disabled={isFree}
+          disabled={buttonDisabled}
+          onClick={onBuy}
         >
-          {plan.ctaLabel || (isFree ? "You're on this plan" : `Choose ${plan.name}`)}
-          {!isFree && isPopular && <ArrowRight size={14} />}
+          {buttonLabel}
+          {!buttonDisabled && isPopular && <ArrowRight size={14} />}
         </button>
       </div>
     </div>

@@ -37,9 +37,19 @@ import RRBrand from "../brand/RRBrand";
 import ThemeToggle from "../ui/ThemeToggle";
 import TokenWallet from "../ui/TokenWallet";
 import { useAuth } from "../../context/AuthContext";
-import { usePlan } from "../../hooks/useTheme";
-import { EntitlementsProvider } from "../../hooks/useEntitlements";
+import { EntitlementsProvider, useEntitlements } from "../../hooks/useEntitlements";
+import { tokensAPI } from "../../services/api";
 import "./StudentLayout.css";
+
+// Map the real plan name from the server (Free / Starter / Pro / Institutional / …)
+// down to a coarse slug used for theming and PRO-pill display.
+function planNameToSlug(name) {
+  if (!name) return "free";
+  const lower = name.toLowerCase();
+  if (lower.includes("pro")) return "pro";
+  if (lower.includes("free")) return "free";
+  return "paid"; // Starter, custom tiers — paid but not Pro
+}
 
 const STUDY = [
   { to: "/app", icon: Home, label: "Home" },
@@ -69,10 +79,32 @@ const ACCOUNT = [
 ];
 
 export default function StudentLayout() {
+  return (
+    <EntitlementsProvider>
+      <StudentLayoutInner />
+    </EntitlementsProvider>
+  );
+}
+
+function StudentLayoutInner() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { plan } = usePlan();
-  const tokenBalance = plan === "pro" ? 50 : 12;
+  const { planName } = useEntitlements();
+  const plan = planNameToSlug(planName); // "free" | "paid" | "pro"
+
+  const [tokenBalance, setTokenBalance] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    tokensAPI.getBalance()
+      .then((res) => {
+        if (cancelled) return;
+        const balance = res?.data?.balance ?? res?.balance ?? 0;
+        setTokenBalance(balance);
+      })
+      .catch(() => { /* ignore — keep last balance */ });
+    return () => { cancelled = true; };
+  }, [planName]); // refetch after a plan change
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
@@ -95,7 +127,6 @@ export default function StudentLayout() {
   }, [logout, navigate]);
 
   return (
-    <EntitlementsProvider>
       <div className="student-app">
         {/* Drawer backdrop (mobile) */}
         {drawerOpen && (
@@ -139,7 +170,7 @@ export default function StudentLayout() {
               <div className="sidebar-user-meta">
                 <div className="sidebar-user-name">{displayUser.name}</div>
                 <div className="sidebar-user-plan">
-                  {plan === "pro" ? "Pro" : "Free"}
+                  {planName || "Free"}
                   {user?.class ? ` · ${user.class}` : ""}
                 </div>
               </div>
@@ -164,7 +195,6 @@ export default function StudentLayout() {
           <Outlet />
         </main>
       </div>
-    </EntitlementsProvider>
   );
 }
 
