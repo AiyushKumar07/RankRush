@@ -143,7 +143,7 @@ function SidebarItem({ to, icon: Icon, label, pill, soon, isPricing, plan }) {
             color: soon
               ? "var(--rr-amber-500)"
               : isPricing && plan === "free"
-                ? "var(--rr-ink-900)"
+                ? "#0E0E13"
                 : undefined,
             fontWeight: soon || isPricing ? 600 : undefined,
             textTransform: soon ? "uppercase" : undefined,

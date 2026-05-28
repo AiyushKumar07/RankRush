@@ -140,9 +140,9 @@ export default function PricingPage() {
             {p.proStrike && <span className="plan-strike">{p.proStrike}</span>}
           </div>
           {p.proSave && <div className="plan-save" style={{ color: 'var(--rr-lime-400)' }}>{p.proSave}</div>}
-          {p.proNote && !p.proSave && <div className="tokens-cadence-note" style={{ color: 'var(--rr-ink-300)' }}>{p.proNote}</div>}
+          {p.proNote && !p.proSave && <div className="tokens-cadence-note" style={{ color: '#9D9DA6' }}>{p.proNote}</div>}
           <div className="token-callout">
-            <div className="coin" style={{ background: 'var(--rr-lime-400)', color: 'var(--rr-ink-900)' }}>50</div>
+            <div className="coin" style={{ background: 'var(--rr-lime-400)', color: '#0E0E13' }}>50</div>
             <div className="text">
               <span className="big"><b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700 }}>50 tokens</b> {p.proTokenLabel}</span>
               <span className="small">Enough for ~12 quizzes a week — plus mock tests</span>
@@ -228,7 +228,7 @@ export default function PricingPage() {
         <p>Go Pro for ₹299/month. Cancel any time. Your rank thanks you in advance.</p>
         <div className="row">
           <button className="btn btn-lime btn-lg">Go Pro · ₹299/mo<ArrowRight size={14} /></button>
-          <button className="btn btn-ghost btn-lg" style={{ color: 'var(--rr-paper)', border: '1px solid rgba(255,255,255,0.15)' }}>Try Starter at ₹99</button>
+          <button className="btn btn-ghost btn-lg" style={{ color: '#FAFAF7', border: '1px solid rgba(255,255,255,0.15)' }}>Try Starter at ₹99</button>
         </div>
       </div>
 
