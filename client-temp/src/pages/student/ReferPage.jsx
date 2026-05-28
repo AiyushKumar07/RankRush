@@ -159,36 +159,34 @@ export default function ReferPage() {
         </div>
 
         <div className="code-section">
-          <div className="code-left">
-            <span className="code-meta">
-              Your referral link · <b>{successfulReferrals} of {CONVERSION_CAP}</b> conversions so far
-            </span>
-            <div className="code-row">
-              <div className="code-input" title={shareUrl}>
-                {loading
-                  ? 'Loading…'
-                  : referralCode
-                    ? <>rankrush.in/signup?rid=<b>{referralCode}</b></>
-                    : 'Code unavailable'}
-              </div>
-              <button className={`btn-copy${copied ? ' copied' : ''}`} onClick={handleCopy} disabled={!shareUrl || loading}>
-                {copied ? <><Check size={16} />Copied</> : <><Copy size={16} />Copy link</>}
+          <span className="code-meta">
+            Your referral link · <b>{successfulReferrals} of {CONVERSION_CAP}</b> conversions so far
+          </span>
+          <div className="code-row">
+            <div className="code-input" title={shareUrl}>
+              {loading
+                ? 'Loading…'
+                : referralCode
+                  ? <>rankrush.in/signup?rid=<b>{referralCode}</b></>
+                  : 'Code unavailable'}
+            </div>
+            <button type="button" className={`btn-copy${copied ? ' copied' : ''}`} onClick={handleCopy} disabled={!shareUrl || loading}>
+              {copied ? <><Check size={16} />Copied</> : <><Copy size={16} />Copy link</>}
+            </button>
+            <div className="share-cluster">
+              <button type="button" className="share-btn wa" title="Share to WhatsApp" onClick={openWhatsApp} disabled={!shareUrl}>
+                <MessageCircle size={18} />
+              </button>
+              <button type="button" className="share-btn tw" title="Share to X (Twitter)" onClick={openTwitter} disabled={!shareUrl}>
+                <Send size={18} />
+              </button>
+              <button type="button" className="share-btn" title="Native share" onClick={handleNativeShare} disabled={!shareUrl}>
+                <Share2 size={18} />
+              </button>
+              <button type="button" className="share-btn" title="Email" onClick={openEmail} disabled={!shareUrl}>
+                <Mail size={18} />
               </button>
             </div>
-          </div>
-          <div className="share-cluster">
-            <button type="button" className="share-btn wa" title="Share to WhatsApp" onClick={openWhatsApp} disabled={!shareUrl}>
-              <MessageCircle size={18} />
-            </button>
-            <button type="button" className="share-btn tw" title="Share to X (Twitter)" onClick={openTwitter} disabled={!shareUrl}>
-              <Send size={18} />
-            </button>
-            <button type="button" className="share-btn" title="Native share" onClick={handleNativeShare} disabled={!shareUrl}>
-              <Share2 size={18} />
-            </button>
-            <button type="button" className="share-btn" title="Email" onClick={openEmail} disabled={!shareUrl}>
-              <Mail size={18} />
-            </button>
           </div>
         </div>
 
