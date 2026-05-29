@@ -30,7 +30,7 @@
   gap: 40px; align-items: center;
 }
 @media (max-width: 880px) { .wallet-hero { grid-template-columns: 1fr; padding: 28px; gap: 28px; } }
-[data-theme="dark"] .wallet-hero { background: linear-gradient(135deg, #1B1A2E 0%, var(--rr-ink-900) 100%); }
+[data-theme="dark"] .wallet-hero { background: linear-gradient(135deg, #1B1A2E 0%, #0E0E13 100%); }
 .wallet-hero::before {
   content: ""; position: absolute; inset: 0;
   background:
@@ -45,7 +45,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
   display: flex; align-items: center; gap: 8px;
 }
 .wallet-left .lbl::before {
@@ -71,16 +71,16 @@
   font-weight: 500;
   font-size: 28px;
   letter-spacing: -0.015em;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
 }
 
 .balance-sub {
   font-size: 14px;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
   margin: 0 0 24px;
   max-width: 360px;
 }
-.balance-sub b { color: var(--rr-paper); font-weight: 600; }
+.balance-sub b { color: #FAFAF7; font-weight: 600; }
 
 /* Balance breakdown chips */
 .balance-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
@@ -91,13 +91,13 @@
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: var(--rr-r-full);
   font-size: 12px;
-  color: var(--rr-paper);
+  color: #FAFAF7;
 }
-.bal-chip i, .bal-chip svg { font-size: 13px; width: 13px; height: 13px; color: var(--rr-ink-300); }
+.bal-chip i, .bal-chip svg { font-size: 13px; width: 13px; height: 13px; color: #9D9DA6; }
 .bal-chip b {
   font-family: var(--rr-font-display);
   font-weight: 700;
-  color: var(--rr-paper);
+  color: #FAFAF7;
   font-variant-numeric: tabular-nums;
 }
 
@@ -115,15 +115,15 @@
   font-size: 16px;
   letter-spacing: -0.01em;
   margin: 0;
-  color: var(--rr-paper);
+  color: #FAFAF7;
 }
 .wallet-right .row-bw {
   display: flex; justify-content: space-between; align-items: center;
   font-size: 12px;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
 }
 .wallet-right .row-bw b {
-  color: var(--rr-paper); font-family: var(--rr-font-display);
+  color: #FAFAF7; font-family: var(--rr-font-display);
   font-weight: 600; font-variant-numeric: tabular-nums;
 }
 .wallet-right hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 0; }
@@ -423,3 +423,23 @@
   letter-spacing: -0.01em;
 }
 .how-cost .sub { font-size: 11px; color: var(--rr-fg-muted); }
+
+/* Loading spinner reused by the page-level fetch state. */
+.rc-spin { animation: tp-spin 0.8s linear infinite; }
+@keyframes tp-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* CSV-export "Export CSV →" link button in log foot. */
+.log-foot .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--rr-violet-500);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.log-foot .link-btn:hover { text-decoration: underline; }
+.log-foot .link-btn:disabled { opacity: 0.4; cursor: not-allowed; }

@@ -1,219 +1,418 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Coins, Flame, Gift, CircleMinus, RefreshCw, ArrowUp } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  Coins, Flame, Gift, CircleMinus, RefreshCw, ArrowUp,
+  ShoppingBag, Sparkles, Loader2,
+} from 'lucide-react'
+import { tokensAPI, subscriptionPlansAPI } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
+import { useEntitlements } from '../../hooks/useEntitlements'
 import './TokensPage.css'
 
-const LOG_DATA = [
-  { type: 'spent', icon: CircleMinus, label: 'Spent', source: 'Calculus · Limits & Continuity', detail: 'Standard quiz · 18/20 score', date: 'Today · 8:42 AM', amt: '−1', amtClass: 'neg' },
-  { type: 'earned', icon: Flame, label: 'Bonus', iconClass: 'bonus', source: '14-day streak milestone', detail: 'Earned · keep going for 21', date: 'Yesterday · 11:24 PM', amt: '+1', amtClass: 'pos' },
-  { type: 'spent', icon: CircleMinus, label: 'Spent', source: 'JEE Main · Mock test 04', detail: 'Full-length · 78/90 score', date: 'Yesterday · 4:18 PM', amt: '−3', amtClass: 'neg' },
-  { type: 'earned', icon: Gift, label: 'Referral', iconClass: 'earned', source: 'Tanvi S. upgraded to Starter via your link', detail: '2 of 5 conversions · +2 to you, +2 to Tanvi', date: '2 days ago', amt: '+2', amtClass: 'pos' },
-  { type: 'spent', icon: CircleMinus, label: 'Spent', source: 'Physics · Wave optics', detail: 'Standard quiz · 16/18 score', date: '4 days ago', amt: '−1', amtClass: 'neg' },
-  { type: 'earned', icon: Flame, label: 'Bonus', iconClass: 'bonus', source: '7-day streak milestone', detail: 'Earned · halfway to next bonus', date: '5 days ago', amt: '+1', amtClass: 'pos' },
-  { type: 'spent', icon: CircleMinus, label: 'Spent', source: 'Chemistry · Periodic table', detail: 'Standard quiz · 19/20 score', date: '5 days ago', amt: '−1', amtClass: 'neg' },
-  { type: 'reset', icon: RefreshCw, label: 'Reset', iconClass: 'reset', source: 'Monthly allowance refill (Free)', detail: '2 tokens added · cycle started', date: '1 May 2026', amt: '+2', amtClass: 'neutral' },
-  { type: 'spent', icon: CircleMinus, label: 'Spent', source: 'Math · Trigonometry identities', detail: 'Standard quiz · 18/20 score', date: '1 May 2026', amt: '−1', amtClass: 'neg' },
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'earned', label: 'Earned' },
+  { key: 'spent', label: 'Spent' },
 ]
 
-const FILTERS = [
-  { label: 'All', count: 9 },
-  { label: 'Earned', count: 4 },
-  { label: 'Spent', count: 5 },
-]
+const TXN_META = {
+  PURCHASE:             { label: 'Purchase',  icon: ShoppingBag, kind: 'earned', tone: 'earned' },
+  SUBSCRIPTION_REFRESH: { label: 'Refresh',   icon: RefreshCw,   kind: 'reset',  tone: 'reset' },
+  REFERRAL_BONUS:       { label: 'Referral',  icon: Gift,        kind: 'earned', tone: 'earned' },
+  ADMIN_CREDIT:         { label: 'Bonus',     icon: Sparkles,    kind: 'earned', tone: 'bonus' },
+  REFUND:               { label: 'Refund',    icon: RefreshCw,   kind: 'earned', tone: 'earned' },
+  QUIZ_CONSUMED:        { label: 'Spent',     icon: CircleMinus, kind: 'spent',  tone: 'spent' },
+}
+
+function formatDate(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  const today = new Date()
+  const sameDay = d.toDateString() === today.toDateString()
+  const yest = new Date(today); yest.setDate(today.getDate() - 1)
+  const isYesterday = d.toDateString() === yest.toDateString()
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
+  if (sameDay) return `Today · ${time}`
+  if (isYesterday) return `Yesterday · ${time}`
+  const days = Math.floor((today - d) / (1000 * 60 * 60 * 24))
+  if (days < 7) return `${days} days ago`
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function startOfMonth(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
 
 export default function TokensPage() {
+  const { user } = useAuth()
+  const { planName } = useEntitlements()
+
+  const [wallet, setWallet] = useState({ balance: 0, transactions: [] })
+  const [subscription, setSubscription] = useState(null)
+  const [referrals, setReferrals] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState(0)
 
-  const filteredRows = LOG_DATA.filter(row => {
-    if (activeFilter === 0) return true
-    if (activeFilter === 1) return row.type === 'earned' || row.type === 'reset'
-    return row.type === 'spent'
-  })
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [walletRes, subRes, refRes] = await Promise.all([
+        tokensAPI.getBalance(),
+        subscriptionPlansAPI.mySubscription().catch(() => ({ subscription: null })),
+        tokensAPI.getReferrals().catch(() => null),
+      ])
+      const walletData = walletRes?.data ?? walletRes ?? {}
+      setWallet({
+        balance: walletData.balance ?? 0,
+        transactions: walletData.transactions ?? [],
+      })
+      setSubscription(subRes?.subscription ?? subRes?.data?.subscription ?? null)
+      setReferrals(refRes?.data ?? refRes ?? null)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load token data')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  // Categorize ALL credits (lifetime, not just current balance composition).
+  // The wallet balance is a single counter so we can't strictly attribute
+  // it; what we can do is show how much came from each source historically.
+  const chips = useMemo(() => {
+    const credits = wallet.transactions.filter((t) => t.amount > 0)
+    let fromPlan = 0, streak = 0, refer = 0
+    for (const t of credits) {
+      if (t.type === 'PURCHASE' || t.type === 'SUBSCRIPTION_REFRESH') fromPlan += t.amount
+      else if (t.type === 'REFERRAL_BONUS') refer += t.amount
+      else if (t.type === 'ADMIN_CREDIT') streak += t.amount
+    }
+    return { fromPlan, streak, refer }
+  }, [wallet.transactions])
+
+  const monthSpending = useMemo(() => {
+    const since = startOfMonth()
+    const debits = wallet.transactions.filter(
+      (t) => t.type === 'QUIZ_CONSUMED' && new Date(t.createdAt) >= since,
+    )
+    let standard = 0, mock = 0
+    for (const t of debits) {
+      const used = Math.abs(t.amount)
+      if (used >= 3) mock += used
+      else standard += used
+    }
+    return { standard, mock, total: standard + mock }
+  }, [wallet.transactions])
+
+  const filteredTxns = useMemo(() => {
+    const key = FILTERS[activeFilter].key
+    return wallet.transactions.filter((t) => {
+      const meta = TXN_META[t.type]
+      if (!meta) return key === 'all'
+      if (key === 'all') return true
+      if (key === 'earned') return meta.kind === 'earned' || meta.kind === 'reset'
+      if (key === 'spent') return meta.kind === 'spent'
+      return true
+    })
+  }, [wallet.transactions, activeFilter])
+
+  const tabCounts = useMemo(() => {
+    const counts = { all: wallet.transactions.length, earned: 0, spent: 0 }
+    for (const t of wallet.transactions) {
+      const m = TXN_META[t.type]
+      if (m?.kind === 'spent') counts.spent++
+      else if (m?.kind === 'earned' || m?.kind === 'reset') counts.earned++
+    }
+    return counts
+  }, [wallet.transactions])
+
+  // Plan card derivations
+  const planAllowance = subscription?.pricing?.tokenCount ?? 2
+  const refreshDate = subscription?.nextRefreshDate ?? subscription?.endDate ?? null
+  const daysLeftInCycle = refreshDate
+    ? Math.max(0, Math.ceil((new Date(refreshDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    : null
+  const cycleStart = subscription?.startDate ? new Date(subscription.startDate) : startOfMonth()
+  const usedThisCycle = wallet.transactions
+    .filter((t) => t.type === 'QUIZ_CONSUMED' && new Date(t.createdAt) >= cycleStart)
+    .reduce((s, t) => s + Math.abs(t.amount), 0)
+  const allowancePct = planAllowance > 0 ? Math.min(100, Math.round((usedThisCycle / planAllowance) * 100)) : 0
+
+  // Referral stats for the "Refer up to 5 friends" tile
+  const conversionCount = referrals?.successfulReferrals ?? 0
+  const referralPct = Math.min(100, Math.round((conversionCount / 5) * 100))
+  const referralEarned = referrals?.tokensEarned ?? 0
+
+  // Streak (from auth context user)
+  const streak = user?.streak ?? 0
+  const STREAK_CYCLE = 7
+  const streakInCycle = streak % STREAK_CYCLE
+  const streakPct = Math.round((streakInCycle / STREAK_CYCLE) * 100)
+  const daysToNextStreakBonus = STREAK_CYCLE - streakInCycle
 
   return (
     <div className="main">
-
       <div className="page-head">
         <div className="crumb">/ Account / Tokens</div>
         <h1>Your token wallet</h1>
         <p className="sub">One token = one quiz attempt. Earn them by showing up, spend them on questions, watch the balance tick.</p>
       </div>
 
-      <div className="wallet-hero">
-        <div className="wallet-left">
-          <span className="lbl">Available balance</span>
-          <div className="balance-row">
-            <span className="balance-num">12</span>
-            <span className="balance-unit">tokens</span>
-          </div>
-          <p className="balance-sub">Worth <b>12 quiz attempts</b>, or <b>4 mock tests</b>, or any mix in between.</p>
-
-          <div className="balance-chips">
-            <span className="bal-chip"><Coins size={13} />From plan <b>2</b></span>
-            <span className="bal-chip"><Flame size={13} />Streak bonus <b>+5</b></span>
-            <span className="bal-chip"><Gift size={13} />Referrals <b>+4</b></span>
-          </div>
+      {loading ? (
+        <div style={{ display: 'grid', placeItems: 'center', padding: 80, color: 'var(--rr-fg-muted)' }}>
+          <Loader2 size={22} className="rc-spin" />
         </div>
-
-        <div className="wallet-right">
-          <h3>Your plan · Free</h3>
-          <div>
-            <div className="row-bw" style={{ marginBottom: 8 }}>
-              <span>Plan allowance this month</span>
-              <span><b>2</b> / 2 used</span>
-            </div>
-            <div className="wallet-meter"><div className="fill" style={{ width: '100%' }}></div></div>
-          </div>
-          <hr />
-          <div className="row-bw"><span>Resets on</span><span><b>1 June 2026</b></span></div>
-          <div className="row-bw"><span>Days left in cycle</span><span><b>4</b> days</span></div>
-          <hr />
-          <div className="cta-line">
-            <Link to="/pricing" className="btn btn-lime" style={{ flex: 1 }}><ArrowUp size={14} />Upgrade plan</Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="row-2">
-        <div className="dcard">
-          <div className="dcard-head">
-            <div>
-              <h2>Earn more tokens</h2>
-              <span className="sub">Four ways to top up without paying — show up, climb, win.</span>
-            </div>
-          </div>
-          <div className="earn-grid">
-            <div className="earn-tile streak">
-              <div className="top">
-                <div className="ico"><Flame size={18} /></div>
-                <span className="reward">+1 token</span>
+      ) : (
+        <>
+          <div className="wallet-hero">
+            <div className="wallet-left">
+              <span className="lbl">Available balance</span>
+              <div className="balance-row">
+                <span className="balance-num">{wallet.balance}</span>
+                <span className="balance-unit">tokens</span>
               </div>
-              <h4>Hit a 7-day streak</h4>
-              <p>One bonus token every 7 consecutive days. Miss a day, restart at zero.</p>
-              <div className="progress-label"><span>17 / 21 days · next bonus</span><span>4 days</span></div>
-              <div className="meter"><div className="fill" style={{ width: '81%' }}></div></div>
-            </div>
+              <p className="balance-sub">
+                Worth <b>{wallet.balance} quiz attempts</b>, or <b>{Math.floor(wallet.balance / 3)} mock tests</b>, or any mix in between.
+              </p>
 
-            <div className="earn-tile refer">
-              <div className="top">
-                <div className="ico"><Gift size={18} /></div>
-                <span className="reward">+2 tokens each</span>
+              <div className="balance-chips">
+                <span className="bal-chip"><Coins size={13} />From plan <b>{chips.fromPlan}</b></span>
+                {chips.streak > 0 && <span className="bal-chip"><Flame size={13} />Streak bonus <b>+{chips.streak}</b></span>}
+                {chips.refer > 0 && <span className="bal-chip"><Gift size={13} />Referrals <b>+{chips.refer}</b></span>}
               </div>
-              <h4>Refer up to 5 friends</h4>
-              <p>2 tokens for you and 2 for them — the moment they buy any paid plan.</p>
-              <div className="progress-label"><span>2 of 5 referrals converted</span><span>+4 tokens earned</span></div>
-              <div className="meter"><div className="fill" style={{ width: '40%' }}></div></div>
+            </div>
+
+            <div className="wallet-right">
+              <h3>Your plan · {planName || 'Free'}</h3>
+              <div>
+                <div className="row-bw" style={{ marginBottom: 8 }}>
+                  <span>Allowance this cycle</span>
+                  <span><b>{usedThisCycle}</b> / {planAllowance} used</span>
+                </div>
+                <div className="wallet-meter"><div className="fill" style={{ width: `${allowancePct}%` }}></div></div>
+              </div>
+              <hr />
+              <div className="row-bw">
+                <span>{refreshDate ? 'Next refresh' : 'Resets on'}</span>
+                <span><b>{refreshDate ? new Date(refreshDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</b></span>
+              </div>
+              {daysLeftInCycle != null && (
+                <div className="row-bw">
+                  <span>Days left in cycle</span>
+                  <span><b>{daysLeftInCycle}</b> days</span>
+                </div>
+              )}
+              <hr />
+              <div className="cta-line">
+                <Link to="/app/pricing" className="btn btn-lime" style={{ flex: 1 }}>
+                  <ArrowUp size={14} />{subscription ? 'Change plan' : 'Upgrade plan'}
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="dcard">
-          <div className="dcard-head">
+          <div className="row-2">
+            <div className="dcard">
+              <div className="dcard-head">
+                <div>
+                  <h2>Earn more tokens</h2>
+                  <span className="sub">Two ways to top up without paying — show up, refer.</span>
+                </div>
+              </div>
+              <div className="earn-grid">
+                <div className="earn-tile streak">
+                  <div className="top">
+                    <div className="ico"><Flame size={18} /></div>
+                    <span className="reward">+1 token</span>
+                  </div>
+                  <h4>Hit a {STREAK_CYCLE}-day streak</h4>
+                  <p>One bonus token every {STREAK_CYCLE} consecutive days. Miss a day, restart at zero.</p>
+                  <div className="progress-label">
+                    <span>{streakInCycle} / {STREAK_CYCLE} days · next bonus</span>
+                    <span>{daysToNextStreakBonus === STREAK_CYCLE ? 'available' : `${daysToNextStreakBonus} day${daysToNextStreakBonus === 1 ? '' : 's'}`}</span>
+                  </div>
+                  <div className="meter"><div className="fill" style={{ width: `${streakPct}%` }}></div></div>
+                </div>
+
+                <div className="earn-tile refer">
+                  <div className="top">
+                    <div className="ico"><Gift size={18} /></div>
+                    <span className="reward">+2 tokens each</span>
+                  </div>
+                  <h4>Refer up to 5 friends</h4>
+                  <p>2 tokens for you and 2 for them — the moment they buy any paid plan.</p>
+                  <div className="progress-label">
+                    <span>{conversionCount} of 5 referrals converted</span>
+                    <span>+{referralEarned} tokens earned</span>
+                  </div>
+                  <div className="meter"><div className="fill" style={{ width: `${referralPct}%` }}></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="dcard">
+              <div className="dcard-head">
+                <div>
+                  <h2>Spending breakdown</h2>
+                  <span className="sub">{new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} · so far</span>
+                </div>
+              </div>
+              {monthSpending.total === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+                  No tokens spent this month yet.
+                </div>
+              ) : (
+                <>
+                  <div className="spend-list">
+                    {monthSpending.standard > 0 && (
+                      <div className="spend-row">
+                        <span className="name"><span className="d" style={{ background: 'var(--rr-violet-500)' }}></span>Standard quizzes</span>
+                        <div className="bar"><div className="fill" style={{ width: `${Math.min(100, (monthSpending.standard / monthSpending.total) * 100)}%`, background: 'var(--rr-violet-500)' }}></div></div>
+                        <span className="amt">{monthSpending.standard}</span>
+                      </div>
+                    )}
+                    {monthSpending.mock > 0 && (
+                      <div className="spend-row">
+                        <span className="name"><span className="d" style={{ background: 'var(--rr-cyan-500)' }}></span>Mock tests</span>
+                        <div className="bar"><div className="fill" style={{ width: `${Math.min(100, (monthSpending.mock / monthSpending.total) * 100)}%`, background: 'var(--rr-cyan-500)' }}></div></div>
+                        <span className="amt">{monthSpending.mock}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="spend-total">
+                    <span className="label">Spent · this month</span>
+                    <span className="total">{monthSpending.total}<small> tokens</small></span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="how-card">
             <div>
-              <h2>Spending breakdown</h2>
-              <span className="sub">May 2026 · so far</span>
+              <span className="lbl-line">How it works</span>
+              <h3 style={{ marginTop: 6 }}>What costs what.</h3>
+              <p style={{ fontSize: 13, color: 'var(--rr-fg-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>Cheat sheet for token spend. Bigger questions cost more.</p>
+            </div>
+            <div className="how-list">
+              <div className="how-cost">
+                <div className="coin">1</div>
+                <div className="text">
+                  <span className="lbl">Standard quiz</span>
+                  <span className="sub">20-question set · 12–18 min</span>
+                </div>
+              </div>
+              <div className="how-cost">
+                <div className="coin">3</div>
+                <div className="text">
+                  <span className="lbl">Mock test</span>
+                  <span className="sub">Full-length · 90 Qs · 3 hours</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="spend-list">
-            <div className="spend-row">
-              <span className="name"><span className="d" style={{ background: 'var(--rr-violet-500)' }}></span>Standard quizzes</span>
-              <div className="bar"><div className="fill" style={{ width: '80%', background: 'var(--rr-violet-500)' }}></div></div>
-              <span className="amt">8</span>
-            </div>
-            <div className="spend-row">
-              <span className="name"><span className="d" style={{ background: 'var(--rr-cyan-500)' }}></span>Mock tests</span>
-              <div className="bar"><div className="fill" style={{ width: '60%', background: 'var(--rr-cyan-500)' }}></div></div>
-              <span className="amt">6</span>
-            </div>
-          </div>
-          <div className="spend-total">
-            <span className="label">Spent · this month</span>
-            <span className="total">14<small> tokens</small></span>
-          </div>
-        </div>
-      </div>
 
-      <div className="how-card">
-        <div>
-          <span className="lbl-line">How it works</span>
-          <h3 style={{ marginTop: 6 }}>What costs what.</h3>
-          <p style={{ fontSize: 13, color: 'var(--rr-fg-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>Cheat sheet for token spend. Bigger questions cost more.</p>
-        </div>
-        <div className="how-list">
-          <div className="how-cost">
-            <div className="coin">1</div>
-            <div className="text">
-              <span className="lbl">Standard quiz</span>
-              <span className="sub">20-question set · 12–18 min</span>
+          <div className="dcard log-card">
+            <div className="log-head">
+              <div>
+                <h2>Activity</h2>
+                <span className="sub">Every token in, every token out — last {wallet.transactions.length} transactions.</span>
+              </div>
+              <div className="log-filters">
+                {FILTERS.map((f, i) => {
+                  const count = tabCounts[f.key] ?? 0
+                  return (
+                    <button
+                      key={f.key}
+                      className={`chip${activeFilter === i ? ' on' : ''}`}
+                      onClick={() => setActiveFilter(i)}
+                    >
+                      {f.label} <span className="n">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-          <div className="how-cost">
-            <div className="coin">3</div>
-            <div className="text">
-              <span className="lbl">Mock test</span>
-              <span className="sub">Full-length · 90 Qs · 3 hours</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="dcard log-card">
-        <div className="log-head">
-          <div>
-            <h2>Activity</h2>
-            <span className="sub">Every token in, every token out — last 30 days.</span>
-          </div>
-          <div className="log-filters">
-            {FILTERS.map((f, i) => (
-              <button
-                key={f.label}
-                className={`chip${activeFilter === i ? ' on' : ''}`}
-                onClick={() => setActiveFilter(i)}
-              >
-                {f.label} <span className="n">{f.count}</span>
+            {filteredTxns.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+                No transactions to show.
+              </div>
+            ) : (
+              <table className="log-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Date</th>
+                    <th>Tokens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTxns.map((t) => {
+                    const meta = TXN_META[t.type] || { label: t.type, icon: Coins, kind: 'earned', tone: 'earned' }
+                    const Icon = meta.icon
+                    const isCredit = t.amount > 0
+                    const amtClass = meta.kind === 'spent' ? 'neg' : meta.kind === 'reset' ? 'neutral' : 'pos'
+                    return (
+                      <tr key={t.id} data-row-type={meta.kind}>
+                        <td>
+                          <span className={`log-type ${meta.tone}`}>
+                            <div className="ico"><Icon size={13} /></div>
+                            <span className="lbl-text">{meta.label}</span>
+                          </span>
+                        </td>
+                        <td>
+                          <span className="source">
+                            {t.description || meta.label}
+                            {t.price != null && <small>Paid ₹{Math.round(t.price)}</small>}
+                            {t.balanceAfter != null && t.price == null && <small>Balance after: {t.balanceAfter}</small>}
+                          </span>
+                        </td>
+                        <td><span className="date">{formatDate(t.createdAt)}</span></td>
+                        <td className={`amt ${amtClass}`}>{isCredit ? '+' : ''}{t.amount}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            <div className="log-foot">
+              <span>Showing {filteredTxns.length} of {wallet.transactions.length} transactions</span>
+              <button className="link-btn" onClick={() => exportCSV(filteredTxns)} disabled={filteredTxns.length === 0}>
+                Export CSV →
               </button>
-            ))}
+            </div>
           </div>
-        </div>
-
-        <table className="log-table">
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Source</th>
-              <th>Date</th>
-              <th>Tokens</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.map((row, i) => {
-              const Icon = row.icon
-              const typeClass = row.iconClass || row.type
-              return (
-                <tr key={i} data-row-type={row.type}>
-                  <td>
-                    <span className={`log-type ${typeClass}`}>
-                      <div className="ico"><Icon size={13} /></div>
-                      <span className="lbl-text">{row.label}</span>
-                    </span>
-                  </td>
-                  <td>
-                    <span className="source">{row.source}<small>{row.detail}</small></span>
-                  </td>
-                  <td><span className="date">{row.date}</span></td>
-                  <td className={`amt ${row.amtClass}`}>{row.amt}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-
-        <div className="log-foot">
-          <span>Showing {filteredRows.length} of 9 transactions · May 2026</span>
-          <a href="#" style={{ color: 'var(--rr-violet-500)', fontWeight: 500 }}>Export CSV →</a>
-        </div>
-      </div>
-
+        </>
+      )}
     </div>
   )
+}
+
+function exportCSV(txns) {
+  if (!txns.length) return
+  const header = ['Date', 'Type', 'Amount', 'Balance after', 'Description', 'Reference ID', 'Paid (₹)']
+  const lines = [header.join(',')]
+  for (const t of txns) {
+    lines.push([
+      new Date(t.createdAt).toISOString(),
+      t.type,
+      t.amount,
+      t.balanceAfter ?? '',
+      JSON.stringify(t.description || ''),
+      t.referenceId || '',
+      t.price ?? '',
+    ].join(','))
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `rankrush-tokens-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }

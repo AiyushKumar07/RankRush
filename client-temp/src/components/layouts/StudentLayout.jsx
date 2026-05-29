@@ -65,18 +65,23 @@ const COMING_SOON = [
   { icon: Video, label: "Lectures" },
 ];
 
-const ACCOUNT = [
-  { to: "/app/tokens", icon: Coins, label: "Tokens", pill: "12" },
-  { to: "/app/refer", icon: Gift, label: "Refer & Earn" },
-  { to: "/app/billing", icon: Receipt, label: "Billing" },
-  {
-    to: "/app/pricing",
-    icon: Crown,
-    label: "Pricing",
-    pill: "PRO",
-    isPricing: true,
-  },
-];
+// Pill values are filled in at render time from live data (token balance,
+// plan slug). Defined as a function so the values can't go stale at
+// module-load.
+function buildAccountNav({ tokenBalance }) {
+  return [
+    { to: "/app/tokens", icon: Coins, label: "Tokens", pill: String(tokenBalance ?? 0) },
+    { to: "/app/refer", icon: Gift, label: "Refer & Earn" },
+    { to: "/app/billing", icon: Receipt, label: "Billing" },
+    {
+      to: "/app/pricing",
+      icon: Crown,
+      label: "Pricing",
+      pill: "PRO",
+      isPricing: true,
+    },
+  ];
+}
 
 export default function StudentLayout() {
   return (
@@ -159,7 +164,7 @@ function StudentLayoutInner() {
           </SidebarGroup>
 
           <SidebarGroup label="Account">
-            {ACCOUNT.map((item) => (
+            {buildAccountNav({ tokenBalance }).map((item) => (
               <SidebarItem key={item.label} {...item} plan={plan} />
             ))}
           </SidebarGroup>
