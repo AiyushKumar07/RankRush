@@ -1,5 +1,11 @@
-// Wipes plans / pricings / features and re-seeds the three defaults
-// (Free / Starter / Pro) from src/scripts/seed-data/default-plans.ts.
+// Seeds the three default plans (Free / Starter / Pro) from
+// src/scripts/seed-data/default-plans.ts.
+//
+// Pre-flight: refuses to wipe plans if any active StudentSubscription
+// references them, since the wipe would orphan a paying user's purchase.
+// If you really need to re-seed, cancel/expire those subscriptions first,
+// or use repopulate-plan-children.ts which only rehydrates child collections
+// without dropping the plan rows themselves.
 //
 // Run with:  npm run seed:plans
 import 'dotenv/config';
@@ -13,10 +19,19 @@ async function main() {
   await prisma.$connect();
   console.log('Connected.');
 
+  const activeSubs = await prisma.studentSubscription.count({
+    where: { status: 'ACTIVE' },
+  });
+  if (activeSubs > 0) {
+    console.error(
+      `\n  ✗ Refusing to wipe: ${activeSubs} active StudentSubscription(s) reference these plans.\n    Use repopulate-plan-children.ts instead (rehydrates pricings/features without touching plans),\n    or expire those subscriptions first.\n`,
+    );
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+
   console.log('Wiping existing plans, pricings and features...');
-  // PlanPricing & PlanFeature have onDelete: Cascade, but Mongo + Prisma's
-  // cascade isn't fully relied on for referential safety — delete children
-  // first to be explicit.
+  // Delete children first to be explicit (Mongo + Prisma cascade isn't fully reliable).
   await prisma.planFeature.deleteMany({});
   await prisma.planPricing.deleteMany({});
   await prisma.subscriptionPlan.deleteMany({});

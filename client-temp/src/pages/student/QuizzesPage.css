@@ -444,47 +444,4 @@
 [data-theme="dark"] .pager button.on { background: var(--rr-paper); color: var(--rr-ink-900); border-color: var(--rr-paper); }
 .pager .ellipsis { color: var(--rr-fg-dim); padding: 0 4px; }
 
-/* Modal styles */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(14, 14, 19, 0.5);
-  backdrop-filter: blur(6px);
-  display: grid; place-items: center;
-  z-index: 100;
-  animation: fadeIn var(--rr-dur-fast) var(--rr-ease-soft);
-}
-.modal-dialog {
-  background: var(--rr-surface);
-  border: 1px solid var(--rr-border);
-  border-radius: var(--rr-r-xl);
-  box-shadow: var(--rr-shadow-xl);
-  width: 90%;
-  max-width: 440px;
-  animation: slideUp var(--rr-dur-base) var(--rr-ease-out);
-}
-.modal-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 20px 24px 0;
-}
-.modal-title {
-  font-family: var(--rr-font-display);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: -0.015em;
-  margin: 0;
-}
-.modal-close {
-  background: transparent; border: 0;
-  width: 32px; height: 32px; border-radius: var(--rr-r-sm);
-  display: grid; place-items: center;
-  color: var(--rr-fg-muted);
-  transition: all var(--rr-dur-fast);
-}
-.modal-close:hover { background: var(--rr-bg-alt); color: var(--rr-fg); }
-.modal-body { padding: 16px 24px; }
-.modal-footer {
-  display: flex; gap: 10px; justify-content: flex-end;
-  padding: 0 24px 20px;
-}
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+/* Modal styles moved to src/index.css so any page that mounts <Modal/> gets them. */

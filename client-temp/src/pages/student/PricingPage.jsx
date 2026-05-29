@@ -8,6 +8,7 @@ import {
 import { paymentsAPI, subscriptionPlansAPI } from '../../services/api'
 import { useEntitlements } from '../../hooks/useEntitlements'
 import { useAuth } from '../../context/AuthContext'
+import RedeemCodeModal from '../../components/student/RedeemCodeModal'
 import './PricingPage.css'
 
 const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js'
@@ -99,8 +100,9 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [buying, setBuying] = useState(null) // planId currently being purchased
+  const [redeemModal, setRedeemModal] = useState(null) // { plan, pricing } | null
 
-  const handleBuy = async (plan) => {
+  const handleBuy = (plan) => {
     if (!plan?.id || plan.isFree) return
     if (!user) {
       toast.error('Please log in to upgrade')
@@ -112,7 +114,12 @@ export default function PricingPage() {
       toast.error('This cadence is unavailable for the selected plan')
       return
     }
+    // Show the redeem-code modal first; checkout happens from onProceed.
+    setRedeemModal({ plan, pricing })
+  }
 
+  const performCheckout = async (plan, redeemCode) => {
+    setRedeemModal(null)
     setBuying(plan.id)
     const t = toast.loading('Opening checkout…')
     try {
@@ -122,7 +129,11 @@ export default function PricingPage() {
         return
       }
 
-      const orderRes = await paymentsAPI.createOrder({ planId: plan.id, cadence })
+      const orderRes = await paymentsAPI.createOrder({
+        planId: plan.id,
+        cadence,
+        ...(redeemCode ? { redeemCode } : {}),
+      })
       const order = orderRes?.data ?? orderRes
       if (!order?.orderId || !order?.keyId) {
         toast.error('Could not create order. Try again.', { id: t })
@@ -350,6 +361,18 @@ export default function PricingPage() {
         )
       })()}
 
+      <RedeemCodeModal
+        open={!!redeemModal}
+        plan={redeemModal?.plan ?? null}
+        pricing={redeemModal?.pricing ?? null}
+        cadence={cadence}
+        onClose={() => setRedeemModal(null)}
+        onProceed={(redeemCode) => {
+          if (!redeemModal?.plan) return
+          performCheckout(redeemModal.plan, redeemCode)
+        }}
+      />
+
     </div>
   )
 }
@@ -360,15 +383,20 @@ function PlanCardView({ plan, cadence, currentPlanName, isBuying, isAnyBuying, o
   const cardFeatures = (plan.features || []).filter((f) => f.showOnCard)
   const isPopular = plan.isPopular
   const isFree = plan.isFree
-  const isCurrent = currentPlanName && plan.name && currentPlanName.toLowerCase() === plan.name.toLowerCase()
-  const buttonDisabled = isFree || isCurrent || isAnyBuying
+  const isCurrent = !!(currentPlanName && plan.name && currentPlanName.toLowerCase() === plan.name.toLowerCase())
+  const buttonDisabled = isCurrent || isFree || isAnyBuying
   const buttonLabel = isBuying
     ? 'Opening checkout…'
     : isCurrent
       ? "You're on this plan"
       : isFree
-        ? "You're on this plan"
+        ? 'Free tier'
         : (plan.ctaLabel || `Choose ${plan.name}`)
+
+  // "Current" badge is UI-derived from the live subscription. Other badges
+  // (e.g. "Most picked") are static marketing labels from the seed.
+  const showCurrentBadge = isCurrent
+  const staticBadge = !isCurrent && plan.badge ? plan.badge : null
 
   return (
     <div className={`plan-card${isPopular ? ' featured' : ''}`}>
@@ -377,11 +405,13 @@ function PlanCardView({ plan, cadence, currentPlanName, isBuying, isAnyBuying, o
           <h3><Icon size={18} />{plan.name}</h3>
           <p className="desc">{plan.description}</p>
         </div>
-        {plan.badge && (
+        {showCurrentBadge ? (
+          <span className="plan-badge current">Current</span>
+        ) : staticBadge ? (
           <span className={`plan-badge ${isPopular ? 'featured' : 'current'}`}>
-            {isPopular ? '★ ' : ''}{plan.badge}
+            {isPopular ? '★ ' : ''}{staticBadge}
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="price-row">

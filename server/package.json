@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "npx ts-node --esm src/scripts/seed.ts",
     "seed:plans": "tsx src/scripts/seed-plans.ts",
+    "seed:codes": "tsx src/scripts/seed-codes.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push"
   },

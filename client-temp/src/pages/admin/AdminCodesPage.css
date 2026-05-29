@@ -231,3 +231,84 @@
   transition: all var(--rr-dur-fast);
 }
 .row-act:hover { background: var(--rr-bg-alt); color: var(--rr-fg); border-color: var(--rr-border); }
+
+/* Create-code modal form */
+.cc-form { display: flex; flex-direction: column; gap: 16px; min-width: 360px; }
+.cc-row { display: flex; gap: 12px; }
+.cc-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.cc-field > span {
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rr-fg-muted);
+  font-weight: 600;
+}
+.cc-field > span small { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--rr-fg-dim); }
+.cc-field input {
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  height: 40px;
+  padding: 0 12px;
+  font-family: var(--rr-font-sans);
+  font-size: 14px;
+  color: var(--rr-fg);
+  width: 100%;
+}
+.cc-field input:focus { outline: 0; border-color: var(--rr-violet-500); }
+.cc-grow { flex: 2; }
+
+.cc-code-row { display: flex; gap: 6px; align-items: stretch; }
+.cc-code-row input {
+  font-family: var(--rr-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cc-regen {
+  width: 40px; height: 40px;
+  border-radius: var(--rr-r-md);
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  display: grid; place-items: center;
+  cursor: pointer;
+  color: var(--rr-fg-muted);
+  transition: all var(--rr-dur-fast);
+  flex-shrink: 0;
+}
+.cc-regen:hover { color: var(--rr-violet-500); border-color: var(--rr-violet-400); }
+
+.cc-plans { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  color: var(--rr-fg-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--rr-dur-fast);
+}
+.cc-plan-chip:hover { border-color: var(--rr-violet-400); color: var(--rr-fg); }
+.cc-plan-chip.on {
+  background: color-mix(in oklab, var(--rr-violet-500) 14%, transparent);
+  border-color: var(--rr-violet-500);
+  color: var(--rr-violet-700);
+}
+[data-theme="dark"] .cc-plan-chip.on { color: var(--rr-violet-200); }
+
+.search-mini {
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--rr-fg);
+  min-width: 220px;
+}
+.search-mini:focus { outline: 0; border-color: var(--rr-violet-500); }

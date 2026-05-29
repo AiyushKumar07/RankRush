@@ -238,3 +238,62 @@
 .btn-lime:hover { background: var(--rr-lime-300); color: #0E0E13; }
 .btn-sm { height: 32px; padding: 0 14px; font-size: 12px; border-radius: var(--rr-r-sm); }
 .btn-lg { height: 52px; padding: 0 26px; font-size: 15px; }
+
+/* Reusable Modal component — styles live here so any page that mounts
+   <Modal/> gets the overlay/dialog chrome without needing a per-page CSS dep. */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(14, 14, 19, 0.5);
+  backdrop-filter: blur(6px);
+  display: grid; place-items: center;
+  z-index: 100;
+  animation: rr-modal-fade-in var(--rr-dur-fast) var(--rr-ease-soft);
+}
+.modal-dialog {
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-xl);
+  box-shadow: var(--rr-shadow-xl);
+  width: 90%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: rr-modal-slide-up var(--rr-dur-base) var(--rr-ease-out);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 24px 0;
+  flex-shrink: 0;
+}
+.modal-title {
+  font-family: var(--rr-font-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--rr-fg);
+}
+.modal-close {
+  background: transparent; border: 0;
+  width: 32px; height: 32px; border-radius: var(--rr-r-sm);
+  display: grid; place-items: center;
+  color: var(--rr-fg-muted);
+  cursor: pointer;
+  transition: all var(--rr-dur-fast);
+}
+.modal-close:hover { background: var(--rr-bg-alt); color: var(--rr-fg); }
+.modal-body {
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.modal-footer {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--rr-border);
+  flex-shrink: 0;
+}
+@keyframes rr-modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rr-modal-slide-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }

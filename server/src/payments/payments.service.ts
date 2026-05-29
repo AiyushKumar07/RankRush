@@ -63,6 +63,51 @@ export class PaymentsService {
     return redeemCode;
   }
 
+  // Validates a redeem code AND previews the discounted price for the
+  // selected plan+cadence (when provided). Used by the buy-modal so the
+  // user sees the new price before clicking "Pay".
+  async validateCodeWithPreview(
+    code: string,
+    userId: string,
+    planId?: string,
+    cadence?: Cadence,
+  ) {
+    const redeemCode = await this.validateCode(code, userId, planId);
+
+    let originalPrice: number | null = null;
+    let discountedPrice: number | null = null;
+    let pricingId: string | null = null;
+    let currency = 'INR';
+
+    if (planId && cadence) {
+      const pricing = await this.prisma.planPricing.findUnique({
+        where: { planId_cadence: { planId, cadence } },
+      });
+      if (pricing && pricing.isActive) {
+        const plan = await this.prisma.subscriptionPlan.findUnique({
+          where: { id: planId },
+          select: { currency: true },
+        });
+        originalPrice = pricing.price;
+        discountedPrice = Math.round(
+          pricing.price * (1 - redeemCode.discountPercentage / 100),
+        );
+        pricingId = pricing.id;
+        currency = plan?.currency || 'INR';
+      }
+    }
+
+    return {
+      code: redeemCode.code,
+      discountPercentage: redeemCode.discountPercentage,
+      applicablePlanIds: redeemCode.applicablePlanIds,
+      pricingId,
+      originalPrice,
+      discountedPrice,
+      currency,
+    };
+  }
+
   async createOrder(
     userId: string,
     planId: string,

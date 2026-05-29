@@ -56,8 +56,7 @@ export const DEFAULT_PLAN_SEEDS: DefaultPlanSeed[] = [
     name: 'Free',
     description: 'For dipping a toe in. No card needed.',
     icon: 'leaf',
-    badge: 'Current',
-    ctaLabel: "You're on this plan",
+    ctaLabel: null,
     ctaVariant: 'secondary',
     isFree: true,
     pricings: [

@@ -180,7 +180,7 @@ export const paymentsAPI = {
   // Student
   createOrder: (data) => api.post('/payments/create-order', data),
   verifyPayment: (data) => api.post('/payments/verify', data),
-  validateCode: (code) => api.post('/payments/validate-code', { code }),
+  validateCode: (payload) => api.post('/payments/validate-code', payload),
   getHistory: () => api.get('/payments/history'),
 
   // Admin

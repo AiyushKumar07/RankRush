@@ -1,10 +1,14 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import {
-  Ticket, CircleCheck, Coins, TrendingUp, ArrowUp,
-  Upload, Download, Plus, Zap, Settings2, RotateCw,
-  Crown, Percent, Clock, Copy, Eye, Edit, MoreHorizontal,
+  Ticket, CircleCheck, Percent, TrendingUp,
+  Download, Plus, Zap, Copy, Edit, MoreHorizontal, Power, RotateCw,
 } from "lucide-react";
+import Modal from "../../components/ui/Modal";
+import { paymentsAPI, subscriptionPlansAPI } from "../../services/api";
 import "./AdminCodesPage.css";
+
+const STATUS_FILTERS = ["All", "Active", "Inactive", "Expired", "Exhausted"];
 
 function randomCode() {
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -13,209 +17,435 @@ function randomCode() {
   return `RR-${r(A, 1)}${r(N, 1)}${r(A, 1)}${r(N, 1)}-${r(A, 2)}${r(N, 2)}`;
 }
 
-const CODES = [
-  { code: "JEE2026", typeClass: "plan", typeIcon: Crown, typeLabel: "Plan grant", reward: "Starter · 1 month", rewardSub: "worth ₹99", used: 12, max: 100, pct: 12, barClass: "", expires: "31 Aug 2026", expiresClass: "", status: "Active", statusClass: "published" },
-  { code: "ALLEN-BATCH-A", typeClass: "tokens", typeIcon: Coins, typeLabel: "Tokens", reward: "+15 tokens", rewardSub: "per redemption", used: 87, max: 250, pct: 35, barClass: "", expires: "15 Jun 2026", expiresClass: "", status: "Active", statusClass: "published" },
-  { code: "WELCOME10", typeClass: "discount", typeIcon: Percent, typeLabel: "Discount", reward: "10% off any plan", rewardSub: "first month", used: 148, max: "∞", pct: 30, barClass: "", expires: "No expiry", expiresClass: "", status: "Active", statusClass: "published" },
-  { code: "RR-PRO-TRIAL", typeClass: "trial", typeIcon: Clock, typeLabel: "Free trial", reward: "Pro · 7 days", rewardSub: "then auto-bills", used: 43, max: 50, pct: 86, barClass: "warn", expires: "8 Jun 2026 · 12 days", expiresClass: "warn", status: "Active", statusClass: "published" },
-  { code: "AAKASH-2026", typeClass: "tokens", typeIcon: Coins, typeLabel: "Tokens", reward: "+10 tokens", rewardSub: "per redemption", used: 22, max: 100, pct: 22, barClass: "", expires: "31 Jul 2026", expiresClass: "", status: "Active", statusClass: "published" },
-  { code: "FOUNDER-100", typeClass: "plan", typeIcon: Crown, typeLabel: "Plan grant", reward: "Pro · 3 months", rewardSub: "worth ₹897", used: 89, max: 100, pct: 89, barClass: "warn", expires: "31 May 2026 · 4 days", expiresClass: "warn", status: "Active", statusClass: "published" },
-  { code: "DIWALI-2025", typeClass: "discount", typeIcon: Percent, typeLabel: "Discount", reward: "25% off Pro annual", rewardSub: "first year", used: 342, max: 500, pct: 68, barClass: "", expires: "15 Nov 2025", expiresClass: "expired", status: "Expired", statusClass: "expired" },
-  { code: "BETA-LAUNCH", typeClass: "plan", typeIcon: Crown, typeLabel: "Plan grant", reward: "Pro · 1 month", rewardSub: "worth ₹299", used: 500, max: 500, pct: 100, barClass: "full", expires: "28 Feb 2026", expiresClass: "expired", status: "Exhausted", statusClass: "expired" },
-];
+function deriveStatus(code) {
+  if (!code.isActive) return "Inactive";
+  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return "Expired";
+  if (code.currentUses >= code.maxUses) return "Exhausted";
+  return "Active";
+}
 
-const TYPE_FILTERS = ["All", "Tokens", "Plan grant", "Discount", "Trial"];
-const STATUS_FILTERS = ["All", "Active", "Expired", "Paused"];
+function formatDate(value) {
+  if (!value) return "No expiry";
+  const d = new Date(value);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy") ? resolve() : reject();
+    } catch (e) { reject(e); }
+    document.body.removeChild(ta);
+  });
+}
 
 export default function AdminCodesPage() {
-  const [previewCode, setPreviewCode] = useState("RR-A4F2-MX9P");
-  const [typeFilter, setTypeFilter] = useState("All");
+  const [codes, setCodes] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const regenerate = useCallback(() => {
-    setPreviewCode(randomCode());
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [codesRes, plansRes] = await Promise.all([
+        paymentsAPI.getAllRedeemCodes(),
+        subscriptionPlansAPI.getAll(),
+      ]);
+      setCodes(Array.isArray(codesRes) ? codesRes : (codesRes?.data ?? []));
+      setPlans(Array.isArray(plansRes) ? plansRes : (plansRes?.data ?? []));
+    } catch (err) {
+      toast.error(err?.message || "Failed to load codes");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const planById = useMemo(() => {
+    const map = new Map();
+    plans.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [plans]);
+
+  const stats = useMemo(() => {
+    const active = codes.filter((c) => deriveStatus(c) === "Active");
+    const totalRedemptions = codes.reduce((s, c) => s + (c.currentUses || 0), 0);
+    const avgDiscount = active.length
+      ? Math.round(active.reduce((s, c) => s + c.discountPercentage, 0) / active.length)
+      : 0;
+    return {
+      activeCount: active.length,
+      totalRedemptions,
+      avgDiscount,
+      totalCodes: codes.length,
+    };
+  }, [codes]);
+
+  const filteredCodes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return codes
+      .filter((c) => {
+        if (statusFilter !== "All" && deriveStatus(c) !== statusFilter) return false;
+        if (q && !c.code.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [codes, statusFilter, search]);
+
+  const handleCopy = async (code) => {
+    try {
+      await copyToClipboard(code);
+      toast.success(`Copied "${code}"`);
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
+  const handleToggle = async (code) => {
+    try {
+      await paymentsAPI.toggleRedeemCodeStatus(code.id, !code.isActive);
+      toast.success(`${code.code} ${code.isActive ? "paused" : "activated"}`);
+      loadAll();
+    } catch (err) {
+      toast.error(err?.message || "Failed to toggle code");
+    }
+  };
+
+  const handleCreate = async (payload) => {
+    try {
+      await paymentsAPI.createRedeemCode(payload);
+      toast.success(`Code ${payload.code} created`);
+      setModalOpen(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err?.message || "Failed to create code");
+    }
+  };
 
   return (
     <div className="admin-main">
-      {/* Page header */}
       <div className="page-head">
         <div>
           <div className="crumb">Monetisation / Redeem codes</div>
           <h1>Redeem codes</h1>
-          <p className="sub">8 active codes · 247 redemptions this month · ₹14,200 in promotional value granted.</p>
+          <p className="sub">
+            {loading
+              ? "Loading…"
+              : `${stats.activeCount} active code${stats.activeCount === 1 ? "" : "s"} · ${stats.totalRedemptions} redemption${stats.totalRedemptions === 1 ? "" : "s"} so far.`}
+          </p>
         </div>
         <div className="head-actions">
-          <button className="btn btn-secondary btn-sm"><Upload size={12} />Bulk import</button>
-          <button className="btn btn-secondary btn-sm"><Download size={12} />Export</button>
-          <button className="btn btn-accent btn-sm"><Plus size={12} />Generate code</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredCodes, planById)} disabled={filteredCodes.length === 0}>
+            <Download size={12} />Export
+          </button>
+          <button className="btn btn-accent btn-sm" onClick={() => setModalOpen(true)}>
+            <Plus size={12} />New code
+          </button>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="stat-strip">
         <div className="cell">
           <div className="lbl"><Ticket size={12} />Active codes</div>
-          <div className="v">8</div>
-          <span className="delta"><ArrowUp size={12} />+2 this month</span>
+          <div className="v">{stats.activeCount}</div>
+          <span className="delta">of {stats.totalCodes} total</span>
         </div>
         <div className="cell">
-          <div className="lbl"><CircleCheck size={12} />Redemptions · 30d</div>
-          <div className="v">247</div>
-          <span className="delta"><ArrowUp size={12} />+38%</span>
+          <div className="lbl"><CircleCheck size={12} />Total redemptions</div>
+          <div className="v">{stats.totalRedemptions}</div>
+          <span className="delta">across all codes</span>
         </div>
         <div className="cell">
-          <div className="lbl"><Coins size={12} />Tokens granted</div>
-          <div className="v">1,420</div>
-          <span className="delta"><ArrowUp size={12} />+512 vs last 30d</span>
+          <div className="lbl"><Percent size={12} />Avg discount</div>
+          <div className="v">{stats.avgDiscount}<small>%</small></div>
+          <span className="delta">on active codes</span>
         </div>
         <div className="cell">
-          <div className="lbl"><TrendingUp size={12} />Conversion lift</div>
-          <div className="v">14.2<small>%</small></div>
-          <span className="delta"><ArrowUp size={12} />vs non-code signups</span>
+          <div className="lbl"><TrendingUp size={12} />Plans</div>
+          <div className="v">{plans.length}</div>
+          <span className="delta">available to target</span>
         </div>
       </div>
 
-      {/* Generate inline panel */}
-      <div className="gen-card">
-        <div className="gen-left">
-          <div className="lbl">★ Quick generate</div>
-          <h2>Spin up a new redeem code in 5 seconds.</h2>
-          <p>Pick a type, a reward, an expiry — we'll generate the code, give you a copy button, and a link you can paste into a coaching-centre's WhatsApp or your newsletter.</p>
-          <div className="code-form-grid" style={{ maxWidth: 520, marginBottom: 12 }}>
-            <div className="field">
-              <label>Type</label>
-              <select defaultValue="Tokens grant">
-                <option>Tokens grant</option>
-                <option>Plan grant (Pro · 1 month)</option>
-                <option>Plan grant (Starter · 1 month)</option>
-                <option>Discount % off</option>
-                <option>Free trial · 7 days</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Reward</label>
-              <input type="text" defaultValue="10 tokens" />
-            </div>
-            <div className="field">
-              <label>Max redemptions</label>
-              <input type="number" defaultValue={100} />
-            </div>
-            <div className="field">
-              <label>Expires</label>
-              <input type="date" defaultValue="2026-08-31" />
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn btn-accent"><Zap size={14} />Generate code</button>
-            <button className="btn btn-secondary"><Settings2 size={14} />Advanced options</button>
-          </div>
-        </div>
-        <div className="gen-right">
-          <span className="lbl">Live preview</span>
-          <div className="preview-code">
-            <span>{previewCode}</span>
-            <button className="regen" title="Regenerate" onClick={regenerate}>
-              <RotateCw size={13} />
-            </button>
-          </div>
-          <div className="preview-meta">Type: <b>Tokens grant</b></div>
-          <div className="preview-meta">Reward: <b>10 tokens</b></div>
-          <div className="preview-meta">Uses: <b>0 / 100</b> · expires <b>31 Aug 2026</b></div>
-        </div>
-      </div>
-
-      {/* Filter row */}
       <div className="filter-row-2">
-        <span className="gl">Type</span>
-        {TYPE_FILTERS.map((f) => (
-          <button key={f} className={`chip${typeFilter === f ? " on" : ""}`} onClick={() => setTypeFilter(f)}>{f}</button>
-        ))}
-        <span style={{ width: 1, height: 22, background: "var(--rr-border)" }} />
         <span className="gl">Status</span>
         {STATUS_FILTERS.map((f) => (
-          <button key={f} className={`chip${statusFilter === f ? " on" : ""}`} onClick={() => setStatusFilter(f)}>{f}</button>
+          <button
+            key={f}
+            className={`chip${statusFilter === f ? " on" : ""}`}
+            onClick={() => setStatusFilter(f)}
+          >
+            {f}
+          </button>
         ))}
         <div className="right">
-          <input className="search-mini" placeholder="Search by code…" />
-          <select>
-            <option>Newest first</option>
-            <option>Most redeemed</option>
-            <option>Expiring soon</option>
-            <option>By type</option>
-          </select>
+          <input
+            className="search-mini"
+            placeholder="Search by code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* Codes table */}
       <div className="acard">
-        <table className="atable">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Type</th>
-              <th>Reward</th>
-              <th>Usage</th>
-              <th>Expires</th>
-              <th>Status</th>
-              <th className="right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CODES.map((c, i) => (
-              <tr key={i}>
-                <td>
-                  <div className="code-cell">
-                    <span className="code-tag">{c.code}</span>
-                    <button className="copy-btn" title="Copy"><Copy size={12} /></button>
-                  </div>
-                </td>
-                <td>
-                  <span className={`type-tag ${c.typeClass}`}>
-                    <c.typeIcon size={12} />
-                    {c.typeLabel}
-                  </span>
-                </td>
-                <td>
-                  <div className="reward">
-                    {c.reward}
-                    <small>{c.rewardSub}</small>
-                  </div>
-                </td>
-                <td>
-                  <div className="uses-cell">
-                    <div className="uses-top">
-                      <span>{c.used} / {c.max}</span>
-                      <b>{c.pct === 100 ? "100%" : c.max === "∞" ? "—" : `${c.pct}%`}</b>
-                    </div>
-                    <div className="uses-bar">
-                      <div className={`fill ${c.barClass}`} style={{ width: `${c.pct}%` }} />
-                    </div>
-                  </div>
-                </td>
-                <td><span className={`expires ${c.expiresClass}`}>{c.expires}</span></td>
-                <td><span className={`status-pill ${c.statusClass}`}>{c.status}</span></td>
-                <td className="right">
-                  <div className="row-actions">
-                    <button className="row-act" title="View"><Eye size={14} /></button>
-                    <button className="row-act" title="Edit">
-                      {c.statusClass === "expired" ? <Copy size={14} /> : <Edit size={14} />}
-                    </button>
-                    <button className="row-act" title="More"><MoreHorizontal size={14} /></button>
-                  </div>
-                </td>
+        {loading ? (
+          <div style={{ padding: 48, textAlign: "center", color: "var(--rr-fg-muted)" }}>Loading codes…</div>
+        ) : filteredCodes.length === 0 ? (
+          <div style={{ padding: 48, textAlign: "center", color: "var(--rr-fg-muted)" }}>
+            <Ticket size={28} style={{ opacity: 0.4 }} />
+            <p style={{ marginTop: 12, fontSize: 13 }}>
+              {codes.length === 0 ? "No codes yet — create your first one." : "No codes match the filters."}
+            </p>
+          </div>
+        ) : (
+          <table className="atable">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Discount</th>
+                <th>Applies to</th>
+                <th>Usage</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th className="right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredCodes.map((c) => {
+                const status = deriveStatus(c);
+                const statusClass = status === "Active" ? "published" : status === "Inactive" ? "draft" : "expired";
+                const pct = c.maxUses ? Math.min(100, Math.round((c.currentUses / c.maxUses) * 100)) : 0;
+                const barClass = pct >= 100 ? "full" : pct >= 80 ? "warn" : "";
+                const planNames = c.applicablePlanIds?.length
+                  ? c.applicablePlanIds.map((id) => planById.get(id)?.name || "—").join(", ")
+                  : "All plans";
+                return (
+                  <tr key={c.id}>
+                    <td>
+                      <div className="code-cell">
+                        <span className="code-tag">{c.code}</span>
+                        <button className="copy-btn" title="Copy" onClick={() => handleCopy(c.code)}>
+                          <Copy size={12} />
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="type-tag discount">
+                        <Percent size={12} />
+                        {c.discountPercentage}% off
+                      </span>
+                    </td>
+                    <td>
+                      <div className="reward">
+                        {planNames}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="uses-cell">
+                        <div className="uses-top">
+                          <span>{c.currentUses} / {c.maxUses}</span>
+                          <b>{pct}%</b>
+                        </div>
+                        <div className="uses-bar">
+                          <div className={`fill ${barClass}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td><span className="expires">{formatDate(c.expiresAt)}</span></td>
+                    <td><span className={`status-pill ${statusClass}`}>{status}</span></td>
+                    <td className="right">
+                      <div className="row-actions">
+                        <button className="row-act" title={c.isActive ? "Pause" : "Activate"} onClick={() => handleToggle(c)}>
+                          <Power size={14} />
+                        </button>
+                        <button className="row-act" title="Copy code" onClick={() => handleCopy(c.code)}>
+                          <Copy size={14} />
+                        </button>
+                        <button className="row-act" title="More"><MoreHorizontal size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
 
-        <div className="pager-bar">
-          <span>Showing <b style={{ color: "var(--rr-fg)" }}>1–8</b> of 8 codes</span>
-          <div className="pager">
-            <button className="on">1</button>
+        {filteredCodes.length > 0 && (
+          <div className="pager-bar">
+            <span>Showing <b style={{ color: "var(--rr-fg)" }}>{filteredCodes.length}</b> of {codes.length} codes</span>
+          </div>
+        )}
+      </div>
+
+      <CreateCodeModal
+        open={modalOpen}
+        plans={plans}
+        onClose={() => setModalOpen(false)}
+        onCreate={handleCreate}
+      />
+    </div>
+  );
+}
+
+function CreateCodeModal({ open, plans, onClose, onCreate }) {
+  const [code, setCode] = useState("");
+  const [discount, setDiscount] = useState(20);
+  const [maxUses, setMaxUses] = useState(100);
+  const [expiresAt, setExpiresAt] = useState("");
+  const [planIds, setPlanIds] = useState([]); // empty = all plans
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCode(randomCode());
+      setDiscount(20);
+      setMaxUses(100);
+      setExpiresAt("");
+      setPlanIds([]);
+      setSaving(false);
+    }
+  }, [open]);
+
+  const togglePlan = (id) => {
+    setPlanIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const handleSubmit = async () => {
+    if (!code.trim()) return;
+    if (discount < 1 || discount > 100) return;
+    if (maxUses < 1) return;
+    setSaving(true);
+    try {
+      await onCreate({
+        code: code.trim().toUpperCase(),
+        discountPercentage: Number(discount),
+        maxUses: Number(maxUses),
+        expiresAt: expiresAt || undefined,
+        applicablePlanIds: planIds,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="New redeem code"
+      footer={
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", width: "100%" }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-accent" onClick={handleSubmit} disabled={saving || !code.trim()}>
+            {saving ? "Creating…" : <><Zap size={14} />Create code</>}
+          </button>
+        </div>
+      }
+    >
+      <div className="cc-form">
+        <div className="cc-row">
+          <label className="cc-field cc-grow">
+            <span>Code</span>
+            <div className="cc-code-row">
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="LAUNCH95"
+                spellCheck={false}
+              />
+              <button type="button" className="cc-regen" onClick={() => setCode(randomCode())} title="Generate random">
+                <RotateCw size={13} />
+              </button>
+            </div>
+          </label>
+          <label className="cc-field">
+            <span>Discount %</span>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="cc-row">
+          <label className="cc-field">
+            <span>Max redemptions</span>
+            <input type="number" min="1" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
+          </label>
+          <label className="cc-field">
+            <span>Expires (optional)</span>
+            <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="cc-field">
+          <span>Applicable plans <small>· leave empty to apply to all paid plans</small></span>
+          <div className="cc-plans">
+            {plans.filter((p) => !p.isFree).map((p) => {
+              const checked = planIds.includes(p.id);
+              return (
+                <button
+                  type="button"
+                  key={p.id}
+                  className={`cc-plan-chip${checked ? " on" : ""}`}
+                  onClick={() => togglePlan(p.id)}
+                >
+                  {checked && <CircleCheck size={12} />}
+                  {p.name}
+                </button>
+              );
+            })}
+            {plans.filter((p) => !p.isFree).length === 0 && (
+              <span style={{ fontSize: 12, color: "var(--rr-fg-muted)" }}>No paid plans exist yet.</span>
+            )}
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
+}
+
+function exportCSV(codes, planById) {
+  const header = ["Code", "Discount %", "Max uses", "Current uses", "Applies to", "Expires", "Created", "Active"];
+  const lines = [header.join(",")];
+  for (const c of codes) {
+    const plans = c.applicablePlanIds?.length
+      ? c.applicablePlanIds.map((id) => planById.get(id)?.name || id).join("|")
+      : "All plans";
+    lines.push([
+      c.code,
+      c.discountPercentage,
+      c.maxUses,
+      c.currentUses,
+      JSON.stringify(plans),
+      c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 10) : "—",
+      new Date(c.createdAt).toISOString().slice(0, 10),
+      c.isActive ? "yes" : "no",
+    ].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rankrush-codes-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -26,8 +26,15 @@ export class PaymentsController {
   validateCode(
     @CurrentUser('id') userId: string,
     @Body('code') code: string,
+    @Body('planId') planId?: string,
+    @Body('cadence') cadence?: string,
   ) {
-    return this.paymentsService.validateCode(code, userId);
+    return this.paymentsService.validateCodeWithPreview(
+      code,
+      userId,
+      planId,
+      cadence ? parseCadence(cadence) : undefined,
+    );
   }
 
   @Post('create-order')
