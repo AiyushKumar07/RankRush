@@ -740,6 +740,8 @@ export class AuthService {
         profilePicture: true,
         address: true,
         referralCode: true,
+        streak: true,
+        longestStreak: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -930,6 +932,30 @@ export class AuthService {
           tone: 'orange',
         },
       });
+
+      // Streak milestone bonus: +1 token each time the user crosses a new
+      // 7-day mark they've never hit before. Gated on longestStreak so a
+      // rebuilt streak doesn't re-trigger a milestone they've already passed.
+      if (newStreak % 7 === 0 && newStreak > user.longestStreak) {
+        await this.tokensService.creditTokens(
+          userId,
+          1,
+          'ADMIN_CREDIT',
+          `streak-${newStreak}`,
+          `${newStreak}-day streak bonus`,
+        );
+
+        await this.prisma.studentActivity.create({
+          data: {
+            studentId: userId,
+            type: 'streak',
+            title: `${newStreak}-day streak bonus!`,
+            meta: '+1 quiz token',
+            icon: 'Flame',
+            tone: 'amber',
+          },
+        });
+      }
     } else if (diffDays > 1) {
       // Streak broken! Reset to 1.
       const xpGained = 15;

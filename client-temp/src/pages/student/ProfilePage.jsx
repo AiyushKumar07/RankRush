@@ -9,11 +9,12 @@ import {
   RotateCcw, Trash2, GraduationCap, HeartPulse, BookOpen, MoreHorizontal,
   Eye, EyeOff
 } from 'lucide-react'
-import { userAPI, authAPI } from '../../services/api'
+import { userAPI, authAPI, subscriptionPlansAPI } from '../../services/api'
 import Modal from '../../components/ui/Modal'
 import Badge, { ComingSoonChip } from '../../components/ui/Badge'
 import Select from '../../components/ui/Select'
 import { useAuth } from '../../context/AuthContext'
+import { useEntitlements } from '../../hooks/useEntitlements'
 import { useTheme } from '../../hooks/useTheme'
 import { parsePhoneNumberFromString, getExampleNumber } from 'libphonenumber-js'
 import examples from 'libphonenumber-js/mobile/examples'
@@ -184,6 +185,22 @@ function validatePhone(iso, national) {
   return { valid: true, error: null, formatted: parsed.number }
 }
 
+function planBannerDesc(planName, isFreeTier, subscription) {
+  const tokens = subscription?.pricing?.tokenCount
+  const renewsAt = subscription?.nextRefreshDate ?? subscription?.endDate
+  const renewsStr = renewsAt
+    ? new Date(renewsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
+  if (isFreeTier) {
+    const t = tokens ?? 2
+    return `${t} tokens per month${renewsStr ? ` · renews on ${renewsStr}` : ''}. Upgrade for 10× the quizzes.`
+  }
+  const parts = []
+  if (tokens != null) parts.push(`${tokens} tokens per cycle`)
+  if (renewsStr) parts.push(`next refresh on ${renewsStr}`)
+  return parts.length ? parts.join(' · ') : `You're on ${planName}.`
+}
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('account')
   const { preference: themeCard, setPreference: setThemePreference } = useTheme()
@@ -209,6 +226,8 @@ export default function ProfilePage() {
   })
   const navigate = useNavigate()
   const { checkAuth, logout } = useAuth()
+  const { planName, isFreeTier } = useEntitlements()
+  const [subscription, setSubscription] = useState(null)
 
   const [toggles, setToggles] = useState({
     emailWeeklyRank: false,
@@ -226,6 +245,9 @@ export default function ProfilePage() {
     loadProfile()
     loadPreferences()
     loadSessions()
+    subscriptionPlansAPI.mySubscription()
+      .then((res) => setSubscription(res?.subscription ?? res?.data?.subscription ?? null))
+      .catch(() => setSubscription(null))
   }, [])
 
   useEffect(() => {
@@ -434,7 +456,7 @@ export default function ProfilePage() {
           <Badge variant="violet"><GraduationCap size={12} />{profileData?.target?.length ? profileData.target.join(' / ') : 'JEE'} · {profileData?.stream?.split(' ')[0] || 'PCM'}</Badge>
           {profileData?.stats?.streak > 0 && <Badge variant="warn"><Flame size={12} />{profileData.stats.streak}-day streak</Badge>}
           <Badge variant="lime"><Trophy size={12} />Top 5% · this week</Badge>
-          <Badge variant="neutral">Free plan</Badge>
+          <Badge variant={isFreeTier ? 'neutral' : 'lime'}>{planName || 'Free'} plan</Badge>
         </div>
       </div>
 
@@ -473,10 +495,12 @@ export default function ProfilePage() {
         <div className="plan-banner">
           <div className="ico"><Leaf size={24} /></div>
           <div className="meta-text">
-            <h3>You're on the Free plan</h3>
-            <span className="desc">2 tokens per month · renews on 1 June 2026. Upgrade for 10× the quizzes.</span>
+            <h3>You're on the {planName || 'Free'} plan</h3>
+            <span className="desc">{planBannerDesc(planName, isFreeTier, subscription)}</span>
           </div>
-          <Link to="/pricing" className="btn btn-lime"><ArrowUp size={14} />See plans</Link>
+          <Link to={isFreeTier ? '/app/pricing' : '/app/billing'} className="btn btn-lime">
+            <ArrowUp size={14} />{isFreeTier ? 'See plans' : 'Manage'}
+          </Link>
         </div>
 
         <form className="settings-card" onSubmit={handleProfileSubmit}>

@@ -543,10 +543,12 @@
 .theme-card.on .name svg { color: var(--rr-violet-500); }
 .theme-card .sub { font-size: 12px; color: var(--rr-fg-muted); }
 
-/* Plan banner */
+/* Plan banner — always-dark surface; hardcoded so theme-variable flips
+   (which swap --rr-ink-900 ↔ --rr-paper between modes) don't invert it
+   into a light card with white text in dark mode. */
 .plan-banner {
-  background: var(--rr-ink-900);
-  color: var(--rr-paper);
+  background: #0E0E13;
+  color: #FAFAF7;
   border-radius: var(--rr-r-lg);
   padding: 22px 24px;
   display: grid;
@@ -559,21 +561,21 @@
 }
 .plan-banner::before {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(circle at 100% 100%, color-mix(in oklab, var(--rr-violet-500) 22%, transparent), transparent 50%);
+  background: radial-gradient(circle at 100% 100%, color-mix(in oklab, #7C6CFF 22%, transparent), transparent 50%);
 }
 .plan-banner > * { position: relative; z-index: 1; }
 @media (max-width: 720px) { .plan-banner { grid-template-columns: 1fr; } }
 .plan-banner .ico {
   width: 48px; height: 48px;
   border-radius: var(--rr-r-md);
-  background: color-mix(in oklab, var(--rr-lime-400) 20%, transparent);
-  color: var(--rr-lime-400);
+  background: color-mix(in oklab, #B7F37A 20%, transparent);
+  color: #B7F37A;
   display: grid; place-items: center;
 }
 .plan-banner .ico svg { width: 24px; height: 24px; }
 .plan-banner .meta-text { display: flex; flex-direction: column; gap: 2px; }
-.plan-banner h3 { font-family: var(--rr-font-display); font-weight: 600; font-size: 17px; margin: 0; letter-spacing: -0.01em; color: var(--rr-paper); }
-.plan-banner .desc { font-size: 13px; color: var(--rr-ink-300); }
+.plan-banner h3 { font-family: var(--rr-font-display); font-weight: 600; font-size: 17px; margin: 0; letter-spacing: -0.01em; color: #FAFAF7; }
+.plan-banner .desc { font-size: 13px; color: #9D9DA6; }
 
 /* Danger zone */
 .danger-card {
