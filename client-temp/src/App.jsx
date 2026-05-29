@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import StudentLayout from './components/layouts/StudentLayout'
 import AdminLayout from './components/layouts/AdminLayout'
+import BrandLoader from './components/brand/BrandLoader'
 import {
   LandingPage,
   LoginPage,
@@ -25,18 +26,7 @@ import {
 } from './routes'
 
 function Loader() {
-  return (
-    <div style={{
-      display: 'grid',
-      placeItems: 'center',
-      minHeight: '100vh',
-      fontFamily: 'var(--rr-font-display)',
-      fontSize: 14,
-      color: 'var(--rr-fg-muted)',
-    }}>
-      Loading…
-    </div>
-  )
+  return <BrandLoader />
 }
 
 function RequireAuth({ children, role }) {
