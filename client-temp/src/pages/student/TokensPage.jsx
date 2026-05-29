@@ -145,12 +145,18 @@ export default function TokensPage() {
   const referralPct = Math.min(100, Math.round((conversionCount / 5) * 100))
   const referralEarned = referrals?.tokensEarned ?? 0
 
-  // Streak (from auth context user)
+  // Streak (from auth context user). Bonus only fires when the user crosses
+  // a NEW 7-day record, so the next milestone is gated on longestStreak —
+  // not the current streak counter. Rebuilding a streak you've already hit
+  // doesn't earn a token, so we shouldn't pretend it's "X days to next bonus".
   const streak = user?.streak ?? 0
+  const longestStreak = user?.longestStreak ?? 0
   const STREAK_CYCLE = 7
-  const streakInCycle = streak % STREAK_CYCLE
+  const highWater = Math.max(streak, longestStreak)
+  const nextMilestone = Math.ceil((highWater + 1) / STREAK_CYCLE) * STREAK_CYCLE
+  const daysToNextStreakBonus = Math.max(0, nextMilestone - streak)
+  const streakInCycle = Math.max(0, STREAK_CYCLE - daysToNextStreakBonus)
   const streakPct = Math.round((streakInCycle / STREAK_CYCLE) * 100)
-  const daysToNextStreakBonus = STREAK_CYCLE - streakInCycle
 
   return (
     <div className="main">
@@ -227,11 +233,11 @@ export default function TokensPage() {
                     <div className="ico"><Flame size={18} /></div>
                     <span className="reward">+1 token</span>
                   </div>
-                  <h4>Hit a {STREAK_CYCLE}-day streak</h4>
-                  <p>One bonus token every {STREAK_CYCLE} consecutive days. Miss a day, restart at zero.</p>
+                  <h4>Set a new streak record</h4>
+                  <p>+1 token each time you push your streak past a new {STREAK_CYCLE}-day mark — {nextMilestone}, {nextMilestone + STREAK_CYCLE}, and beyond.</p>
                   <div className="progress-label">
-                    <span>{streakInCycle} / {STREAK_CYCLE} days · next bonus</span>
-                    <span>{daysToNextStreakBonus === STREAK_CYCLE ? 'available' : `${daysToNextStreakBonus} day${daysToNextStreakBonus === 1 ? '' : 's'}`}</span>
+                    <span>{streak} / {nextMilestone} days · next bonus</span>
+                    <span>{daysToNextStreakBonus === 0 ? 'available' : `${daysToNextStreakBonus} day${daysToNextStreakBonus === 1 ? '' : 's'}`}</span>
                   </div>
                   <div className="meter"><div className="fill" style={{ width: `${streakPct}%` }}></div></div>
                 </div>
