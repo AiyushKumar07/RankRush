@@ -20,7 +20,13 @@ export class LeaderboardsService {
   //
   // TARGET_EXAM / SUBJECT scopes are intentionally NOT surfaced in the
   // new contest model — they're seeded with isActive=false and unused.
-  async listScopesForUser(userId: string) {
+  async listScopesForUser(
+    userId: string,
+    opts: { page?: number; limit?: number } = {},
+  ) {
+    const page = Math.max(1, opts.page ?? 1);
+    const limit = Math.min(50, Math.max(1, opts.limit ?? 10));
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { class: true },
@@ -56,14 +62,15 @@ export class LeaderboardsService {
       }
     }
 
-    // 2) Last 7 rank-rewarding QUIZ scopes the user has attempted, ordered
-    //    by most recent attempt. We pull the most-recent attempt per quiz
-    //    using a single findMany ordered by completedAt DESC, then dedupe
-    //    by quizId client-side until we hit 7 unique quizzes.
+    // 2) Rank-rewarding QUIZ scopes the user has attempted, paginated by
+    //    most-recent attempt. We dedupe by quizId (a student can have
+    //    multiple attempts on the same quiz), then page over the unique
+    //    list. Pull a large enough window to dedupe deep without scanning
+    //    the entire table.
     const recentAttempts = await this.prisma.quizAttempt.findMany({
       where: { studentId: userId, status: 'COMPLETED' },
       orderBy: { completedAt: 'desc' },
-      take: 100, // safety cap; 7 unique quizzes usually arrive in the first ~20
+      take: 500,
       select: {
         quizId: true,
         completedAt: true,
@@ -72,17 +79,21 @@ export class LeaderboardsService {
     });
 
     const seenQuizIds = new Set<string>();
-    const uniqueRecentQuizIds: { quizId: string; lastAt: Date | null; lastPct: number }[] = [];
+    const allUniqueQuizIds: { quizId: string; lastAt: Date | null; lastPct: number }[] = [];
     for (const a of recentAttempts) {
       if (seenQuizIds.has(a.quizId)) continue;
       seenQuizIds.add(a.quizId);
-      uniqueRecentQuizIds.push({
+      allUniqueQuizIds.push({
         quizId: a.quizId,
         lastAt: a.completedAt,
         lastPct: a.percentage,
       });
-      if (uniqueRecentQuizIds.length >= 7) break;
     }
+
+    const totalQuizScopes = allUniqueQuizIds.length;
+    const sliceStart = (page - 1) * limit;
+    const sliceEnd = sliceStart + limit;
+    const uniqueRecentQuizIds = allUniqueQuizIds.slice(sliceStart, sliceEnd);
 
     if (uniqueRecentQuizIds.length > 0) {
       const quizIds = uniqueRecentQuizIds.map((u) => u.quizId);
@@ -151,7 +162,18 @@ export class LeaderboardsService {
       }
     }
 
-    return { data: { scopes: out } };
+    return {
+      data: {
+        scopes: out,
+        pagination: {
+          page,
+          limit,
+          totalQuizScopes,
+          totalPages: Math.max(1, Math.ceil(totalQuizScopes / limit)),
+          hasMore: sliceEnd < totalQuizScopes,
+        },
+      },
+    };
   }
 
   // ─── Top-N (page from the top) ────────────────────────────────────

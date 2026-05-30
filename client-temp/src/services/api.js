@@ -144,6 +144,8 @@ export const studentAPI = {
   getQuiz: (id) => api.get(`/student/quizzes/${id}`),
   startAttempt: (quizId) => api.post(`/student/quizzes/${quizId}/start`),
   submitAttempt: (quizId, data) => api.post(`/student/quizzes/${quizId}/submit`, data),
+  getQuizResult: (quizId) => api.get(`/student/quizzes/${quizId}/result`),
+  revealQuizAnswers: (quizId) => api.post(`/student/quizzes/${quizId}/reveal-answers`),
   getActivity: (params) => api.get('/student/activity', { params }),
 };
 
@@ -214,7 +216,7 @@ export const activityAPI = {
 
 // Phase-4 leaderboards.
 export const leaderboardsAPI = {
-  listForUser: () => api.get('/leaderboards'),
+  listForUser: (params) => api.get('/leaderboards', { params }),
   getScope: (kind, key, params) => api.get(`/leaderboards/${encodeURIComponent(kind)}/${encodeURIComponent(key)}`, { params }),
   getMe: (kind, key) => api.get(`/leaderboards/${encodeURIComponent(kind)}/${encodeURIComponent(key)}/me`),
 };

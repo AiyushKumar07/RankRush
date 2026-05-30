@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Trophy, TrendingUp, TrendingDown, Minus,
-  GraduationCap, Loader2, ChevronLeft,
+  GraduationCap, Loader2, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { leaderboardsAPI } from '../../services/api'
@@ -32,6 +32,8 @@ const PHASE_LABEL = {
 
 function unwrap(res) { return res?.data ?? res ?? null }
 
+const QUIZZES_PER_PAGE = 10
+
 export default function LeaderboardsPage() {
   const [scopes, setScopes] = useState([])
   const [selected, setSelected] = useState(null)        // { kind, key, displayName }
@@ -39,22 +41,30 @@ export default function LeaderboardsPage() {
   const [board, setBoard] = useState(null)
   const [loadingList, setLoadingList] = useState(true)
   const [loadingBoard, setLoadingBoard] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState(null)
+  const [hasAutoSelected, setHasAutoSelected] = useState(false)
 
   useEffect(() => {
     setLoadingList(true)
-    leaderboardsAPI.listForUser()
+    leaderboardsAPI.listForUser({ page, limit: QUIZZES_PER_PAGE })
       .then((res) => {
         const data = unwrap(res)
         const list = data?.scopes || []
         setScopes(list)
+        setPagination(data?.pagination || null)
         // Default to the class-cohort scope if present, otherwise first
-        // scope the user belongs to.
-        const cg = list.find((s) => s.kind === 'CLASS_GLOBAL')
-        setSelected(cg || list[0] || null)
+        // scope the user belongs to — but only the first time we load,
+        // not when paging through quizzes.
+        if (!hasAutoSelected) {
+          const cg = list.find((s) => s.kind === 'CLASS_GLOBAL')
+          setSelected(cg || list[0] || null)
+          setHasAutoSelected(true)
+        }
       })
       .catch((err) => toast.error(err?.message || 'Failed to load leaderboards'))
       .finally(() => setLoadingList(false))
-  }, [])
+  }, [page, hasAutoSelected])
 
   const loadBoard = useCallback(async (scope, mode) => {
     if (!scope) { setBoard(null); return }
@@ -106,7 +116,12 @@ export default function LeaderboardsPage() {
           ) : (
             grouped.map(([kind, items]) => (
               <div key={kind} className="lb-group">
-                <span className="lb-group-label">{KIND_GROUP_LABEL[kind] ?? kind}</span>
+                <span className="lb-group-label">
+                  {KIND_GROUP_LABEL[kind] ?? kind}
+                  {kind === 'QUIZ' && pagination?.totalQuizScopes ? (
+                    <span className="lb-group-count">{pagination.totalQuizScopes} total</span>
+                  ) : null}
+                </span>
                 {items.map((s) => {
                   const Icon = KIND_ICON[s.kind] ?? Trophy
                   const isActive = selected?.kind === s.kind && selected?.key === s.key
@@ -138,6 +153,31 @@ export default function LeaderboardsPage() {
                     </button>
                   )
                 })}
+                {kind === 'QUIZ' && pagination && pagination.totalPages > 1 && (
+                  <div className="lb-pager">
+                    <button
+                      type="button"
+                      className="lb-pager-btn"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1 || loadingList}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className="lb-pager-info">
+                      Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="lb-pager-btn"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={!pagination.hasMore || loadingList}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

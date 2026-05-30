@@ -136,6 +136,27 @@ export class StudentController {
     return this.studentService.submitAttempt(userId, quizId, dto);
   }
 
+  // Latest completed attempt for the result page — works on refresh, not
+  // just immediately after submit.
+  @Get('quizzes/:id/result')
+  getLatestAttemptResult(
+    @CurrentUser('id') userId: string,
+    @Param('id') quizId: string,
+  ) {
+    return this.studentService.getLatestAttemptResult(userId, quizId);
+  }
+
+  // One-way: flips answersRevealed=true on the latest attempt and returns
+  // the result payload with correct answers + explanations hydrated.
+  // Subsequent retries of the same quiz are blocked by startAttempt.
+  @Post('quizzes/:id/reveal-answers')
+  revealAttemptAnswers(
+    @CurrentUser('id') userId: string,
+    @Param('id') quizId: string,
+  ) {
+    return this.studentService.revealAttemptAnswers(userId, quizId);
+  }
+
   @Get('activity')
   getActivity(
     @CurrentUser('id') userId: string,

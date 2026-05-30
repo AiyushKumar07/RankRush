@@ -564,8 +564,14 @@ model QuizAttempt {
   status    AttemptStatus  @default(IN_PROGRESS)
   proctoringViolations Json? // [{ type, timestamp, details }]
 
+  // Once the student requests the correct answers, this flips true. We
+  // then block any future retries of the same quiz so revealed answers
+  // can't be exploited to game a higher score.
+  answersRevealed   Boolean   @default(false)
+  answersRevealedAt DateTime?
+
   // Per-question breakdown for topic analytics
-  questionResults Json?   // [{ questionId, topic, subject, correct: bool }]
+  questionResults Json?   // [{ questionId, topic, subject, correct: bool, timeTakenSecs }]
 
   startedAt   DateTime  @default(now())
   completedAt DateTime?

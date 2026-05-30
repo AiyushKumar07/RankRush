@@ -85,6 +85,15 @@ class AnswerDto {
   @IsArray()
   @IsString({ each: true })
   selectedAnswers: string[];
+
+  // Seconds the student actively had this question on screen. Accumulated
+  // client-side across all visits to the question, so the value reflects
+  // the true thinking time rather than the cumulative quiz duration.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  timeTakenSecs?: number;
 }
 
 class ProctoringViolationDto {

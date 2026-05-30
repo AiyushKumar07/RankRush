@@ -16,10 +16,18 @@ export class LeaderboardsController {
   constructor(private readonly leaderboards: LeaderboardsService) {}
 
   // Discovery — which scopes does this user appear in, and where do they
-  // rank in each? Drives the leaderboard list view.
+  // rank in each? Drives the leaderboard list view. Class-cohort is always
+  // returned in full; QUIZ scopes are paginated (default 10/page).
   @Get()
-  listForUser(@CurrentUser('id') userId: string) {
-    return this.leaderboards.listScopesForUser(userId);
+  listForUser(
+    @CurrentUser('id') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.leaderboards.listScopesForUser(userId, {
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   // Single scope — top-N or around-me view, controlled by ?view=.

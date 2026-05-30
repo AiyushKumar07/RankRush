@@ -852,6 +852,8 @@ export class StudentService {
           timeLimitMins: quiz.timeLimitMins,
           shuffleQuestions: quiz.shuffleQuestions,
           negativeMarking: quiz.negativeMarking,
+          rankRewarding: quiz.rankRewarding,
+          paperType: quiz.paperType,
           questions: orderedQuestions,
         },
       },
@@ -896,6 +898,43 @@ export class StudentService {
       }
     }
 
+    // Resume-vs-new decision comes BEFORE the wallet check, so a student
+    // with an existing in-progress attempt and a now-depleted balance still
+    // gets a clean 409 (and can resume) instead of a confusing 400.
+    const existing = await this.prisma.quizAttempt.findFirst({
+      where: { studentId: userId, quizId, status: 'IN_PROGRESS' },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'You already have an in-progress attempt for this quiz',
+      );
+    }
+
+    // Retry-blocking: rank-rewarding quizzes are one-shot, AND any quiz
+    // whose answers have been revealed can't be retried (would defeat the
+    // point of the reveal warning).
+    const prior = await this.prisma.quizAttempt.findFirst({
+      where: {
+        studentId: userId,
+        quizId,
+        status: { in: ['COMPLETED', 'FAILED_PROCTORING'] },
+      },
+      select: { id: true, answersRevealed: true, status: true },
+      orderBy: { completedAt: 'desc' },
+    });
+    if (prior) {
+      if (quiz.rankRewarding) {
+        throw new BadRequestException(
+          "Rank-rewarding quizzes can only be attempted once. Your previous attempt's score is final.",
+        );
+      }
+      if (prior.answersRevealed) {
+        throw new BadRequestException(
+          "You've already seen the correct answers for this quiz, so retries are locked.",
+        );
+      }
+    }
+
     // Check token balance against this quiz's per-attempt cost. Free quizzes
     // (attemptCost = 0) skip the wallet check entirely.
     const attemptCost = quiz.attemptCost ?? 1;
@@ -908,16 +947,6 @@ export class StudentService {
             : `This quiz costs ${attemptCost} tokens · you have ${wallet.balance}`,
         );
       }
-    }
-
-    // Check if there's already an in-progress attempt
-    const existing = await this.prisma.quizAttempt.findFirst({
-      where: { studentId: userId, quizId, status: 'IN_PROGRESS' },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'You already have an in-progress attempt for this quiz',
-      );
     }
 
     const attempt = await this.prisma.quizAttempt.create({
@@ -998,12 +1027,14 @@ export class StudentService {
       topic: string;
       subject: string;
       correct: boolean;
+      timeTakenSecs: number;
     }> = [];
 
     const answersMap = new Map(
-      dto.answers
-        ? dto.answers.map((a) => [a.questionId, a.selectedAnswers])
-        : [],
+      dto.answers ? dto.answers.map((a) => [a.questionId, a.selectedAnswers]) : [],
+    );
+    const timingMap = new Map(
+      dto.answers ? dto.answers.map((a) => [a.questionId, a.timeTakenSecs ?? 0]) : [],
     );
 
     for (const qq of quiz.questions) {
@@ -1012,6 +1043,7 @@ export class StudentService {
 
       const studentAnswer = answersMap.get(qq.questionId) || [];
       const qMarks = qq.marks ?? q.marks ?? 1;
+      const qTime = timingMap.get(qq.questionId) ?? 0;
 
       if (studentAnswer.length === 0) {
         unansweredCount++;
@@ -1020,6 +1052,7 @@ export class StudentService {
           topic: q.topic,
           subject: q.subject,
           correct: false,
+          timeTakenSecs: qTime,
         });
         continue;
       }
@@ -1045,6 +1078,7 @@ export class StudentService {
         topic: q.topic,
         subject: q.subject,
         correct: isCorrect,
+        timeTakenSecs: qTime,
       });
     }
 
@@ -1165,24 +1199,240 @@ export class StudentService {
       );
     }
 
+    const fullResult = await this.buildAttemptResult(updatedAttempt.id);
+
     return {
       message: dto.isProctoringFailure
         ? 'Quiz submission rejected due to proctoring violation'
         : 'Quiz submitted successfully',
       data: {
-        score: dto.isProctoringFailure ? 0 : score,
-        totalMarks: quiz.totalMarks,
-        percentage: dto.isProctoringFailure ? 0 : percentage,
-        correctCount,
-        incorrectCount,
-        unansweredCount,
+        ...fullResult,
         negativeMarksTotal,
-        timeTakenSecs: timeTaken,
         xpEarned,
-        questionResults,
-        isProctoringFailure: dto.isProctoringFailure || false,
-        proctoringViolations: dto.proctoringViolations || [],
       },
+    };
+  }
+
+  // ── Read a completed attempt's full result (for the result page) ──
+  async getLatestAttemptResult(userId: string, quizId: string) {
+    const attempt = await this.prisma.quizAttempt.findFirst({
+      where: {
+        studentId: userId,
+        quizId,
+        status: { in: ['COMPLETED', 'FAILED_PROCTORING'] },
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+    if (!attempt) {
+      throw new NotFoundException('No completed attempt found for this quiz');
+    }
+    return { data: await this.buildAttemptResult(attempt.id) };
+  }
+
+  // ── Reveal correct answers for the latest attempt ────────────────
+  // Flips the answersRevealed flag and returns the full review (which
+  // now includes correctAnswer + explanation). After this, retries are
+  // blocked by startAttempt regardless of rankRewarding.
+  async revealAttemptAnswers(userId: string, quizId: string) {
+    const attempt = await this.prisma.quizAttempt.findFirst({
+      where: {
+        studentId: userId,
+        quizId,
+        status: { in: ['COMPLETED', 'FAILED_PROCTORING'] },
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+    if (!attempt) {
+      throw new NotFoundException('No completed attempt found for this quiz');
+    }
+    if (!attempt.answersRevealed) {
+      await this.prisma.quizAttempt.update({
+        where: { id: attempt.id },
+        data: { answersRevealed: true, answersRevealedAt: new Date() },
+      });
+    }
+    return { data: await this.buildAttemptResult(attempt.id) };
+  }
+
+  // Hydrates a single attempt into the full result-page payload — score,
+  // per-question review (with correct/student answers + explanation),
+  // previous-attempt delta and class median context.
+  private async buildAttemptResult(attemptId: string) {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: attempt.quizId },
+    });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+
+    const questionIds = quiz.questions.map((q) => q.questionId);
+    const questions = await this.prisma.question.findMany({
+      where: { id: { in: questionIds } },
+      select: {
+        id: true,
+        question: true,
+        questionImageUrl: true,
+        options: true,
+        correctAnswer: true,
+        answerExplanation: true,
+        topic: true,
+        subject: true,
+        chapter: true,
+        difficulty: true,
+        marks: true,
+      },
+    });
+    const qMap = new Map(questions.map((q) => [q.id, q]));
+
+    const studentAnswersMap = new Map<string, string[]>(
+      Array.isArray(attempt.answers)
+        ? (attempt.answers as any[]).map((a: any) => [
+            a.questionId,
+            Array.isArray(a.selectedAnswers) ? a.selectedAnswers : [],
+          ])
+        : [],
+    );
+    const timingMap = new Map<string, number>(
+      Array.isArray(attempt.answers)
+        ? (attempt.answers as any[]).map((a: any) => [
+            a.questionId,
+            typeof a.timeTakenSecs === 'number' ? a.timeTakenSecs : 0,
+          ])
+        : [],
+    );
+
+    const revealed = attempt.answersRevealed;
+    const review = quiz.questions
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map((qq, idx) => {
+        const q = qMap.get(qq.questionId);
+        const studentAnswer = studentAnswersMap.get(qq.questionId) || [];
+        const correctAnswer = q?.correctAnswer || [];
+        const isCorrect =
+          studentAnswer.length > 0 &&
+          correctAnswer.length === studentAnswer.length &&
+          correctAnswer.every((ca) => studentAnswer.includes(ca));
+        const status =
+          studentAnswer.length === 0
+            ? 'unanswered'
+            : isCorrect
+              ? 'correct'
+              : 'wrong';
+        return {
+          index: idx + 1,
+          questionId: qq.questionId,
+          order: qq.order,
+          question: q?.question || '',
+          questionImageUrl: q?.questionImageUrl || null,
+          options: q?.options || [],
+          studentAnswer,
+          // Correct answer + explanation are only included once the student
+          // has explicitly opted in via /reveal-answers. The status flag
+          // tells the UI whether each row was right/wrong without leaking
+          // which option was correct.
+          correctAnswer: revealed ? correctAnswer : [],
+          explanation: revealed ? q?.answerExplanation?.correctExplanation || null : null,
+          status,
+          topic: q?.topic || '',
+          chapter: q?.chapter || '',
+          subject: q?.subject || '',
+          difficulty: q?.difficulty || null,
+          marks: qq.marks ?? q?.marks ?? 1,
+          timeTakenSecs: timingMap.get(qq.questionId) ?? 0,
+        };
+      });
+
+    // Previous completed attempt by this student on this quiz — used for
+    // accuracy delta on the result hero.
+    const previous = await this.prisma.quizAttempt.findFirst({
+      where: {
+        studentId: attempt.studentId,
+        quizId: attempt.quizId,
+        status: 'COMPLETED',
+        id: { not: attempt.id },
+      },
+      orderBy: { completedAt: 'desc' },
+      select: { score: true, percentage: true, completedAt: true },
+    });
+
+    // Class median across all completed attempts on this quiz.
+    const allScores = await this.prisma.quizAttempt.findMany({
+      where: { quizId: attempt.quizId, status: 'COMPLETED' },
+      select: { percentage: true, score: true },
+    });
+    let classMedian: { percentage: number; score: number } | null = null;
+    if (allScores.length > 0) {
+      const sortedPct = allScores
+        .map((a) => a.percentage ?? 0)
+        .sort((a, b) => a - b);
+      const sortedScore = allScores
+        .map((a) => a.score ?? 0)
+        .sort((a, b) => a - b);
+      const mid = Math.floor(sortedPct.length / 2);
+      classMedian = {
+        percentage:
+          sortedPct.length % 2
+            ? sortedPct[mid]
+            : Math.round((sortedPct[mid - 1] + sortedPct[mid]) / 2),
+        score:
+          sortedScore.length % 2
+            ? sortedScore[mid]
+            : Math.round(((sortedScore[mid - 1] + sortedScore[mid]) / 2) * 10) / 10,
+      };
+    }
+
+    // Percentile across all takers (1-indexed best = 100, worst = 0).
+    let percentile: number | null = null;
+    if (allScores.length > 0) {
+      const better = allScores.filter(
+        (a) => (a.percentage ?? 0) > (attempt.percentage ?? 0),
+      ).length;
+      percentile = Math.max(
+        1,
+        Math.round(((allScores.length - better) / allScores.length) * 100),
+      );
+    }
+
+    return {
+      attemptId: attempt.id,
+      quiz: {
+        id: quiz.id,
+        title: quiz.title,
+        subject: quiz.subject,
+        chapter: quiz.chapter,
+        topic: quiz.topic,
+        difficulty: quiz.difficulty,
+        totalQuestions: quiz.totalQuestions,
+        totalMarks: quiz.totalMarks,
+        timeLimitMins: quiz.timeLimitMins,
+        attemptCost: quiz.attemptCost,
+        rankRewarding: quiz.rankRewarding,
+      },
+      score: attempt.score,
+      totalMarks: quiz.totalMarks,
+      percentage: attempt.percentage,
+      correctCount: attempt.correctCount,
+      incorrectCount: attempt.incorrectCount,
+      unansweredCount: attempt.unansweredCount,
+      timeTakenSecs: attempt.timeTakenSecs,
+      startedAt: attempt.startedAt,
+      completedAt: attempt.completedAt,
+      status: attempt.status,
+      isProctoringFailure: attempt.status === 'FAILED_PROCTORING',
+      proctoringViolations: attempt.proctoringViolations,
+      answersRevealed: attempt.answersRevealed,
+      answersRevealedAt: attempt.answersRevealedAt,
+      // Retry is allowed only when the quiz isn't rank-rewarding AND the
+      // student hasn't revealed answers on an earlier attempt.
+      canRetry: !quiz.rankRewarding && !attempt.answersRevealed,
+      review,
+      previous,
+      classMedian,
+      percentile,
     };
   }
 
@@ -1315,20 +1565,24 @@ export class StudentService {
   // those three series via tabs without needing more round-trips.
   async getWeeklyChart(userId: string) {
     const now = new Date();
+    // Bucket on UTC dates throughout: attempt timestamps are stored UTC and
+    // we key buckets with toISOString().slice(0,10), so the window edges
+    // must use setUTCHours(0,0,0,0) too — otherwise IST/PST users end up
+    // with day keys that never match any attempt's UTC date.
     const days: Array<{ start: Date; end: Date; key: string; label: string }> = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
+      d.setUTCHours(0, 0, 0, 0);
+      d.setUTCDate(d.getUTCDate() - i);
       const end = new Date(d);
-      end.setHours(23, 59, 59, 999);
+      end.setUTCHours(23, 59, 59, 999);
       days.push({
         start: d,
         end,
         key: d.toISOString().slice(0, 10),
         label: i === 0
           ? 'Today'
-          : d.toLocaleDateString('en-IN', { weekday: 'short' }),
+          : d.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }),
       });
     }
     const startOfWindow = days[0].start;
