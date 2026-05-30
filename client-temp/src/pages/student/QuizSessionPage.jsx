@@ -251,7 +251,7 @@ export default function QuizSessionPage() {
       };
       setTimeout(() => {
         if (submitRef.current) submitRef.current(payload);
-      }, 2500);
+      }, 3000);
     },
   });
 
@@ -788,9 +788,15 @@ export default function QuizSessionPage() {
 
       {/* Always-mounted off-screen detection video. The proctoring
           engine attaches to this ref, so hiding the visible tile
-          (below) doesn't kill face detection. 1×1 / opacity 0 / off-
-          screen left so it never paints, but the MediaStream keeps
-          flowing and face-api can pull frames from it. */}
+          (below) doesn't kill face detection.
+
+          DELIBERATE SIZE: 240×180 (the getUserMedia source resolution),
+          NOT 1×1 or opacity:0. Chrome throttles or stops frame
+          decoding for video elements that are effectively invisible
+          — including opacity:0 and tiny sizes — which silently breaks
+          drawImage/JPEG capture even though `readyState` reports 2+.
+          A real-sized off-screen element keeps the normal decode
+          pipeline active. */}
       <video
         ref={webcamRef}
         autoPlay
@@ -800,11 +806,10 @@ export default function QuizSessionPage() {
         tabIndex={-1}
         style={{
           position: "fixed",
-          left: -9999,
+          left: -3000,
           top: 0,
-          width: 1,
-          height: 1,
-          opacity: 0,
+          width: 240,
+          height: 180,
           pointerEvents: "none",
         }}
       />

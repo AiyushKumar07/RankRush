@@ -172,6 +172,29 @@ export class PeriodStatsService {
     periodEndDate: Date = new Date(),
   ) {
     const end = this.toUtcDayStart(periodEndDate);
+    const isToday =
+      end.toDateString() === this.toUtcDayStart(new Date()).toDateString();
+
+    // Rows ending today mutate every time the user takes a quiz, earns
+    // a token, or has their rank refreshed. A staleness window is the
+    // wrong tool — the previous 30-min TTL caused the exact "I just
+    // took a quiz but 7d still shows 0" bug, because two adjacent
+    // period rows could be computed at different times and disagree.
+    // Always recompute for today; cache only past end-dates (those
+    // rows are immutable by construction).
+    if (isToday) {
+      await this.compute(userId, periodDays, periodEndDate);
+      return this.prisma.userPeriodStats.findUnique({
+        where: {
+          userId_periodEndDate_periodDays: {
+            userId,
+            periodEndDate: end,
+            periodDays,
+          },
+        },
+      });
+    }
+
     let row = await this.prisma.userPeriodStats.findUnique({
       where: {
         userId_periodEndDate_periodDays: {
@@ -181,11 +204,7 @@ export class PeriodStatsService {
         },
       },
     });
-
-    // "Today" rows go stale fast — recompute if older than 30 min.
-    const STALE_MS = 30 * 60 * 1000;
-    const isToday = end.toDateString() === this.toUtcDayStart(new Date()).toDateString();
-    if (!row || (isToday && Date.now() - row.updatedAt.getTime() > STALE_MS)) {
+    if (!row) {
       await this.compute(userId, periodDays, periodEndDate);
       row = await this.prisma.userPeriodStats.findUnique({
         where: {

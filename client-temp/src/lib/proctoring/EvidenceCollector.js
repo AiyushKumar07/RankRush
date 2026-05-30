@@ -160,7 +160,16 @@ export class EvidenceCollector {
   }
 
   async _captureFrame({ kind, sequence, linkedViolationType, linkedViolationTimestamp } = {}) {
-    if (!this._video || this._video.readyState < 2) return;
+    if (!this._video) {
+      // eslint-disable-next-line no-console
+      console.warn(`[proctoring] capture skipped (${kind}): no video element attached`);
+      return;
+    }
+    if (this._video.readyState < 2) {
+      // eslint-disable-next-line no-console
+      console.warn(`[proctoring] capture skipped (${kind}): video readyState=${this._video.readyState}`);
+      return;
+    }
     this._ensureCanvas();
     const ctx = this._canvas.getContext('2d');
     if (!ctx) return;

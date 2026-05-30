@@ -1297,14 +1297,26 @@ export class StudentService {
     // Bind to the most recent attempt — IN_PROGRESS preferred, otherwise
     // the latest COMPLETED/FAILED_PROCTORING (allows late-arriving burst
     // uploads after auto-submit on DQ).
-    const attempt = await this.prisma.quizAttempt.findFirst({
-      where: {
-        studentId: userId,
-        quizId,
-        status: { in: ['IN_PROGRESS', 'COMPLETED', 'FAILED_PROCTORING'] },
-      },
-      orderBy: [{ status: 'asc' }, { startedAt: 'desc' }],
+    //
+    // Two-step lookup so we don't fall victim to alphabetical ordering
+    // ('COMPLETED' < 'IN_PROGRESS' as strings, which made an earlier
+    // single-query implementation silently attach every live capture to
+    // the most recent old attempt — invisible to the user and a real
+    // pain to diagnose).
+    let attempt = await this.prisma.quizAttempt.findFirst({
+      where: { studentId: userId, quizId, status: 'IN_PROGRESS' },
+      orderBy: { startedAt: 'desc' },
     });
+    if (!attempt) {
+      attempt = await this.prisma.quizAttempt.findFirst({
+        where: {
+          studentId: userId,
+          quizId,
+          status: { in: ['COMPLETED', 'FAILED_PROCTORING'] },
+        },
+        orderBy: { startedAt: 'desc' },
+      });
+    }
     if (!attempt) {
       throw new NotFoundException('No attempt found for this quiz to attach evidence to');
     }

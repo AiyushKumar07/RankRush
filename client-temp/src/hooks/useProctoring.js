@@ -32,15 +32,41 @@ export default function useProctoring({ enabled = true, quizId, onForceSubmit } 
   // lifecycle. It's null until we have a quizId — the hook is safe to
   // mount before the quiz has loaded.
   const evidenceRef = useRef(null);
+  // Toast guard: we only surface ONE evidence-upload error per attempt
+  // (otherwise a network blip floods the UI), but every failure still
+  // logs to the console with full detail.
+  const errorToastShownRef = useRef(false);
   useEffect(() => {
     if (!quizId) return undefined;
+    errorToastShownRef.current = false;
     const collector = new EvidenceCollector({
       quizId,
       uploadFn: (formData) => studentAPI.uploadEvidence(quizId, formData),
       onError: (err) => {
-        // Silent in the UI — evidence is best-effort. Console for debugging.
+        // Log every failure with full server message — invaluable for
+        // diagnosing "no screenshots showed up" reports.
         // eslint-disable-next-line no-console
-        console.warn('[proctoring] evidence upload failed', err?.message || err);
+        console.warn(
+          '[proctoring] evidence upload failed:',
+          err?.response?.status,
+          err?.response?.data || err?.message || err,
+        );
+        // Surface the FIRST failure as a toast so a broken upload
+        // pipeline (auth expired, server 500, multipart parse error
+        // etc.) isn't silently swallowed for the whole attempt. We
+        // intentionally do NOT spam — one toast is enough to alert
+        // the candidate that proctoring evidence isn't being saved.
+        if (!errorToastShownRef.current) {
+          errorToastShownRef.current = true;
+          const detail =
+            err?.response?.data?.message ||
+            err?.message ||
+            'Network error';
+          toast.error(
+            `Proctoring snapshot upload failed (${detail}). Your attempt continues — let your proctor know.`,
+            { id: 'proctor-upload-error', duration: 8000, style: { maxWidth: 460 } },
+          );
+        }
       },
     });
     evidenceRef.current = collector;
