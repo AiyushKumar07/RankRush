@@ -143,8 +143,16 @@ export default function QuizInstructionsPage() {
 
   const canStart = permState === "granted" && agreed;
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!canStart) return;
+    // Request fullscreen here while we still have a user gesture — browsers
+    // block requestFullscreen() outside click/keydown handlers, so the
+    // session page can't ask for it on mount after a route change.
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch { /* user can re-enter manually if blocked */ }
     // Stop preview tracks; the session page will request its own stream.
     stopStream();
     navigate(`/app/quizzes/${quizId}/session`);

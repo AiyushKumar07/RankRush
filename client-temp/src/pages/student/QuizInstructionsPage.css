@@ -62,11 +62,11 @@
 
 /* ---------- Header card ---------- */
 .qi-header-card {
-  background: var(--rr-bg);
+  background: var(--rr-surface);
   border: 1px solid var(--rr-border);
   border-radius: var(--rr-r-lg);
   padding: 24px 28px;
-  box-shadow: var(--rr-shadow-xs);
+  box-shadow: var(--rr-shadow-sm);
 }
 @media (max-width: 720px) { .qi-header-card { padding: 18px 18px; } }
 
@@ -76,14 +76,22 @@
   gap: 6px;
   font-family: var(--rr-font-mono);
   font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--rr-lime-600, var(--rr-lime-400));
-  background: color-mix(in oklab, var(--rr-lime-400) 12%, transparent);
-  border: 1px solid color-mix(in oklab, var(--rr-lime-400) 35%, transparent);
+  /* Solid lime fill — punchier than a tint, reads as a confident chip
+     instead of a faded sticker. Dark mode keeps the existing pop. */
+  color: #1F2A03;
+  background: var(--rr-lime-400);
+  border: 1px solid var(--rr-lime-500);
   padding: 5px 10px;
   border-radius: 999px;
   margin-bottom: 12px;
+}
+[data-theme="dark"] .qi-eyebrow {
+  color: var(--rr-lime-400);
+  background: color-mix(in oklab, var(--rr-lime-400) 14%, transparent);
+  border-color: color-mix(in oklab, var(--rr-lime-400) 35%, transparent);
 }
 
 .qi-title {
@@ -119,13 +127,15 @@
   letter-spacing: 0.06em;
 }
 .qi-meta-chip.cost {
-  border-color: color-mix(in oklab, var(--rr-violet-500) 35%, transparent);
-  background: color-mix(in oklab, var(--rr-violet-500) 10%, transparent);
-  color: var(--rr-violet-500);
+  border-color: var(--rr-violet-500);
+  background: var(--rr-violet-500);
+  color: #FFFFFF;
 }
-.qi-meta-chip.diff-easy { color: var(--rr-lime-600, var(--rr-lime-400)); border-color: color-mix(in oklab, var(--rr-lime-400) 35%, transparent); }
-.qi-meta-chip.diff-medium { color: var(--rr-amber-500); border-color: color-mix(in oklab, var(--rr-amber-500) 35%, transparent); }
-.qi-meta-chip.diff-hard { color: var(--rr-coral-500); border-color: color-mix(in oklab, var(--rr-coral-500) 35%, transparent); }
+.qi-meta-chip.cost svg { color: #FFFFFF; }
+.qi-meta-chip.diff-medium { color: #FFFFFF; background: var(--rr-amber-500); border-color: var(--rr-amber-500); }
+.qi-meta-chip.diff-hard { color: #FFFFFF; background: var(--rr-coral-500); border-color: var(--rr-coral-500); }
+.qi-meta-chip.diff-easy { color: #1F2A03; border-color: var(--rr-lime-500); background: var(--rr-lime-400); }
+[data-theme="dark"] .qi-meta-chip.diff-easy { color: var(--rr-lime-400); border-color: color-mix(in oklab, var(--rr-lime-400) 35%, transparent); background: color-mix(in oklab, var(--rr-lime-400) 12%, transparent); }
 
 /* ---------- Grid ---------- */
 .qi-grid {
@@ -138,14 +148,14 @@
 }
 
 .qi-card {
-  background: var(--rr-bg);
+  background: var(--rr-surface);
   border: 1px solid var(--rr-border);
   border-radius: var(--rr-r-lg);
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: var(--rr-shadow-xs);
+  box-shadow: var(--rr-shadow-sm);
 }
 @media (max-width: 720px) { .qi-card { padding: 18px; } }
 
@@ -315,21 +325,26 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 22px;
-  padding: 0 8px;
+  height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
   font-family: var(--rr-font-mono);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid var(--rr-border);
+  border: 1px solid var(--rr-border-strong);
   background: var(--rr-bg-alt);
-  color: var(--rr-fg-dim);
+  color: var(--rr-fg-2);
 }
 .qi-perm-badge.granted {
-  color: var(--rr-lime-600, var(--rr-lime-400));
-  background: color-mix(in oklab, var(--rr-lime-400) 12%, transparent);
+  color: #1F2A03;
+  background: var(--rr-lime-400);
+  border-color: var(--rr-lime-500);
+}
+[data-theme="dark"] .qi-perm-badge.granted {
+  color: var(--rr-lime-400);
+  background: color-mix(in oklab, var(--rr-lime-400) 14%, transparent);
   border-color: color-mix(in oklab, var(--rr-lime-400) 35%, transparent);
 }
 .qi-perm-badge.denied {
@@ -358,9 +373,10 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--rr-lime-600, var(--rr-lime-400));
+  font-weight: 600;
+  color: #5C7A0F;
 }
+[data-theme="dark"] .qi-perm-success { color: var(--rr-lime-400); }
 .qi-perm-error {
   display: flex;
   align-items: flex-start;
@@ -407,23 +423,34 @@
 .qi-rule {
   display: flex;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: var(--rr-r-md);
   border: 1px solid var(--rr-border);
-  background: var(--rr-bg-alt);
-  transition: border-color var(--rr-dur-fast);
+  background: color-mix(in oklab, var(--rr-bg-alt) 50%, var(--rr-surface));
+  transition: border-color var(--rr-dur-fast), background var(--rr-dur-fast);
 }
-.qi-rule:hover { border-color: var(--rr-border-strong); }
+.qi-rule:hover {
+  border-color: var(--rr-border-strong);
+  background: var(--rr-bg-alt);
+}
+[data-theme="dark"] .qi-rule { background: var(--rr-bg-alt); }
+[data-theme="dark"] .qi-rule:hover { background: color-mix(in oklab, var(--rr-bg-alt) 70%, var(--rr-surface)); }
 
 .qi-rule-icon {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--rr-r-sm);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
+  background: var(--rr-lime-400);
+  color: #1F2A03;
+  box-shadow: 0 2px 6px -2px color-mix(in oklab, var(--rr-lime-500) 55%, transparent);
+}
+[data-theme="dark"] .qi-rule-icon {
   background: color-mix(in oklab, var(--rr-lime-400) 14%, transparent);
-  color: var(--rr-lime-600, var(--rr-lime-400));
+  color: var(--rr-lime-400);
+  box-shadow: none;
 }
 .qi-rule-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .qi-rule-title {
@@ -447,8 +474,8 @@
   padding: 18px 22px;
   border-radius: var(--rr-r-lg);
   border: 1px solid var(--rr-border);
-  background: var(--rr-bg);
-  box-shadow: var(--rr-shadow-xs);
+  background: var(--rr-surface);
+  box-shadow: var(--rr-shadow-sm);
 }
 @media (max-width: 720px) {
   .qi-footer { flex-direction: column; align-items: stretch; padding: 16px; }
@@ -477,6 +504,10 @@
   margin-top: 1px;
 }
 .qi-agree input:checked + .qi-check-box {
+  background: var(--rr-lime-500);
+  border-color: var(--rr-lime-500);
+}
+[data-theme="dark"] .qi-agree input:checked + .qi-check-box {
   background: var(--rr-lime-400);
   border-color: var(--rr-lime-400);
 }
@@ -486,11 +517,32 @@
   line-height: 1.45;
 }
 
-.qi-start-btn { flex-shrink: 0; }
+.qi-start-btn {
+  flex-shrink: 0;
+  background: var(--rr-lime-400);
+  color: #1F2A03;
+  font-weight: 700;
+  border: 1px solid var(--rr-lime-500);
+  box-shadow:
+    0 6px 20px -4px color-mix(in oklab, var(--rr-lime-500) 70%, transparent),
+    inset 0 1px 0 color-mix(in oklab, #FFFFFF 35%, transparent);
+}
+.qi-start-btn:hover:not(:disabled) {
+  background: var(--rr-lime-300, var(--rr-lime-400));
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 26px -4px color-mix(in oklab, var(--rr-lime-500) 80%, transparent),
+    inset 0 1px 0 color-mix(in oklab, #FFFFFF 40%, transparent);
+}
+[data-theme="dark"] .qi-start-btn {
+  background: var(--rr-lime-400);
+  box-shadow: 0 6px 20px -4px color-mix(in oklab, var(--rr-lime-400) 55%, transparent);
+}
 .qi-start-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-  filter: grayscale(0.3);
+  filter: grayscale(0.4);
+  box-shadow: none;
 }
 .qi-start-cost {
   font-weight: 500;

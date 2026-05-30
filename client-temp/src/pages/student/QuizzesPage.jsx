@@ -339,7 +339,7 @@ export default function QuizzesPage() {
         </div>
       </div>
 
-      <div className="quiz-grid">
+      <div className={viewMode === "list" ? "quiz-list" : "quiz-grid"}>
         {loadingList ? (
           <div className="quiz-empty"><Loader2 size={18} className="quiz-spin" />  Loading quizzes…</div>
         ) : quizzes.length === 0 ? (

@@ -16,6 +16,7 @@
 @media (max-width: 720px) { .qs-top { padding: 10px 16px; grid-template-columns: 1fr auto; } }
 
 .qs-left { display: flex; align-items: center; gap: 14px; }
+.qs-center { display: flex; align-items: center; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .qs-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .qs-title .label {
   font-family: var(--rr-font-mono);

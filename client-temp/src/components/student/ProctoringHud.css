@@ -1,0 +1,38 @@
+.proctor-hud {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proctor-hud.warn {
+  color: var(--rr-amber-500);
+  background: color-mix(in oklab, var(--rr-amber-500) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--rr-amber-500) 40%, transparent);
+}
+.proctor-hud.struck {
+  color: var(--rr-coral-500);
+  background: color-mix(in oklab, var(--rr-coral-500) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--rr-coral-500) 40%, transparent);
+  animation: proctor-pulse 1.8s ease-in-out infinite;
+}
+.proctor-hud-msg {
+  text-transform: none;
+  font-family: var(--rr-font-sans);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+@keyframes proctor-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--rr-coral-500) 28%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-coral-500) 12%, transparent); }
+}

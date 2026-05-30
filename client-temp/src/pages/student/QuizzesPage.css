@@ -262,6 +262,16 @@
 @media (max-width: 1080px) { .quiz-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px) { .quiz-grid { grid-template-columns: 1fr; } }
 
+/* List view — single full-width column. The card's internal structure
+   stays vertical (band → body → foot); only the outer container changes
+   from a grid to a single stacked column. */
+.quiz-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quiz-list .quiz-card { max-width: 100%; }
+
 .quiz-card {
   background: var(--rr-surface);
   border: 1px solid var(--rr-border);

@@ -8,6 +8,8 @@ import ThemeToggle from "../../components/ui/ThemeToggle";
 import BrandLoader from "../../components/brand/BrandLoader";
 import Modal from "../../components/ui/Modal";
 import QuestionPalette from "../../components/student/QuestionPalette";
+import ProctoringHud from "../../components/student/ProctoringHud";
+import useProctoring from "../../hooks/useProctoring";
 import { studentAPI } from "../../services/api";
 import "./QuizSessionPage.css";
 
@@ -173,6 +175,50 @@ export default function QuizSessionPage() {
     }
   }, [webcamHidden, webcamState]);
 
+  // ── Proctoring engine ────────────────────────────────────────────
+  // Wires face detection + tab-switch + fullscreen + blur + devtools
+  // monitors through one rule book. Auto-submits with isProctoringFailure
+  // when the strike counter hits the limit.
+  const submitRef = useRef(null);
+  const proctoring = useProctoring({
+    enabled: !!quiz,
+    onDisqualify: ({ violations, message }) => {
+      if (submitRef.current) {
+        submitRef.current({
+          isProctoringFailure: true,
+          proctoringViolations: violations.map((v) => ({
+            type: v.type,
+            timestamp: v.timestamp || new Date().toISOString(),
+            details: v.message || message || v.type,
+          })),
+        });
+      }
+    },
+  });
+
+  // Attach the live webcam stream/video to the engine once both exist,
+  // then kick the monitors off. Strict-mode safe — start() is idempotent.
+  useEffect(() => {
+    if (!quiz || webcamState !== "live") return;
+    proctoring.attachVideo(webcamRef.current);
+    proctoring.attachStream(webcamStreamRef.current);
+    proctoring.start();
+    return () => proctoring.stop();
+  }, [quiz, webcamState, proctoring]);
+
+  // Request fullscreen as soon as the quiz mounts. We can't force it from
+  // JS without a user gesture in some browsers — Begin Quiz on the
+  // instructions page IS that gesture, but we re-request here in case the
+  // browser dropped the original request during the page navigation.
+  useEffect(() => {
+    if (!quiz) return;
+    if (document.fullscreenElement) return;
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => { /* user can re-enter manually via the warning */ });
+    }
+  }, [quiz]);
+
   // ── Derived state ─────────────────────────────────────────────────
   const questions = quiz?.questions || [];
   const totalQ = questions.length;
@@ -262,7 +308,8 @@ export default function QuizSessionPage() {
     setCurrentQ(idx);
   }, [rankRewarding, currentQ]);
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (opts = {}) => {
+    const { isProctoringFailure = false, proctoringViolations = [] } = opts;
     if (submitting || submittedRef.current) return;
     setSubmitting(true);
 
@@ -289,8 +336,14 @@ export default function QuizSessionPage() {
         timeTakenSecs: timePerQuestionRef.current[row.questionId] || 0,
       })),
       timeTakenSecs: elapsed,
+      isProctoringFailure,
+      proctoringViolations,
     };
     try {
+      // Drop fullscreen before navigating away so the result page isn't stuck.
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen(); } catch { /* ignore */ }
+      }
       const res = await studentAPI.submitAttempt(quizId, payload);
       submittedRef.current = true;
       const data = res?.data ?? res ?? null;
@@ -304,6 +357,12 @@ export default function QuizSessionPage() {
       setLoadError(err?.response?.data?.message || err?.message || "Couldn't submit your attempt");
     }
   }, [submitting, questions, answers, quizId, navigate, quiz]);
+
+  // Expose the latest submit() to the proctoring onDisqualify callback
+  // (which was created above with a forward-reference ref).
+  useEffect(() => {
+    submitRef.current = submit;
+  }, [submit]);
 
   // Auto-submit when timer hits 0. Bypasses the submit modal — time's up
   // means the attempt is locked regardless of what the student has answered.
@@ -381,6 +440,12 @@ export default function QuizSessionPage() {
             <span className="time">{formatTime(Math.max(0, timeLeft ?? 0))}</span>
             <span className="max">/ {formatTime(totalTime)}</span>
           </div>
+          <ProctoringHud
+            status={proctoring.status}
+            strikes={proctoring.strikes}
+            limit={proctoring.limit}
+            warning={proctoring.warning}
+          />
         </div>
 
         <div className="qs-right">

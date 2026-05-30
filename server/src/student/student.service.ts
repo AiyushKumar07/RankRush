@@ -1916,11 +1916,21 @@ export class StudentService {
       attempts: s.total,
     }));
     const ranked = allTopics.filter((t) => t.attempts >= minSamples);
-    const byBestFirst = [...ranked].sort((a, b) => b.accuracy - a.accuracy || b.attempts - a.attempts);
-    const byWorstFirst = [...ranked].sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
 
-    const strong = byBestFirst.slice(0, limit);
-    const weak = byWorstFirst.filter((t) => t.accuracy < 90).slice(0, limit);
+    // Strong vs weak is a clean threshold split — a topic is either above
+    // the bar or below it, never both. Without this split the bottom-N
+    // and top-N can collide whenever the user only has a handful of
+    // tracked topics (a 75%-accuracy topic was showing in both columns
+    // because it was simultaneously the best AND below the old <90 cap).
+    const STRONG_THRESHOLD = 70;
+    const strong = ranked
+      .filter((t) => t.accuracy >= STRONG_THRESHOLD)
+      .sort((a, b) => b.accuracy - a.accuracy || b.attempts - a.attempts)
+      .slice(0, limit);
+    const weak = ranked
+      .filter((t) => t.accuracy < STRONG_THRESHOLD)
+      .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts)
+      .slice(0, limit);
 
     const bySubject = Object.entries(subjectStats)
       .map(([subject, s]) => ({

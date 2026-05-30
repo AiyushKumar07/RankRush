@@ -23,7 +23,7 @@ const SUBJ_COLORS = {
  * @param {number} props.difficulty    - 1–5
  * @param {'new'|'progress'|'done'} props.status
  * @param {number} [props.progress]    - 0–100 (only for status='progress')
- * @param {number|string} props.cost   - token cost, or "+1 earned" for done
+ * @param {number} props.cost          - token cost to attempt (ignored when status='done')
  * @param {string} [props.statusText]  - e.g. "↻ In progress · 12 / 20"
  * @param {string} [props.subjectLabel]- e.g. "Mathematics"
  * @param {string} [props.quizId]      - for linking
@@ -145,14 +145,14 @@ export default function QuizCard({
       </div>
       <div className="foot">
         {isDone ? (
-          <span className="cost">
+          <span className="cost done">
             <div
               className="coin"
               style={{ background: "var(--rr-emerald-500)" }}
             >
               ✓
             </div>
-            <b style={{ color: "var(--rr-emerald-500)" }}>+1</b> earned
+            <b style={{ color: "var(--rr-emerald-500)" }}>Completed</b>
           </span>
         ) : (
           <span className="cost">
