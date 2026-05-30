@@ -179,7 +179,7 @@ export default function QuizCard({
           </Link>
         ) : (
           <Link
-            to={`/app/quizzes/${quizId}/session`}
+            to={`/app/quizzes/${quizId}/${isProgress ? "session" : "instructions"}`}
             className="btn btn-accent btn-sm"
           >
             {isProgress ? "Resume" : "Start"}

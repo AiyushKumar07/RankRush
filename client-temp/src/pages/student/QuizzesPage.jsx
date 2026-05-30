@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { SegmentedTabs, FilterChipGroup } from "../../components/ui/Tabs";
+import Select from "../../components/ui/Select";
 import QuizCard from "../../components/student/QuizCard";
 import { useEntitlements } from "../../hooks/useEntitlements";
 import { studentAPI } from "../../services/api";
@@ -30,6 +31,14 @@ const STATUS_CHIPS = [
   { key: "new", label: "New" },
   { key: "progress", label: "In progress" },
   { key: "done", label: "Completed" },
+];
+
+const SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended for you" },
+  { value: "popular",     label: "Most popular" },
+  { value: "newest",      label: "Newest first" },
+  { value: "hardest",     label: "Hardest first" },
+  { value: "shortest",    label: "Shortest first" },
 ];
 
 // Backend stores Quiz.subject as a free-text label ("Mathematics", "Physics",
@@ -57,7 +66,7 @@ function unwrap(res) { return res?.data ?? res ?? null; }
 function rowToCardProps(q) {
   const subjectKey = subjectKeyFor(q.subject);
   const status = q.isCompleted ? "done" : q.inProgress ? "progress" : "new";
-  const minutes = Math.round(q.timeLimitMins || 0);
+  const minutes = q.timeLimitMins || 0;
   const duration =
     minutes >= 60 && minutes % 60 === 0
       ? `${minutes / 60} hour${minutes / 60 > 1 ? "s" : ""}`
@@ -289,14 +298,14 @@ export default function QuizzesPage() {
         />
         <div className="sort">
           <ArrowDownUp size={14} />
-          Sort
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="recommended">Recommended for you</option>
-            <option value="popular">Most popular</option>
-            <option value="newest">Newest first</option>
-            <option value="hardest">Hardest first</option>
-            <option value="shortest">Shortest first</option>
-          </select>
+          <span className="sort-lbl">Sort</span>
+          <Select
+            value={sort}
+            onChange={setSort}
+            options={SORT_OPTIONS}
+            ariaLabel="Sort quizzes"
+            className="sort-select"
+          />
         </div>
       </div>
 
@@ -393,7 +402,7 @@ function FeaturedCard({ pick, loading }) {
   const ctx = pick.context || {};
   const last = ctx.lastSubjectAttempt;
   const classAvg = ctx.classAvg;
-  const minutes = Math.round(pick.timeLimitMins || 0);
+  const minutes = pick.timeLimitMins || 0;
   const duration =
     minutes >= 60 && minutes % 60 === 0
       ? `${minutes / 60} hour${minutes / 60 > 1 ? "s" : ""}`
@@ -422,7 +431,7 @@ function FeaturedCard({ pick, loading }) {
           {pick.rankRewarding && <span><TrendingUp size={13} />Rank-rewarding</span>}
         </div>
         <div className="cta-row">
-          <Link to={`/app/quizzes/${pick.id}/session`} className="btn btn-lime btn-lg">
+          <Link to={`/app/quizzes/${pick.id}/${pick.kind === 'resume' ? 'session' : 'instructions'}`} className="btn btn-lime btn-lg">
             <Play size={16} />
             {ctaVerb} · {costLabel}
           </Link>

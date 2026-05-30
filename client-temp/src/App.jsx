@@ -12,10 +12,12 @@ import {
   DashboardPage,
   QuizzesPage,
   QuizHistoryPage,
+  QuizInstructionsPage,
   QuizSessionPage,
   QuizResultPage,
   ActivityPage,
   AnalyticsPage,
+  BadgesPage,
   TokensPage,
   ReferPage,
   LeaderboardsPage,
@@ -66,6 +68,7 @@ export default function App() {
           <Route path="/app/quizzes/history" element={<QuizHistoryPage />} />
           <Route path="/app/activity" element={<ActivityPage />} />
           <Route path="/app/analytics" element={<AnalyticsPage />} />
+          <Route path="/app/badges" element={<BadgesPage />} />
           <Route path="/app/leaderboards" element={<LeaderboardsPage />} />
           <Route path="/app/tokens" element={<TokensPage />} />
           <Route path="/app/refer" element={<ReferPage />} />
@@ -74,7 +77,8 @@ export default function App() {
           <Route path="/app/profile" element={<ProfilePage />} />
         </Route>
 
-        {/* Quiz session / result — full-bleed, own topbar */}
+        {/* Quiz instructions / session / result — full-bleed, own topbar */}
+        <Route path="/app/quizzes/:quizId/instructions" element={<RequireAuth role="STUDENT"><QuizInstructionsPage /></RequireAuth>} />
         <Route path="/app/quizzes/:quizId/session" element={<RequireAuth role="STUDENT"><QuizSessionPage /></RequireAuth>} />
         <Route path="/app/quizzes/:quizId/result" element={<RequireAuth role="STUDENT"><QuizResultPage /></RequireAuth>} />
 

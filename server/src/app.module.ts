@@ -23,6 +23,7 @@ import { EventsModule } from './events/events.module.js';
 import { RankingModule } from './ranking/ranking.module.js';
 import { ActivityModule } from './activity/activity.module.js';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module.js';
+import { BadgesModule } from './badges/badges.module.js';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { LeaderboardsModule } from './leaderboards/leaderboards.module.js';
     RankingModule,
     ActivityModule,
     LeaderboardsModule,
+    BadgesModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

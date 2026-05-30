@@ -27,7 +27,6 @@ import {
   Gift,
   Receipt,
   Crown,
-  Search,
   Bell,
   Menu,
   X,
@@ -38,7 +37,7 @@ import ThemeToggle from "../ui/ThemeToggle";
 import TokenWallet from "../ui/TokenWallet";
 import { useAuth } from "../../context/AuthContext";
 import { EntitlementsProvider, useEntitlements } from "../../hooks/useEntitlements";
-import { tokensAPI } from "../../services/api";
+import { studentAPI, tokensAPI } from "../../services/api";
 import "./StudentLayout.css";
 
 // Map the real plan name from the server (Free / Starter / Pro / Institutional / …)
@@ -51,12 +50,27 @@ function planNameToSlug(name) {
   return "paid"; // Starter, custom tiers — paid but not Pro
 }
 
-const STUDY = [
-  { to: "/app", icon: Home, label: "Home" },
-  { to: "/app/quizzes", icon: BookOpen, label: "Quizzes", pill: "147" },
-  { to: "/app/activity", icon: Flame, label: "Activity" },
-  { to: "/app/leaderboards", icon: Trophy, label: "Leaderboards" },
-];
+// Pill counts are filled in at render time from live data so they can't
+// go stale at module-load. `quizCount` comes from /api/student/quizzes/facets.
+function buildStudyNav({ quizCount }) {
+  return [
+    { to: "/app", icon: Home, label: "Home" },
+    {
+      to: "/app/quizzes",
+      icon: BookOpen,
+      label: "Quizzes",
+      // Compact thousand-formatting so the sidebar doesn't blow up at 1k+.
+      pill: quizCount != null ? formatCount(quizCount) : undefined,
+    },
+    { to: "/app/activity", icon: Flame, label: "Activity" },
+    { to: "/app/leaderboards", icon: Trophy, label: "Leaderboards" },
+  ];
+}
+
+function formatCount(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return String(n);
+}
 
 const COMING_SOON = [
   { icon: Users, label: "Study Groups" },
@@ -98,6 +112,7 @@ function StudentLayoutInner() {
   const plan = planNameToSlug(planName); // "free" | "paid" | "pro"
 
   const [tokenBalance, setTokenBalance] = useState(0);
+  const [quizCount, setQuizCount] = useState(null);
   useEffect(() => {
     let cancelled = false;
     tokensAPI.getBalance()
@@ -107,6 +122,13 @@ function StudentLayoutInner() {
         setTokenBalance(balance);
       })
       .catch(() => { /* ignore — keep last balance */ });
+    studentAPI.getQuizFacets()
+      .then((res) => {
+        if (cancelled) return;
+        const total = res?.data?.totals?.all ?? res?.totals?.all ?? null;
+        setQuizCount(total);
+      })
+      .catch(() => { /* ignore — drop the pill silently */ });
     return () => { cancelled = true; };
   }, [planName]); // refetch after a plan change
 
@@ -152,7 +174,7 @@ function StudentLayoutInner() {
           </div>
 
           <SidebarGroup label="Study">
-            {STUDY.map((item) => (
+            {buildStudyNav({ quizCount }).map((item) => (
               <SidebarItem key={item.to} {...item} />
             ))}
           </SidebarGroup>
@@ -261,12 +283,6 @@ function Topbar({ tokenBalance, plan, onMenuClick }) {
       >
         <Menu size={20} />
       </button>
-
-      <div className="tb-search">
-        <Search size={16} />
-        <input placeholder="Search quizzes, topics, friends…" />
-        <kbd>⌘K</kbd>
-      </div>
 
       <div className="tb-actions">
         <ThemeToggle />

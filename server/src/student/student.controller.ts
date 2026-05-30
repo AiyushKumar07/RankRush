@@ -86,6 +86,13 @@ export class StudentController {
     return this.studentService.getStreakGarden(userId, Number.isFinite(n) ? n : 60);
   }
 
+  // Weekly chart — 7-day per-day breakdown of quizzes / questions / accuracy
+  // plus totals + week-over-week question delta. Drives the dashboard chart.
+  @Get('weekly-chart')
+  getWeeklyChart(@CurrentUser('id') userId: string) {
+    return this.studentService.getWeeklyChart(userId);
+  }
+
   // Topic analytics — overall accuracy + strong/weak topics + by-subject.
   // Used by both the dashboard "Topic insights" card (limit=4) and the
   // standalone /app/analytics page (limit=20+).

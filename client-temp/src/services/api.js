@@ -138,12 +138,17 @@ export const studentAPI = {
   getTodaysPick: () => api.get('/student/quizzes/todays-pick'),
   getStreakGarden: (days) => api.get('/student/streak-garden', { params: days ? { days } : undefined }),
   getTopicAnalytics: (limit) => api.get('/student/topic-analytics', { params: limit ? { limit } : undefined }),
+  getWeeklyChart: () => api.get('/student/weekly-chart'),
   saveQuiz: (quizId) => api.post(`/student/quizzes/${quizId}/save`),
   unsaveQuiz: (quizId) => api.delete(`/student/quizzes/${quizId}/save`),
   getQuiz: (id) => api.get(`/student/quizzes/${id}`),
   startAttempt: (quizId) => api.post(`/student/quizzes/${quizId}/start`),
   submitAttempt: (quizId, data) => api.post(`/student/quizzes/${quizId}/submit`, data),
   getActivity: (params) => api.get('/student/activity', { params }),
+};
+
+export const badgesAPI = {
+  list: () => api.get('/badges'),
 };
 
 export const quizzesAPI = {

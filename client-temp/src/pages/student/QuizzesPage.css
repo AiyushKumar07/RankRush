@@ -120,15 +120,11 @@
   font-size: 12px;
   color: var(--rr-fg-muted);
 }
-.filter-row .sort select {
-  background: var(--rr-surface);
-  border: 1px solid var(--rr-border-strong);
-  border-radius: var(--rr-r-sm);
-  padding: 5px 10px;
-  font-size: 12px;
-  font-family: var(--rr-font-sans);
-  color: var(--rr-fg);
-}
+.filter-row .sort .sort-lbl { white-space: nowrap; }
+/* The Select component has its own internal styling — we just need to
+   give it a sensible min-width so the trigger doesn't collapse around
+   the shortest label. */
+.filter-row .sort .sort-select { min-width: 200px; }
 
 /* Today's pick hero card — always-dark surface. Hardcoded colours so the
    theme-variable flips (which swap --rr-ink-900 ↔ --rr-paper between
@@ -305,11 +301,14 @@
 
 .quiz-card .quiz-save-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  /* Aligns horizontally with the chip row in .top — body padding is 18px,
+     band is 4px above, so the chip vertical center sits ~32px from the
+     card edge. 26px button at top:19 puts both centers within 1–2px. */
+  top: 19px;
+  right: 16px;
   z-index: 2;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -340,6 +339,10 @@
 .quiz-card .top {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 8px;
+  /* Reserve clearance for the absolutely-positioned save / Pro chip in the
+     top-right corner so the status text doesn't get covered. Button is
+     26px wide + 16px right edge = need ~42px of clearance. */
+  padding-right: 42px;
 }
 .quiz-card .subj-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -367,15 +370,35 @@
 .quiz-card[data-subj="mixed"] .subj-badge { background: var(--rr-bg-alt); color: var(--rr-fg-2); }
 .quiz-card[data-subj="mixed"] .subj-badge .d { background: var(--rr-fg-muted); }
 
+/* Status pill — sits next to the subject badge in the top row.
+   Same shape language as .subj-badge (rounded pill, tinted background)
+   so the row reads as two paired chips instead of one chip + raw text. */
 .quiz-card .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-family: var(--rr-font-mono);
   font-size: 9px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--rr-fg-muted);
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  white-space: nowrap;
 }
-.quiz-card .status.done { color: var(--rr-emerald-500); }
-.quiz-card .status.progress { color: var(--rr-amber-500); }
+.quiz-card .status.done {
+  color: var(--rr-emerald-500);
+  background: color-mix(in oklab, var(--rr-emerald-500) 12%, transparent);
+  border-color: color-mix(in oklab, var(--rr-emerald-500) 28%, transparent);
+}
+.quiz-card .status.progress {
+  color: var(--rr-amber-500);
+  background: color-mix(in oklab, var(--rr-amber-500) 14%, transparent);
+  border-color: color-mix(in oklab, var(--rr-amber-500) 30%, transparent);
+}
 
 .quiz-card .topic-meta { font-family: var(--rr-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--rr-fg-muted); }
 .quiz-card h3 {

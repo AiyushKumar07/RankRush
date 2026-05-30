@@ -180,7 +180,7 @@ export default function QuizHistoryPage() {
 function HistoryRow({ row }) {
   const subjectKey = subjectKeyFor(row.subject)
   const phase = fmtPhase(row.leaderboard)
-  const minutes = Math.round(row.timeLimitMins || 0)
+  const minutes = row.timeLimitMins || 0
   const duration = minutes >= 60 && minutes % 60 === 0
     ? `${minutes / 60}h`
     : `${minutes}m`

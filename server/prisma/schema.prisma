@@ -1065,10 +1065,23 @@ model Badge {
   name        String
   description String
   icon        String
-  tone        String
+  tone        String                    // "violet" | "amber" | "emerald" | "cyan" | "lime" | "coral"
 
-  ruleType    String                    // "streak" | "subject-accuracy" | "quiz-count" | "rank-milestone"
+  // Free-form classification for the achievements shelf — currently
+  // "milestone" | "volume" | "streak" | "accuracy" | "rank" | "social".
+  category    String   @default("milestone")
+  // Visual tier the UI maps to a ring + glow. Higher tiers render bigger.
+  tier        String   @default("bronze") // "bronze" | "silver" | "gold" | "platinum"
+  sortOrder   Int      @default(0)
+
+  ruleType    String                    // "quiz-count" | "questions-answered" | "perfect-quiz" | "streak" | "accuracy-overall" | "subject-accuracy" | "rank-milestone" | "tokens-earned"
   ruleConfig  Json                      // strategy-specific predicate
+
+  // Optional reward granted on unlock. Left as Json so admins can wire
+  // tokens / XP / cosmetic perks without a schema change. Null/absent =
+  // no reward (the current default — we want the achievement layer in
+  // place before paying out anything).
+  reward      Json?                     // e.g. { tokens: 5 } | { xp: 100 } | { cosmetic: 'crown-frame' }
 
   isActive    Boolean  @default(true)
 
@@ -1076,6 +1089,9 @@ model Badge {
   updatedAt   DateTime @updatedAt
 
   unlocks     UserBadge[]
+
+  @@index([category, sortOrder])
+  @@index([isActive])
 }
 
 model UserBadge {

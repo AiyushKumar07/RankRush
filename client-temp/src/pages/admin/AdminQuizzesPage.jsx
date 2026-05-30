@@ -301,7 +301,7 @@ export default function AdminQuizzesPage() {
                   q.subject,
                   q.chapter || q.topic,
                   `${q.totalQuestions} Qs`,
-                  `${Math.round(q.timeLimitMins)} min`,
+                  `${q.timeLimitMins} min`,
                 ].filter(Boolean).join(" · ");
                 return (
                   <tr key={q.id}>

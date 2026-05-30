@@ -8,10 +8,12 @@ const AdminLoginPage = lazy(() => import('./pages/auth/AdminLoginPage'))
 const DashboardPage = lazy(() => import('./pages/student/DashboardPage'))
 const QuizzesPage = lazy(() => import('./pages/student/QuizzesPage'))
 const QuizHistoryPage = lazy(() => import('./pages/student/QuizHistoryPage'))
+const QuizInstructionsPage = lazy(() => import('./pages/student/QuizInstructionsPage'))
 const QuizSessionPage = lazy(() => import('./pages/student/QuizSessionPage'))
 const QuizResultPage = lazy(() => import('./pages/student/QuizResultPage'))
 const ActivityPage = lazy(() => import('./pages/student/ActivityPage'))
 const AnalyticsPage = lazy(() => import('./pages/student/AnalyticsPage'))
+const BadgesPage = lazy(() => import('./pages/student/BadgesPage'))
 const TokensPage = lazy(() => import('./pages/student/TokensPage'))
 const ReferPage = lazy(() => import('./pages/student/ReferPage'))
 const LeaderboardsPage = lazy(() => import('./pages/student/LeaderboardsPage'))
@@ -32,10 +34,12 @@ export {
   DashboardPage,
   QuizzesPage,
   QuizHistoryPage,
+  QuizInstructionsPage,
   QuizSessionPage,
   QuizResultPage,
   ActivityPage,
   AnalyticsPage,
+  BadgesPage,
   TokensPage,
   ReferPage,
   LeaderboardsPage,

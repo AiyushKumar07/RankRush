@@ -843,6 +843,10 @@ export class StudentService {
           title: quiz.title,
           description: quiz.description,
           subject: quiz.subject,
+          chapter: quiz.chapter,
+          topic: quiz.topic,
+          difficulty: quiz.difficulty,
+          attemptCost: quiz.attemptCost,
           totalQuestions: quiz.totalQuestions,
           totalMarks: quiz.totalMarks,
           timeLimitMins: quiz.timeLimitMins,
@@ -1301,6 +1305,111 @@ export class StudentService {
         limit,
         total,
         pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // ── Weekly chart (last 7 days) ───────────────────────────────────
+  // Powers the dashboard "This week" chart. Returns one cell per day
+  // with quizzes, questions, and average accuracy — the UI flips between
+  // those three series via tabs without needing more round-trips.
+  async getWeeklyChart(userId: string) {
+    const now = new Date();
+    const days: Array<{ start: Date; end: Date; key: string; label: string }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      const end = new Date(d);
+      end.setHours(23, 59, 59, 999);
+      days.push({
+        start: d,
+        end,
+        key: d.toISOString().slice(0, 10),
+        label: i === 0
+          ? 'Today'
+          : d.toLocaleDateString('en-IN', { weekday: 'short' }),
+      });
+    }
+    const startOfWindow = days[0].start;
+    const endOfWindow = days[days.length - 1].end;
+
+    // Pull this-week + last-week attempts (for the WoW % delta) in one go.
+    const lastWeekStart = new Date(startOfWindow.getTime() - 7 * 86_400_000);
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        studentId: userId,
+        status: 'COMPLETED',
+        completedAt: { gte: lastWeekStart, lte: endOfWindow },
+      },
+      select: {
+        completedAt: true,
+        correctCount: true,
+        incorrectCount: true,
+        percentage: true,
+      },
+    });
+
+    type Bucket = { quizzes: number; questions: number; pctSum: number };
+    const dayBuckets = new Map<string, Bucket>();
+    let thisWeekQuestions = 0;
+    let lastWeekQuestions = 0;
+    for (const a of attempts) {
+      if (!a.completedAt) continue;
+      const t = a.completedAt.getTime();
+      const qCount = a.correctCount + a.incorrectCount;
+      if (t < startOfWindow.getTime()) {
+        lastWeekQuestions += qCount;
+        continue;
+      }
+      thisWeekQuestions += qCount;
+      const key = a.completedAt.toISOString().slice(0, 10);
+      const b = dayBuckets.get(key) ?? { quizzes: 0, questions: 0, pctSum: 0 };
+      b.quizzes++;
+      b.questions += qCount;
+      b.pctSum += a.percentage;
+      dayBuckets.set(key, b);
+    }
+
+    const cells = days.map((d) => {
+      const b = dayBuckets.get(d.key);
+      const accuracy = b && b.quizzes > 0 ? Math.round(b.pctSum / b.quizzes) : 0;
+      return {
+        date: d.key,
+        label: d.label,
+        isToday: d.label === 'Today',
+        quizzes: b?.quizzes ?? 0,
+        questions: b?.questions ?? 0,
+        accuracy,
+      };
+    });
+
+    const totals = {
+      quizzes: cells.reduce((s, c) => s + c.quizzes, 0),
+      questions: thisWeekQuestions,
+      // Volume-weighted accuracy across the week — feels more honest than
+      // averaging per-day averages when days are uneven.
+      accuracy: (() => {
+        let pctSum = 0; let n = 0;
+        for (const b of dayBuckets.values()) { pctSum += b.pctSum; n += b.quizzes; }
+        return n > 0 ? Math.round(pctSum / n) : 0;
+      })(),
+    };
+
+    const wowPct = lastWeekQuestions > 0
+      ? Math.round(((thisWeekQuestions - lastWeekQuestions) / lastWeekQuestions) * 100)
+      : null;
+
+    return {
+      data: {
+        cells,
+        totals,
+        dailyAvg: {
+          quizzes: Math.round((totals.quizzes / 7) * 10) / 10,
+          questions: Math.round(totals.questions / 7),
+        },
+        dailyTarget: 50,
+        wowPctQuestions: wowPct,
       },
     };
   }

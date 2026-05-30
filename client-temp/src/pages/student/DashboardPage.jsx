@@ -3,14 +3,22 @@ import { Link } from "react-router-dom";
 import {
   Flame, Target, CircleCheck, Clock,
   Sparkles, Play, TrendingUp, Zap, Medal,
-  Users, Swords, Crown, ArrowRight, Lock,
+  Users, Crown, ArrowRight, Lock,
+  // Recent-activity icon set (mirrors ActivityPage's TYPE_RENDER)
+  CircleDot, CircleSlash, Coins, ShoppingBag, RefreshCw,
+  Gift, Pencil, UserPlus, Loader2,
+  // Badge icons referenced by Badge.icon strings from the seed
+  BookOpen, Library, Award, Rocket, Trophy, Sigma, Atom, FlaskConical, Leaf,
 } from "lucide-react";
 import RankBarHero from "../../components/student/RankBarHero";
 import StreakGarden from "../../components/student/StreakGarden";
 import StatCard from "../../components/ui/StatCard";
 import { useAuth } from "../../context/AuthContext";
 import { useEntitlements } from "../../hooks/useEntitlements";
-import { activityAPI, leaderboardsAPI, studentAPI } from "../../services/api";
+import {
+  activityAPI, badgesAPI, leaderboardsAPI, studentAPI,
+  subscriptionPlansAPI, tokensAPI,
+} from "../../services/api";
 import "./DashboardPage.css";
 
 function unwrap(res) { return res?.data ?? res ?? null; }
@@ -56,44 +64,10 @@ function buildHistoryTrail(points, currentRank) {
   return trail.filter(Boolean);
 }
 
-const CHART_DATA = [
-  { day: "Mon", value: 28, height: "35%" },
-  { day: "Tue", value: 52, height: "62%" },
-  { day: "Wed", value: 41, height: "50%" },
-  { day: "Thu", value: 66, height: "78%" },
-  { day: "Fri", value: 58, height: "70%" },
-  { day: "Sat", value: 78, height: "92%" },
-  { day: "Today", value: 89, height: "100%", isToday: true },
-];
-
-const FRIENDS = [
-  { initial: "A", name: "Aanya G.", status: "Calculus · 23 min in", color: "var(--rr-amber-500)" },
-  { initial: "R", name: "Rohan M.", status: "Organic chem · 4 min in", color: "var(--rr-cyan-500)" },
-  { initial: "T", name: "Tanvi S.", status: "Mechanics · 11 min in", color: "var(--rr-violet-500)" },
-  { initial: "K", name: "Karthik V.", status: "Idle · last seen 2 min", color: "var(--rr-coral-400)" },
-];
-
-const ACTIVITY = [
-  { icon: TrendingUp, tile: "lime", title: "Climbed 14 ranks · now #88", meta: "After Calculus · Differentiation quiz", when: "2m ago" },
-  { icon: CircleCheck, tile: "violet", title: "Quiz complete · 18 / 20 correct", meta: "Calculus · Differentiation", when: "14m ago" },
-  { icon: Flame, tile: "amber", title: "17-day streak saved", meta: "3 hours before reset", when: "2h ago" },
-  { icon: Zap, tile: "cyan", title: "Earned 2 tokens · streak bonus", meta: "Weekly milestone · 14 days", when: "Yesterday" },
-  { icon: Medal, tile: "emerald", title: "Badge unlocked · Calc Slayer", meta: "100 calculus questions at >90%", when: "Mon" },
-];
-
-const BADGES = [
-  { icon: Zap, color: "violet", name: "First Token", progress: "Earned" },
-  { icon: Flame, color: "amber", name: "Week Streak", progress: "Earned" },
-  { icon: TrendingUp, color: "lime", name: "Calc Slayer", progress: "Earned" },
-  { icon: Target, color: "cyan", name: "Sharp Eye", progress: "Earned" },
-  { icon: Crown, color: "locked", name: "Top 100", progress: "88 / 100" },
-  { icon: Medal, color: "locked", name: "30-day Streak", progress: "17 / 30" },
-];
-
 export default function DashboardPage() {
   const [chartTab, setChartTab] = useState("Questions");
   const { user } = useAuth();
-  const { hasFeature, loading: entLoading } = useEntitlements();
+  const { hasFeature, loading: entLoading, planName } = useEntitlements();
   const detailedUnlocked = hasFeature('DETAILED_ANALYTICS');
 
   const [stats, setStats] = useState(null);
@@ -105,6 +79,11 @@ export default function DashboardPage() {
   const [pickLoading, setPickLoading] = useState(true);
   const [garden, setGarden] = useState(null);
   const [topicAnalytics, setTopicAnalytics] = useState(null);
+  const [weeklyChart, setWeeklyChart] = useState(null);
+  const [recentFeed, setRecentFeed] = useState(null);
+  const [badges, setBadges] = useState(null);
+  const [tokenBalance, setTokenBalance] = useState(null);
+  const [proPlan, setProPlan] = useState(null);
 
   // ── Greeting clock — re-render once per minute so the time stays fresh.
   const [now, setNow] = useState(() => new Date());
@@ -136,6 +115,26 @@ export default function DashboardPage() {
     studentAPI.getTopicAnalytics(5)
       .then((res) => setTopicAnalytics(unwrap(res) ?? null))
       .catch(() => setTopicAnalytics(null));
+    studentAPI.getWeeklyChart()
+      .then((res) => setWeeklyChart(unwrap(res) ?? null))
+      .catch(() => setWeeklyChart(null));
+    activityAPI.getFeed({ limit: 7 })
+      .then((res) => setRecentFeed(unwrap(res)?.items || []))
+      .catch(() => setRecentFeed([]));
+    badgesAPI.list()
+      .then((res) => setBadges(unwrap(res) ?? null))
+      .catch(() => setBadges(null));
+    // Pro nudge needs live token balance + the cheapest Pro pricing.
+    tokensAPI.getBalance()
+      .then((res) => setTokenBalance(unwrap(res)?.balance ?? res?.balance ?? null))
+      .catch(() => setTokenBalance(null));
+    subscriptionPlansAPI.list()
+      .then((res) => {
+        const plans = unwrap(res)?.plans ?? unwrap(res) ?? [];
+        const pro = plans.find((p) => /pro/i.test(p?.name || ''));
+        setProPlan(pro ?? null);
+      })
+      .catch(() => setProPlan(null));
   }, []);
 
   // ── Class-cohort rank + history ─────────────────────────────────────
@@ -318,55 +317,12 @@ export default function DashboardPage() {
         </Link>
       </div>
       <div className="row-2" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
-        <div className="dcard chart-card">
-          <div className="head">
-            <div>
-              <h3>Questions solved</h3>
-              <span className="sub">412 this week · daily avg <b style={{ color: "var(--rr-fg)" }}>58</b></span>
-            </div>
-            <TimeTabs
-              tabs={["Quizzes", "Questions", "Accuracy"]}
-              active={chartTab}
-              onChange={setChartTab}
-            />
-          </div>
-          <div className="chart-area">
-            {CHART_DATA.map(bar => (
-              <div key={bar.day} className={`chart-bar${bar.isToday ? " today" : ""}`}>
-                <div className="bar" style={{ height: bar.height }}>
-                  <span className="value">{bar.value}</span>
-                </div>
-                <span className="label">{bar.day}</span>
-              </div>
-            ))}
-          </div>
-          <div className="chart-foot">
-            <span>Daily target: <b>50 questions</b></span>
-            <span><b style={{ color: "var(--rr-emerald-500)" }}>+16%</b> vs last week</span>
-          </div>
-        </div>
-
-        <div className="dcard friends-panel">
-          <div className="head">
-            <div>
-              <h3>Friends studying now</h3>
-              <span className="sub">4 of 12 online</span>
-            </div>
-            <Link to="/app/quizzes" className="action"><Users size={14} />View all</Link>
-          </div>
-          <div className="friends-list">
-            {FRIENDS.map(f => (
-              <div key={f.name} className="friend-row">
-                <div className="av online" style={{ background: f.color }}>{f.initial}</div>
-                <div className="info">
-                  <span className="n">{f.name}</span>
-                  <span className="s">{f.status}</span>
-                </div>
-                <button className="duel"><Swords size={11} />Duel</button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <WeeklyChartCard
+          chart={weeklyChart}
+          activeTab={chartTab}
+          onTabChange={setChartTab}
+        />
+        <FriendsComingSoonCard />
       </div>
 
       {/* Activity + Badges */}
@@ -374,60 +330,59 @@ export default function DashboardPage() {
         <h2>Recent activity</h2>
       </div>
       <div className="row-2" style={{ gridTemplateColumns: "1fr 1.2fr" }}>
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3>What happened</h3>
-              <span className="sub">Last 24 hours</span>
-            </div>
-          </div>
-          <div className="activity">
-            {ACTIVITY.map((a, i) => (
-              <div key={i} className="activity-item">
-                <div className={`icon-tile ${a.tile}`}><a.icon /></div>
-                <div className="text">
-                  <span className="title">{a.title}</span>
-                  <span className="meta">{a.meta}</span>
-                </div>
-                <span className="when">{a.when}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3>Achievements</h3>
-              <span className="sub"><b style={{ color: "var(--rr-fg)" }}>8</b> of 24 unlocked</span>
-            </div>
-            <Link to="/app/activity" className="action">See all<ArrowRight size={14} /></Link>
-          </div>
-          <div className="badge-shelf">
-            {BADGES.map(b => (
-              <div key={b.name} className={`bg-badge ${b.color}`}>
-                <div className="ring"><b.icon /></div>
-                <span className="name">{b.name}</span>
-                <span className="progress">{b.progress}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <RecentActivityCard items={recentFeed} />
+        <AchievementsCard badges={badges} />
       </div>
 
-      {/* Pro nudge */}
-      <div className="pro-nudge">
-        <div className="left">
-          <div className="lbl">★ Free plan · 12 tokens left</div>
-          <h3>You've answered 412 questions this week. Pro gives you the rest of the year.</h3>
-          <p>50 tokens a month, every previous-year paper, advanced analytics — and the right to never count tokens again.</p>
+      {/* Pro nudge — hides itself for Pro users. */}
+      <ProNudge
+        weeklyQuestions={weeklyChart?.totals?.questions ?? 0}
+        tokenBalance={tokenBalance}
+        proPlan={proPlan}
+        unlocked={detailedUnlocked}
+        planName={planName}
+      />
+    </div>
+  );
+}
+
+function ProNudge({ weeklyQuestions, tokenBalance, proPlan, unlocked, planName }) {
+  // Hide entirely for Pro/unlocked users — no upsell when they've already
+  // converted. Keeps the dashboard from feeling spammy on the way back.
+  if (unlocked) return null;
+
+  // Cheapest cadence wins for the CTA price ("Go Pro · ₹299" reads as the
+  // monthly entry-point even though annual is the better deal).
+  const cheapest = proPlan?.pricings?.length
+    ? [...proPlan.pricings].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0]
+    : null;
+  const ctaPrice = cheapest?.price ? `₹${cheapest.price}` : null;
+
+  // Body copy adapts to the current plan slug.
+  const planLabel = planName || 'Free';
+  const tokenLine = tokenBalance != null
+    ? `${tokenBalance} token${tokenBalance === 1 ? '' : 's'} left`
+    : null;
+  const headline = weeklyQuestions > 0
+    ? `You've answered ${weeklyQuestions} question${weeklyQuestions === 1 ? '' : 's'} this week. Pro gives you the rest of the year.`
+    : `Pro unlocks the whole catalogue, every previous-year paper, and detailed analytics.`;
+
+  return (
+    <div className="pro-nudge">
+      <div className="left">
+        <div className="lbl">
+          ★ {planLabel} plan{tokenLine ? ` · ${tokenLine}` : ''}
         </div>
-        <div className="right">
-          <Link to="/app/pricing" className="btn btn-ghost btn-lg" style={{ color: "#FAFAF7", border: "1px solid rgba(255,255,255,0.15)" }}>
-            See plans
-          </Link>
-          <Link to="/app/pricing" className="btn btn-lime btn-lg">Go Pro · ₹299</Link>
-        </div>
+        <h3>{headline}</h3>
+        <p>50 tokens a month, every previous-year paper, advanced analytics — and the right to never count tokens again.</p>
+      </div>
+      <div className="right">
+        <Link to="/app/pricing" className="btn btn-ghost btn-lg" style={{ color: "#FAFAF7", border: "1px solid rgba(255,255,255,0.15)" }}>
+          See plans
+        </Link>
+        <Link to="/app/pricing" className="btn btn-lime btn-lg">
+          Go Pro{ctaPrice ? ` · ${ctaPrice}` : ''}
+        </Link>
       </div>
     </div>
   );
@@ -506,10 +461,10 @@ function TodaysPickCard({ pick, loading }) {
   }
 
   const cost = pick.attemptCost ?? 1;
-  const minutes = Math.round(pick.timeLimitMins || 0);
+  const minutes = pick.timeLimitMins || 0;
   const duration = minutes >= 60 && minutes % 60 === 0
     ? `${minutes / 60} hour${minutes / 60 > 1 ? "s" : ""}`
-    : `~${minutes} min`;
+    : `${minutes} min`;
   const diffLevel = DIFF_PILL_MAP[pick.difficulty] ?? 3;
   const topic = [pick.subject, pick.chapter, pick.topic].filter(Boolean).join(" · ");
 
@@ -521,7 +476,9 @@ function TodaysPickCard({ pick, loading }) {
                 : pick.kind === 'upcoming'  ? 'View quiz'
                 : 'Start quiz';
   const ctaSuffix = cost === 0 ? 'Free' : `${cost} token${cost === 1 ? '' : 's'}`;
-  const href = `/app/quizzes/${pick.id}/session`;
+  const href = pick.kind === 'resume'
+    ? `/app/quizzes/${pick.id}/session`
+    : `/app/quizzes/${pick.id}/instructions`;
 
   return (
     <div className="todays-pick">
@@ -553,6 +510,290 @@ function TodaysPickCard({ pick, loading }) {
       </div>
     </div>
   );
+}
+
+// Heading copy + value formatter for each chart tab.
+const CHART_TAB_META = {
+  Quizzes:  { heading: 'Quizzes completed', unit: '',  series: 'quizzes',   format: (n) => n },
+  Questions:{ heading: 'Questions solved',  unit: '',  series: 'questions', format: (n) => n },
+  Accuracy: { heading: 'Daily accuracy',    unit: '%', series: 'accuracy',  format: (n) => `${n}%` },
+};
+
+function WeeklyChartCard({ chart, activeTab, onTabChange }) {
+  const meta = CHART_TAB_META[activeTab] ?? CHART_TAB_META.Questions;
+  const cells = chart?.cells ?? [];
+  const totals = chart?.totals;
+  const dailyAvg = chart?.dailyAvg;
+
+  // Scale bars to the tallest value in the current series so short days
+  // don't disappear and tall days don't clip.
+  const maxVal = Math.max(1, ...cells.map((c) => c[meta.series] ?? 0));
+
+  // Headline copy: total + daily-avg for Quizzes/Questions; week avg for Accuracy.
+  const headlineTotal = activeTab === 'Accuracy'
+    ? `${totals?.accuracy ?? 0}% week avg`
+    : `${totals?.[meta.series] ?? 0} this week`;
+  const headlineAvg = activeTab === 'Accuracy'
+    ? null
+    : `daily avg ${dailyAvg?.[meta.series] ?? 0}`;
+
+  return (
+    <div className="dcard chart-card">
+      <div className="head">
+        <div>
+          <h3>{meta.heading}</h3>
+          <span className="sub">
+            {headlineTotal}
+            {headlineAvg && <> · {headlineAvg.split(' ').slice(0, 2).join(' ')} <b style={{ color: 'var(--rr-fg)' }}>{headlineAvg.split(' ').slice(2).join(' ')}</b></>}
+          </span>
+        </div>
+        <TimeTabs
+          tabs={['Quizzes', 'Questions', 'Accuracy']}
+          active={activeTab}
+          onChange={onTabChange}
+        />
+      </div>
+      <div className="chart-area">
+        {cells.length === 0 ? (
+          <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+            No activity in the last 7 days.
+          </div>
+        ) : (
+          cells.map((c) => {
+            const val = c[meta.series] ?? 0;
+            // Use ~6% minimum so empty days still leave a stub bar visible.
+            const heightPct = val > 0 ? Math.max(6, Math.round((val / maxVal) * 100)) : 4;
+            return (
+              <div key={c.date} className={`chart-bar${c.isToday ? ' today' : ''}`}>
+                <div className="bar" style={{ height: `${heightPct}%` }}>
+                  <span className="value">{meta.format(val)}</span>
+                </div>
+                <span className="label">{c.label}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <div className="chart-foot">
+        {activeTab === 'Questions'
+          ? <span>Daily target: <b>{chart?.dailyTarget ?? 50} questions</b></span>
+          : <span>{activeTab === 'Accuracy' ? 'Volume-weighted across the week' : 'Last 7 days'}</span>}
+        {chart?.wowPctQuestions != null && activeTab === 'Questions' && (
+          <span>
+            <b style={{ color: chart.wowPctQuestions >= 0 ? 'var(--rr-emerald-500)' : 'var(--rr-coral-500)' }}>
+              {chart.wowPctQuestions >= 0 ? '+' : ''}{chart.wowPctQuestions}%
+            </b>{' '}vs last week
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FriendsComingSoonCard() {
+  return (
+    <div className="dcard friends-panel">
+      <div className="head">
+        <div>
+          <h3>Friends studying now</h3>
+          <span className="sub">A social layer for study buddies + duels</span>
+        </div>
+        <span
+          style={{
+            fontFamily: 'var(--rr-font-mono)',
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'var(--rr-violet-500)',
+            background: 'color-mix(in oklab, var(--rr-violet-500) 10%, transparent)',
+            border: '1px solid color-mix(in oklab, var(--rr-violet-500) 25%, transparent)',
+            padding: '4px 8px',
+            borderRadius: 999,
+          }}
+        >
+          Coming soon
+        </span>
+      </div>
+      <div style={{
+        flex: 1, minHeight: 220,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 12, padding: 20, textAlign: 'center', color: 'var(--rr-fg-muted)',
+      }}>
+        <Users size={36} style={{ color: 'var(--rr-fg-dim)' }} />
+        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, maxWidth: 280 }}>
+          Add friends, see who's online, and challenge them to a head-to-head duel.
+          We're shipping this next — leaderboards and the contest engine are already live.
+        </p>
+        <Link
+          to="/app/leaderboards"
+          style={{ fontSize: 12, color: 'var(--rr-violet-500)', textDecoration: 'none', fontWeight: 500 }}
+        >
+          Browse leaderboards instead →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ── Recent activity (real ActivityEvent feed, last 7) ──────────────
+// Maps backend event types → icon + tile colour. Stays in sync with the
+// ActivityPage's TYPE_RENDER table so the same event looks the same on
+// both surfaces.
+const ACTIVITY_RENDER = {
+  QUIZ_COMPLETED:     { Icon: CircleCheck, tile: 'violet'  },
+  QUIZ_STARTED:       { Icon: CircleDot,   tile: 'cyan'    },
+  QUIZ_ABANDONED:     { Icon: CircleSlash, tile: 'coral'   },
+  RANK_CHANGED:       { Icon: TrendingUp,  tile: 'lime'    },
+  TOKEN_CREDITED:     { Icon: Coins,       tile: 'amber'   },
+  TOKEN_DEBITED:      { Icon: Coins,       tile: 'amber'   },
+  TOKEN_PURCHASED:    { Icon: ShoppingBag, tile: 'cyan'    },
+  BADGE_UNLOCKED:     { Icon: Medal,       tile: 'emerald' },
+  STREAK_DAY:         { Icon: Flame,       tile: 'amber'   },
+  STREAK_MILESTONE:   { Icon: Flame,       tile: 'amber'   },
+  STREAK_BROKEN:      { Icon: Flame,       tile: 'coral'   },
+  PLAN_PURCHASED:     { Icon: Crown,       tile: 'lime'    },
+  PLAN_CANCELLED:     { Icon: CircleSlash, tile: 'coral'   },
+  PLAN_REFRESHED:     { Icon: RefreshCw,   tile: 'cyan'    },
+  REFERRAL_CONVERTED: { Icon: Gift,        tile: 'lime'    },
+  PROFILE_UPDATED:    { Icon: Pencil,      tile: 'cyan'    },
+  ACCOUNT_CREATED:    { Icon: UserPlus,    tile: 'violet'  },
+};
+
+function activityWhen(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return d.toLocaleDateString('en-IN', { weekday: 'short' });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function RecentActivityCard({ items }) {
+  return (
+    <div className="dcard">
+      <div className="head">
+        <div>
+          <h3>What happened</h3>
+          <span className="sub">Last 7 events</span>
+        </div>
+        <Link to="/app/activity" className="action">Full timeline<ArrowRight size={14} /></Link>
+      </div>
+      <div className="activity">
+        {items == null ? (
+          <div style={{ padding: '24px 0', color: 'var(--rr-fg-muted)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Loader2 size={14} className="quiz-spin" /> Loading recent activity…
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ padding: '24px 0', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+            No activity yet — finish a quiz to see your timeline here.
+          </div>
+        ) : (
+          items.map((it) => {
+            const meta = ACTIVITY_RENDER[it.type] ?? { Icon: CircleCheck, tile: 'violet' };
+            const Icon = meta.Icon;
+            return (
+              <div key={it.id} className="activity-item">
+                <div className={`icon-tile ${meta.tile}`}><Icon /></div>
+                <div className="text">
+                  <span className="title">{it.title}</span>
+                  {it.meta && <span className="meta">{it.meta}</span>}
+                </div>
+                <span className="when">{activityWhen(it.occurredAt)}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Achievements card ─────────────────────────────────────────────
+// Backend stores Badge.icon as a string (lucide name). Map to the
+// imported component; fall back to Medal if unknown so a future
+// admin-authored badge can't break the dashboard.
+const BADGE_ICONS = {
+  Sparkles, CircleCheck, Crown, Flame, BookOpen, Library, Award, Rocket,
+  Target, Trophy, Medal, TrendingUp, Zap, Coins, Sigma, Atom, FlaskConical, Leaf,
+};
+
+function AchievementsCard({ badges }) {
+  // Sorting: unlocked first, then closest-to-unlock, then everything
+  // else. We show the top 6 — the dashboard tile, not the catalogue.
+  const items = badges?.items ?? [];
+  const top = useMemo(() => {
+    return [...items]
+      .sort((a, b) => {
+        if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1;
+        if (a.unlocked && b.unlocked) {
+          return new Date(b.unlockedAt ?? 0).getTime() - new Date(a.unlockedAt ?? 0).getTime();
+        }
+        return (b.progress ?? 0) - (a.progress ?? 0);
+      })
+      .slice(0, 6);
+  }, [items]);
+
+  return (
+    <div className="dcard">
+      <div className="head">
+        <div>
+          <h3>Achievements</h3>
+          <span className="sub">
+            {badges?.summary
+              ? <><b style={{ color: 'var(--rr-fg)' }}>{badges.summary.unlocked}</b> of {badges.summary.total} unlocked</>
+              : 'Loading…'}
+          </span>
+        </div>
+        <Link to="/app/badges" className="action">See all<ArrowRight size={14} /></Link>
+      </div>
+      <div className="badge-shelf">
+        {badges == null ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-badge locked" style={{ opacity: 0.4 }}>
+              <div className="ring" />
+              <span className="name">—</span>
+              <span className="progress">…</span>
+            </div>
+          ))
+        ) : top.length === 0 ? (
+          <div style={{ gridColumn: '1 / -1', padding: '32px 12px', textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+            No badges configured yet.
+          </div>
+        ) : (
+          top.map((b) => {
+            const Icon = BADGE_ICONS[b.icon] ?? Medal;
+            const colorClass = b.unlocked ? (b.tone || 'violet') : 'locked';
+            const progressText = b.unlocked
+              ? 'Earned'
+              : `${formatProgress(b.current)} / ${formatProgress(b.target)}`;
+            return (
+              <div
+                key={b.id}
+                className={`bg-badge ${colorClass}`}
+                title={b.description}
+              >
+                <div className="ring"><Icon /></div>
+                <span className="name">{b.name}</span>
+                <span className="progress">{progressText}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatProgress(n) {
+  if (n == null) return '—';
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return String(Math.round(n));
 }
 
 function TimeTabs({ tabs, active, onChange }) {

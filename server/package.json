@@ -21,7 +21,9 @@
     "seed": "npx ts-node --esm src/scripts/seed.ts",
     "seed:plans": "tsx src/scripts/seed-plans.ts",
     "seed:codes": "tsx src/scripts/seed-codes.ts",
+    "seed:plan-features": "tsx src/scripts/repopulate-plan-children.ts",
     "seed:ranking-scopes": "tsx src/scripts/seed-ranking-scopes.ts",
+    "seed:badges": "tsx src/scripts/seed-badges.ts",
     "backfill:ranking-scores": "nest build && node dist/src/scripts/backfill-ranking-scores.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push"
