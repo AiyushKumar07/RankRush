@@ -19,6 +19,10 @@ import { TokensModule } from './tokens/tokens.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { EntitlementsModule } from './entitlements/entitlements.module.js';
+import { EventsModule } from './events/events.module.js';
+import { RankingModule } from './ranking/ranking.module.js';
+import { ActivityModule } from './activity/activity.module.js';
+import { LeaderboardsModule } from './leaderboards/leaderboards.module.js';
 
 @Module({
   imports: [
@@ -40,6 +44,10 @@ import { EntitlementsModule } from './entitlements/entitlements.module.js';
     PaymentsModule,
     SubscriptionsModule,
     EntitlementsModule,
+    EventsModule,
+    RankingModule,
+    ActivityModule,
+    LeaderboardsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

@@ -23,6 +23,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { OtpService } from '../otp/otp.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { TokensService } from '../tokens/tokens.service.js';
+import { EventBusService } from '../events/event-bus.service.js';
 import {
   RegisterDto,
   LoginDto,
@@ -49,6 +50,7 @@ export class AuthService {
     private otp: OtpService,
     private mail: MailService,
     private tokensService: TokensService,
+    private eventBus: EventBusService,
   ) {}
 
   private generateRefreshToken(): string {
@@ -326,6 +328,17 @@ export class AuthService {
       performedBy: user.id,
       details: { method: 'student_signup' },
       req,
+    });
+
+    this.eventBus.emit({
+      type: 'ACCOUNT_CREATED',
+      userId: user.id,
+      refType: 'User',
+      refId: user.id,
+      payload: {
+        source: referredById ? 'REFERRAL' : 'EMAIL',
+        referredBy: referredById ?? undefined,
+      },
     });
 
     this.logger.log(`Student signup: ${dto.email}`);
@@ -873,6 +886,18 @@ export class AuthService {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    // Daily-activity rollup — one upsert per login, keyed on UTC day-start.
+    // Powers the streak garden + activity heatmap; idempotent across multiple
+    // logins on the same day (loginCount increments, loggedIn stays true).
+    const utcDay = new Date(Date.UTC(
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+    ));
+    await this.prisma.dailyActivity.upsert({
+      where: { userId_date: { userId, date: utcDay } },
+      create: { userId, date: utcDay, loggedIn: true, loginCount: 1 },
+      update: { loggedIn: true, loginCount: { increment: 1 } },
+    });
+
     if (!user.lastActive) {
       // First time active
       await this.prisma.user.update({
@@ -894,6 +919,12 @@ export class AuthService {
           icon: 'Flame',
           tone: 'orange',
         },
+      });
+
+      this.eventBus.emit({
+        type: 'STREAK_DAY',
+        userId,
+        payload: { newStreak: 1, xpGained: 15 },
       });
       return;
     }
@@ -933,6 +964,12 @@ export class AuthService {
         },
       });
 
+      this.eventBus.emit({
+        type: 'STREAK_DAY',
+        userId,
+        payload: { newStreak, xpGained },
+      });
+
       // Streak milestone bonus: +1 token each time the user crosses a new
       // 7-day mark they've never hit before. Gated on longestStreak so a
       // rebuilt streak doesn't re-trigger a milestone they've already passed.
@@ -955,10 +992,17 @@ export class AuthService {
             tone: 'amber',
           },
         });
+
+        this.eventBus.emit({
+          type: 'STREAK_MILESTONE',
+          userId,
+          payload: { milestoneDay: newStreak, tokensAwarded: 1 },
+        });
       }
     } else if (diffDays > 1) {
       // Streak broken! Reset to 1.
       const xpGained = 15;
+      const previousStreak = user.streak;
       await this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -977,6 +1021,23 @@ export class AuthService {
           icon: 'Flame',
           tone: 'orange',
         },
+      });
+
+      // Only emit "broken" if there was actually a streak to break — a
+      // user who's been inactive for years shouldn't trigger this as a
+      // narratable event every time they log back in. Gate ≥3 so we
+      // only surface meaningful breaks.
+      if (previousStreak >= 3) {
+        this.eventBus.emit({
+          type: 'STREAK_BROKEN',
+          userId,
+          payload: { previousStreak, daysGap: diffDays },
+        });
+      }
+      this.eventBus.emit({
+        type: 'STREAK_DAY',
+        userId,
+        payload: { newStreak: 1, xpGained },
       });
     }
     // If diffDays === 0, they already logged in today, so do nothing!

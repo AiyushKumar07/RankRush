@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TokensService } from '../tokens/tokens.service.js';
+import { EventBusService } from '../events/event-bus.service.js';
 import { Cadence } from '@prisma/client';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
@@ -12,6 +13,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokensService: TokensService,
+    private readonly eventBus: EventBusService,
   ) {
     const key_id = process.env.RAZORPAY_KEY_ID || 'mock_key_id';
     const key_secret = process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret';
@@ -272,6 +274,33 @@ export class PaymentsService {
             tokensAwarded: 2,
           },
         });
+
+        // Tell the referrer their invite converted. Conversion count is
+        // computed after the status flip so the just-converted referral
+        // is included in the running total.
+        const referrerConversionCount = await this.prisma.referral.count({
+          where: { referrerId: referral.referrerId, status: 'SUCCESS' },
+        });
+        const planNameForEvent = transaction.planId
+          ? (await this.prisma.subscriptionPlan.findUnique({
+              where: { id: transaction.planId },
+              select: { name: true },
+            }))?.name ?? 'Paid plan'
+          : 'Paid plan';
+
+        this.eventBus.emit({
+          type: 'REFERRAL_CONVERTED',
+          userId: referral.referrerId,
+          refType: 'Referral',
+          refId: referral.id,
+          payload: {
+            referredUserId: userId,
+            referredUserName: refereeName,
+            planName: planNameForEvent,
+            tokensAwarded: 2,
+            conversionCount: referrerConversionCount,
+          },
+        });
       }
     }
 
@@ -329,13 +358,59 @@ export class PaymentsService {
           });
         }
 
-        await this.tokensService.creditTokens(
+        const credit = await this.tokensService.creditTokens(
           userId,
           pricing.tokenCount,
           'PURCHASE',
           transaction.id,
           `Purchased ${plan.name}`,
         );
+
+        if (cadence !== Cadence.ONE_TIME) {
+          // Pull the just-created subscription so the payload carries a
+          // stable subscriptionId for activity linking + downstream
+          // billing-page deep-links.
+          const subscription = await this.prisma.studentSubscription.findFirst({
+            where: { userId, planId: plan.id, status: 'ACTIVE' },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true },
+          });
+          if (subscription) {
+            this.eventBus.emit({
+              type: 'PLAN_PURCHASED',
+              userId,
+              refType: 'StudentSubscription',
+              refId: subscription.id,
+              payload: {
+                subscriptionId: subscription.id,
+                planId: plan.id,
+                planName: plan.name,
+                pricingId: pricing.id,
+                cadence: String(cadence),
+                amountPaid: transaction.amount,
+                currency: transaction.currency,
+                tokensCredited: pricing.tokenCount,
+              },
+            });
+          }
+        } else {
+          // ONE_TIME purchase = just tokens, no subscription. Emit as a
+          // pure TOKEN_PURCHASED so the timeline tells the right story.
+          this.eventBus.emit({
+            type: 'TOKEN_PURCHASED',
+            userId,
+            refType: 'PaymentTransaction',
+            refId: transaction.id,
+            payload: {
+              amount: pricing.tokenCount,
+              pricePaid: transaction.amount,
+              currency: transaction.currency,
+              balanceAfter: credit.balance,
+              planId: plan.id,
+              planName: plan.name,
+            },
+          });
+        }
       }
     }
 

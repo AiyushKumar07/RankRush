@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Cadence } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokensService } from '../tokens/tokens.service';
+import { EventBusService } from '../events/event-bus.service.js';
 
 @Injectable()
 export class SubscriptionCronService {
@@ -11,6 +12,7 @@ export class SubscriptionCronService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokensService: TokensService,
+    private readonly eventBus: EventBusService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -71,7 +73,7 @@ export class SubscriptionCronService {
           }
 
           // 1. Credit the tokens
-          await this.tokensService.creditTokens(
+          const credit = await this.tokensService.creditTokens(
             subscription.userId,
             pricing.tokenCount,
             'SUBSCRIPTION_REFRESH',
@@ -87,6 +89,20 @@ export class SubscriptionCronService {
           await this.prisma.studentSubscription.update({
             where: { id: subscription.id },
             data: { nextRefreshDate: nextDate },
+          });
+
+          this.eventBus.emit({
+            type: 'PLAN_REFRESHED',
+            userId: subscription.userId,
+            refType: 'StudentSubscription',
+            refId: subscription.id,
+            payload: {
+              subscriptionId: subscription.id,
+              planName: subscription.plan.name,
+              tokensCredited: pricing.tokenCount,
+              balanceAfter: credit.balance,
+              nextRefreshDate: nextDate,
+            },
           });
 
           this.logger.log(

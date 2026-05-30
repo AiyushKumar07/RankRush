@@ -7,6 +7,7 @@ export const ENTITLEMENT_KEYS = [
   'MOCK_TESTS',
   'PYQ_ACCESS', // dual-purpose: included = can access PYQs; cap = year window (Infinity = all)
   'TOPIC_INSIGHTS_DEPTH', // cap = N strong/weak topics surfaced
+  'DETAILED_ANALYTICS', // binary: unlocks the /app/analytics deep-dive page + lifts the 5-topic cap on the dashboard
   'TIME_PER_QUESTION',
   'PERCENTILE_BREAKDOWN',
   'STUDY_GROUPS_MAX', // cap = max active groups (Infinity = unlimited)

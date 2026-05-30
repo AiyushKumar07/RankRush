@@ -11,11 +11,14 @@ import {
   AdminLoginPage,
   DashboardPage,
   QuizzesPage,
+  QuizHistoryPage,
   QuizSessionPage,
   QuizResultPage,
   ActivityPage,
+  AnalyticsPage,
   TokensPage,
   ReferPage,
+  LeaderboardsPage,
   PricingPage,
   BillingPage,
   ProfilePage,
@@ -60,7 +63,10 @@ export default function App() {
         <Route element={<RequireAuth role="STUDENT"><StudentLayout /></RequireAuth>}>
           <Route path="/app" element={<DashboardPage />} />
           <Route path="/app/quizzes" element={<QuizzesPage />} />
+          <Route path="/app/quizzes/history" element={<QuizHistoryPage />} />
           <Route path="/app/activity" element={<ActivityPage />} />
+          <Route path="/app/analytics" element={<AnalyticsPage />} />
+          <Route path="/app/leaderboards" element={<LeaderboardsPage />} />
           <Route path="/app/tokens" element={<TokensPage />} />
           <Route path="/app/refer" element={<ReferPage />} />
           <Route path="/app/pricing" element={<PricingPage />} />

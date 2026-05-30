@@ -1,11 +1,15 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenTransactionType } from '@prisma/client';
+import { EventBusService } from '../events/event-bus.service.js';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class TokensService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventBus: EventBusService,
+  ) {}
 
   async getWallet(userId: string) {
     let wallet = await this.prisma.quizTokenWallet.findUnique({
@@ -65,7 +69,7 @@ export class TokensService {
       throw new BadRequestException('Amount must be greater than zero');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       let wallet = await tx.quizTokenWallet.findUnique({
         where: { userId },
       });
@@ -96,6 +100,29 @@ export class TokensService {
 
       return { balance: newBalance };
     });
+
+    // Only emit TOKEN_CREDITED for credits that don't already have a
+    // higher-level domain event riding on top of them. PURCHASE /
+    // REFERRAL_BONUS / SUBSCRIPTION_REFRESH each get their own event
+    // (PLAN_PURCHASED, REFERRAL_CONVERTED, PLAN_REFRESHED) at the call
+    // site — emitting TOKEN_CREDITED again would double-count.
+    if (type === 'ADMIN_CREDIT' || type === 'REFUND') {
+      this.eventBus.emit({
+        type: 'TOKEN_CREDITED',
+        userId,
+        refType: 'TokenTransaction',
+        refId: referenceId,
+        payload: {
+          amount,
+          source: type,
+          balanceAfter: result.balance,
+          description,
+          referenceId,
+        },
+      });
+    }
+
+    return result;
   }
 
   async debitTokens(
@@ -109,7 +136,7 @@ export class TokensService {
       throw new BadRequestException('Amount must be greater than zero');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const wallet = await tx.quizTokenWallet.findUnique({
         where: { userId },
       });
@@ -138,6 +165,22 @@ export class TokensService {
 
       return { balance: newBalance };
     });
+
+    this.eventBus.emit({
+      type: 'TOKEN_DEBITED',
+      userId,
+      refType: 'TokenTransaction',
+      refId: referenceId,
+      payload: {
+        amount,
+        reason: type,
+        balanceAfter: result.balance,
+        description,
+        referenceId,
+      },
+    });
+
+    return result;
   }
 
   async getReferralInfo(userId: string) {

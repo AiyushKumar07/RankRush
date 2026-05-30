@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
   CircleCheck, CircleX, Clock, Zap, Check, X, ChevronDown,
   Sparkles, ArrowRight, ArrowUp, ArrowLeft, Coins, Flame,
-  Medal, RefreshCw, Target,
+  Medal, RefreshCw, Target, Trophy, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import ThemeToggle from "../../components/ui/ThemeToggle";
+import { leaderboardsAPI } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import "./QuizResultPage.css";
 
 const REVIEW_QUESTIONS = [
@@ -39,6 +41,20 @@ const TOPIC_BREAKDOWN = [
 
 export default function QuizResultPage() {
   const [reviewFilter, setReviewFilter] = useState("all");
+  const { quizId } = useParams();
+  const { user } = useAuth();
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [lbLoading, setLbLoading] = useState(true);
+
+  useEffect(() => {
+    if (!quizId) { setLbLoading(false); return; }
+    setLbLoading(true);
+    leaderboardsAPI
+      .getScope('QUIZ', quizId, { view: 'me', window: 4 })
+      .then((res) => setLeaderboard(res?.data ?? res ?? null))
+      .catch(() => setLeaderboard(null))
+      .finally(() => setLbLoading(false));
+  }, [quizId]);
 
   const correctCount = REVIEW_QUESTIONS.filter((r) => r.status === "correct").length;
   const wrongCount = REVIEW_QUESTIONS.filter((r) => r.status === "wrong").length;
@@ -206,6 +222,9 @@ export default function QuizResultPage() {
           </div>
         </div>
 
+        {/* Quiz leaderboard — real data from /api/leaderboards/QUIZ/:quizId */}
+        <QuizLeaderboardCard board={leaderboard} loading={lbLoading} meId={user?.id} />
+
         {/* Per-question review */}
         <div className="r-card">
           <div className="r-card-head">
@@ -304,6 +323,133 @@ export default function QuizResultPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Per-quiz leaderboard panel. Best-attempt scorer; tiebreak by time.
+// Renders ±4 around the user when ranked, or a "not yet on board" hint
+// for non-rewarding quizzes (which don't have a scope).
+function QuizLeaderboardCard({ board, loading, meId }) {
+  const rows = board?.rows ?? [];
+
+  return (
+    <div className="r-card">
+      <div className="r-card-head">
+        <div>
+          <h3><Trophy size={16} style={{ verticalAlign: '-3px', marginRight: 6 }} />Quiz leaderboard</h3>
+          <span className="sub">
+            {board?.scope?.displayName
+              ? `Best attempt · tiebreak by time. Your neighbours on ${board.scope.displayName}.`
+              : 'Best attempt across all takers, tiebreak by time taken.'}
+          </span>
+        </div>
+        {board?.meRank && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-fg-dim)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Your rank</div>
+            <div style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 22 }}>#{board.meRank}</div>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+          Loading leaderboard…
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+          This quiz isn't ranked yet — leaderboards activate once it's marked rank-rewarding.
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '60px 1fr 100px 80px',
+          gap: 0,
+          fontSize: 13,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          <div style={{ display: 'contents' }}>
+            {['#', 'Player', 'Score', 'Δ'].map((h, i) => (
+              <div
+                key={h}
+                style={{
+                  fontFamily: 'var(--rr-font-mono)',
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--rr-fg-dim)',
+                  padding: '10px 12px',
+                  borderBottom: '1px solid var(--rr-border)',
+                  textAlign: i >= 2 ? 'right' : 'left',
+                }}
+              >{h}</div>
+            ))}
+          </div>
+          {rows.map((r) => {
+            const isMe = r.isMe === true || r.user?.id === meId;
+            return (
+              <div key={r.user.id} style={{ display: 'contents' }}>
+                <div style={{
+                  padding: '12px',
+                  borderBottom: '1px solid var(--rr-border)',
+                  background: isMe ? 'color-mix(in oklab, var(--rr-violet-500) 10%, transparent)' : 'transparent',
+                  fontFamily: 'var(--rr-font-mono)',
+                  fontWeight: 600,
+                  color: r.rank <= 3 ? 'var(--rr-amber-500)' : 'var(--rr-fg)',
+                }}>#{r.rank}</div>
+                <div style={{
+                  padding: '12px',
+                  borderBottom: '1px solid var(--rr-border)',
+                  background: isMe ? 'color-mix(in oklab, var(--rr-violet-500) 10%, transparent)' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #7C6CFF 0%, #5D4FE8 100%)',
+                    color: '#fff', display: 'grid', placeItems: 'center',
+                    fontWeight: 600, fontSize: 12,
+                  }}>{r.user.initials}</div>
+                  <span>
+                    {r.user.displayName}
+                    {isMe && (
+                      <span style={{
+                        marginLeft: 6,
+                        fontFamily: 'var(--rr-font-mono)',
+                        fontSize: 9,
+                        letterSpacing: '0.1em',
+                        background: 'var(--rr-violet-500)',
+                        color: '#fff',
+                        padding: '2px 5px',
+                        borderRadius: 3,
+                      }}>YOU</span>
+                    )}
+                  </span>
+                </div>
+                <div style={{
+                  padding: '12px',
+                  borderBottom: '1px solid var(--rr-border)',
+                  background: isMe ? 'color-mix(in oklab, var(--rr-violet-500) 10%, transparent)' : 'transparent',
+                  textAlign: 'right', fontWeight: 600,
+                }}>{Math.round(r.score)}%</div>
+                <div style={{
+                  padding: '12px',
+                  borderBottom: '1px solid var(--rr-border)',
+                  background: isMe ? 'color-mix(in oklab, var(--rr-violet-500) 10%, transparent)' : 'transparent',
+                  textAlign: 'right', fontSize: 12,
+                }}>
+                  {r.delta == null
+                    ? <span style={{ color: 'var(--rr-fg-dim)' }}>—</span>
+                    : r.delta === 0
+                      ? <span style={{ color: 'var(--rr-fg-dim)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Minus size={11} /> 0</span>
+                      : r.delta > 0
+                        ? <span style={{ color: 'var(--rr-emerald-500)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><TrendingUp size={11} /> +{r.delta}</span>
+                        : <span style={{ color: 'var(--rr-coral-500)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><TrendingDown size={11} /> {r.delta}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

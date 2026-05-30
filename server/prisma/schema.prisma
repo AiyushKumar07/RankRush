@@ -77,8 +77,16 @@ model User {
   // Preferences
   preferences    UserPreference?
 
+  // Activity & ranking (Phase 1: unified event feed + pluggable leaderboards)
+  activityEvents ActivityEvent[]    @relation("UserActivityEvents")
+  rankingScores  RankingScore[]
+  rankSnapshots  RankingSnapshot[]
+  badges         UserBadge[]
+  periodStats    UserPeriodStats[]
+
   @@index([role])
   @@index([isVerified])
+  @@index([class])
 }
 
 // ─── User Preference ────────────────────────────────────────────────
@@ -319,6 +327,25 @@ model Quiz {
   paperType   String?    // null = regular quiz, "PRACTICE_PAPER" | "FULL_MOCK" | "PYQ"
   year        Int?       // For PYQ papers: 2024, 2023, etc.
 
+  // Tokens deducted from the student's wallet on quiz start. Defaults to 1
+  // so existing rows keep their current cost; admin editor can override per
+  // quiz (e.g. higher cost for full mocks, free practice = 0).
+  attemptCost Int      @default(1)
+
+  // When true, attempts on this quiz contribute to global rank scoring AND
+  // a per-quiz leaderboard scope is created on publish. False = practice-only.
+  rankRewarding Boolean  @default(false)
+
+  // Contest-style lifecycle for rank-rewarding quizzes:
+  //   - quizStartsAt: leaderboard window opens (null = always open until close)
+  //   - quizEndsAt:   leaderboard auto-closes when now > quizEndsAt (null = no auto-close)
+  //   - isClosed/closedAt: set by the lifecycle cron (or admin override) once
+  //     ranks are frozen. ONLY closed quizzes feed CLASS_GLOBAL scoring.
+  quizStartsAt  DateTime?
+  quizEndsAt    DateTime?
+  isClosed      Boolean   @default(false)
+  closedAt      DateTime?
+
   status    QuizStatus @default(DRAFT)
   createdBy String     @db.ObjectId
 
@@ -330,6 +357,9 @@ model Quiz {
   @@index([status])
   @@index([createdBy])
   @@index([createdAt])
+  @@index([rankRewarding])
+  @@index([rankRewarding, isClosed])
+  @@index([rankRewarding, quizEndsAt])
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────
@@ -547,6 +577,42 @@ model QuizAttempt {
   @@index([studentId, quizId])
   @@index([studentId, completedAt])
   @@index([status])
+}
+
+// ─── Daily activity rollup ───────────────────────────────────────────
+// One row per (user, UTC day). Aggregates login + quiz activity so we can
+// render the streak garden (last 30–60 days) without scanning every event.
+// Written by:
+//   - auth flow (updateLoginStreak)        → loginCount++, loggedIn=true
+//   - student quiz submit                  → quizzesCompleted++, questions, mins
+// Rows are upserted on the fly; no nightly job needed.
+model DailyActivity {
+  id     String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId String   @db.ObjectId
+  date   DateTime // UTC day-start (00:00:00.000Z)
+
+  loggedIn          Boolean @default(false)
+  loginCount        Int     @default(0)
+  quizzesAttempted  Int     @default(0)   // includes IN_PROGRESS starts
+  quizzesCompleted  Int     @default(0)
+  questionsAnswered Int     @default(0)
+  minutesActive     Int     @default(0)   // sum of quiz time-taken (mins)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+// ─── Saved Quizzes (student bookmarks) ───────────────────────────────
+model SavedQuiz {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String   @db.ObjectId
+  quizId    String   @db.ObjectId
+  savedAt   DateTime @default(now())
+
+  @@unique([studentId, quizId])
+  @@index([studentId, savedAt])
 }
 
 // ─── Student Activity ────────────────────────────────────────────────
@@ -817,12 +883,247 @@ model ReferralReward {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   userId      String   @db.ObjectId // User receiving the reward
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   referralId  String   @db.ObjectId
-  
+
   tokensAwarded Int    @default(2)
-  
+
   createdAt DateTime @default(now())
-  
+
   @@index([userId])
+}
+
+// ─── Activity Event Feed ─────────────────────────────────────────────
+// Append-only ledger of every user-visible domain event. Replaces the
+// freeform StudentActivity model long-term; both write in parallel during
+// the cutover so the legacy /student/activity read path keeps working.
+
+enum ActivityCategory {
+  QUIZ
+  RANK
+  TOKEN
+  BADGE
+  STREAK
+  PLAN
+  SOCIAL
+  SYSTEM
+}
+
+enum ActivityEventType {
+  QUIZ_STARTED
+  QUIZ_COMPLETED
+  QUIZ_ABANDONED
+  RANK_CHANGED
+  TOKEN_CREDITED
+  TOKEN_DEBITED
+  TOKEN_PURCHASED
+  BADGE_UNLOCKED
+  STREAK_DAY
+  STREAK_MILESTONE
+  STREAK_BROKEN
+  PLAN_PURCHASED
+  PLAN_CANCELLED
+  PLAN_REFRESHED
+  REFERRAL_CONVERTED
+  PROFILE_UPDATED
+  ACCOUNT_CREATED
+}
+
+model ActivityEvent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId    String   @db.ObjectId
+  user      User     @relation("UserActivityEvents", fields: [userId], references: [id], onDelete: Cascade)
+
+  type      ActivityEventType
+  category  ActivityCategory
+
+  // Pre-rendered, denormalized fields for the timeline (saves a join per row)
+  title     String
+  meta      String?
+  icon      String?
+  tone      String?
+
+  // Structured payload — event-type-specific. Each producer has a typed payload
+  // shape in events/event-payloads/*.ts.
+  payload   Json?
+
+  // Optional pointer back to the source entity that produced this event
+  refType   String?         // "QuizAttempt" | "TokenTransaction" | "RankingSnapshot" | ...
+  refId     String?         @db.ObjectId
+
+  // Signed scalar for quick aggregation in stat-strip queries
+  // (token delta, rank delta, score delta, etc.)
+  amount    Float?
+
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([userId, category, occurredAt(sort: Desc)])
+  @@index([userId, type, occurredAt(sort: Desc)])
+}
+
+// ─── Ranking Engine ──────────────────────────────────────────────────
+// Pluggable leaderboard scopes. A "scope" defines who is being ranked
+// (cohortFilter), how their score is computed (scorerKey), and how ties
+// are broken (config). New leaderboards = new scope row, no schema change.
+
+enum ScopeKind {
+  CLASS_GLOBAL        // partitioned by User.class — the headline "global rank"
+  TARGET_EXAM         // JEE / NEET / Boards
+  SUBJECT             // Physics / Chemistry / Maths / Biology
+  QUIZ                // per-quiz leaderboard, key = quizId
+  COHORT              // school / friend group / teacher class (future)
+  EVENT               // time-bounded challenges (future)
+}
+
+model RankingScope {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+
+  kind         ScopeKind
+  key          String       // "Class 11" | "JEE" | "Physics" | "<quizId>" | "<cohortId>"
+  displayName  String
+
+  // Strategy keys are resolved at runtime to scorer implementations in
+  // ranking/scorers/*. Swappable per scope without touching the engine.
+  scorerKey    String       // "wrp" | "best-attempt" | "elo" | ...
+  config       Json?        // strategy-specific: { halflifeDays, minAttempts, tieBreak, ... }
+
+  // Membership predicate. The recompute job uses this to filter users.
+  // Shape: { class?: string[], target?: string[], stream?: string[], cohortId?, quizId? }
+  cohortFilter Json?
+
+  isActive     Boolean      @default(true)
+  lastComputedAt DateTime?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  scores       RankingScore[]
+  snapshots    RankingSnapshot[]
+
+  @@unique([kind, key])
+  @@index([kind])
+  @@index([isActive])
+}
+
+model RankingScore {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  scopeId    String   @db.ObjectId
+  scope      RankingScope @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  score      Float            // primary sort key — sorted DESC for rank
+  tieBreaker Float?           // secondary sort (e.g. -timeTakenSecs for QUIZ scope)
+
+  rank       Int?             // last computed rank; null until first snapshot
+  prevRank   Int?             // rank before last recompute — drives RANK_CHANGED events
+
+  // Snapshot of inputs that produced this score (for debugging + UI badges:
+  // "ranked from 14 attempts · last 30 days")
+  attempts   Int      @default(0)
+  meta       Json?
+
+  updatedAt  DateTime @updatedAt
+
+  @@unique([scopeId, userId])
+  @@index([scopeId, score(sort: Desc)])
+  @@index([scopeId, rank])
+  @@index([userId])
+}
+
+model RankingSnapshot {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  scopeId   String   @db.ObjectId
+  scope     RankingScope @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rank      Int
+  score     Float
+  takenAt   DateTime         // truncated to UTC day-start
+
+  createdAt DateTime @default(now())
+
+  @@unique([scopeId, userId, takenAt])
+  @@index([userId, scopeId, takenAt])
+}
+
+// ─── Badges ──────────────────────────────────────────────────────────
+// Definitions + per-user unlock log. Rule evaluation happens in the
+// BadgeProjector subscribing to relevant domain events.
+
+model Badge {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  code        String   @unique          // "calc-slayer" | "streak-7" | "first-quiz"
+  name        String
+  description String
+  icon        String
+  tone        String
+
+  ruleType    String                    // "streak" | "subject-accuracy" | "quiz-count" | "rank-milestone"
+  ruleConfig  Json                      // strategy-specific predicate
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  unlocks     UserBadge[]
+}
+
+model UserBadge {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  badgeId    String   @db.ObjectId
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId, unlockedAt])
+}
+
+// ─── Period Stats Rollup ─────────────────────────────────────────────
+// Daily-rolled-up per-user numbers powering the ActivityPage stat strip.
+// One row per (user, periodEndDate, periodDays). Computed by a nightly job
+// and on-demand on stat-strip read for "today" rows.
+
+model UserPeriodStats {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId        String   @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  periodEndDate DateTime         // UTC day-start of the period's last day
+  periodDays    Int              // 1 | 7 | 30 | 90
+
+  // Stat-strip primitives
+  quizzesTaken       Int      @default(0)
+  avgAccuracy        Float    @default(0)
+  rankStart          Int?
+  rankEnd            Int?
+  rankDelta          Int?              // signed (negative = climbed up)
+  streakDaysInPeriod Int      @default(0)
+  tokensEarned       Int      @default(0)
+  tokensSpent        Int      @default(0)
+
+  // Cached deltas vs the immediately-prior period of the same length
+  prevQuizzesTaken   Int?
+  prevAvgAccuracy    Float?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, periodEndDate, periodDays])
+  @@index([userId, periodEndDate])
 }

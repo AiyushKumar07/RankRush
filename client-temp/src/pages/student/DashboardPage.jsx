@@ -1,20 +1,60 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Flame, Target, CircleCheck, Clock, ArrowUp, ArrowDown,
-  Sparkles, Play, Search, TrendingUp, Zap, Medal,
-  Users, Swords, Crown, ArrowRight,
+  Flame, Target, CircleCheck, Clock,
+  Sparkles, Play, TrendingUp, Zap, Medal,
+  Users, Swords, Crown, ArrowRight, Lock,
 } from "lucide-react";
 import RankBarHero from "../../components/student/RankBarHero";
 import StreakGarden from "../../components/student/StreakGarden";
 import StatCard from "../../components/ui/StatCard";
+import { useAuth } from "../../context/AuthContext";
+import { useEntitlements } from "../../hooks/useEntitlements";
+import { activityAPI, leaderboardsAPI, studentAPI } from "../../services/api";
 import "./DashboardPage.css";
 
-const STREAK_DATA = [
-  0,1,2,3,4,4,3,2,3,4,4,4,3,4,4,4,4,4,3,4,
-  4,4,4,3,2,3,4,4,4,4,4,4,4,4,3,4,4,4,4,4,
-  0,0,1,2,3,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,
-];
+function unwrap(res) { return res?.data ?? res ?? null; }
+
+// "Good morning" / "afternoon" / "evening" / "night" based on local hour.
+function greetingFor(date) {
+  const h = date.getHours();
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 21) return "Good evening";
+  return "Working late";
+}
+
+function fmtClock(date) {
+  return date.toLocaleString("en-IN", {
+    weekday: "long",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// Map raw snapshot points → the 4-step "4 wks / 2 wks / Last wk / Now" trail
+// the hero expects. Buckets the points into the four windows ending now,
+// each carrying the most recent snapshot in that window.
+function buildHistoryTrail(points, currentRank) {
+  const now = Date.now();
+  const buckets = [
+    { when: "4 wks ago", from: 28, to: 21 },
+    { when: "2 wks ago", from: 21, to: 7 },
+    { when: "Last wk",   from: 7,  to: 1 },
+  ];
+  const trail = buckets.map((b) => {
+    const fromMs = now - b.from * 86_400_000;
+    const toMs = now - b.to * 86_400_000;
+    const inWindow = (points || []).filter((p) => {
+      const t = new Date(p.at).getTime();
+      return t >= fromMs && t <= toMs;
+    });
+    const last = inWindow[inWindow.length - 1];
+    return last ? { when: b.when, rank: last.rank } : null;
+  });
+  trail.push({ when: "Now", rank: currentRank });
+  return trail.filter(Boolean);
+}
 
 const CHART_DATA = [
   { day: "Mon", value: 28, height: "35%" },
@@ -24,20 +64,6 @@ const CHART_DATA = [
   { day: "Fri", value: 58, height: "70%" },
   { day: "Sat", value: 78, height: "92%" },
   { day: "Today", value: 89, height: "100%", isToday: true },
-];
-
-const WEAK_TOPICS = [
-  { name: "Calculus · Limits", qs: 22, acc: 52 },
-  { name: "Mechanics · Rotational dynamics", qs: 18, acc: 58 },
-  { name: "Organic Chem · Aldol condensation", qs: 14, acc: 64 },
-  { name: "Coordinate geometry · Conic sections", qs: 11, acc: 68 },
-];
-
-const STRONG_TOPICS = [
-  { name: "Algebra · Quadratic equations", qs: 48, acc: 98 },
-  { name: "Thermodynamics · First law", qs: 36, acc: 96 },
-  { name: "Inorganic Chem · Periodic table", qs: 52, acc: 94 },
-  { name: "Trigonometry · Identities", qs: 29, acc: 91 },
 ];
 
 const FRIENDS = [
@@ -65,162 +91,223 @@ const BADGES = [
 ];
 
 export default function DashboardPage() {
-  const [insightTab, setInsightTab] = useState("7 days");
   const [chartTab, setChartTab] = useState("Questions");
+  const { user } = useAuth();
+  const { hasFeature, loading: entLoading } = useEntitlements();
+  const detailedUnlocked = hasFeature('DETAILED_ANALYTICS');
+
+  const [stats, setStats] = useState(null);
+  const [weekStats, setWeekStats] = useState(null);
+  const [meRank, setMeRank] = useState(null);
+  const [rankHistory, setRankHistory] = useState([]);
+  const [rankLoading, setRankLoading] = useState(true);
+  const [pick, setPick] = useState(null);
+  const [pickLoading, setPickLoading] = useState(true);
+  const [garden, setGarden] = useState(null);
+  const [topicAnalytics, setTopicAnalytics] = useState(null);
+
+  // ── Greeting clock — re-render once per minute so the time stays fresh.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Stats (streak, accuracy, etc.) ─────────────────────────────────
+  // Two sources:
+  //   studentAPI.getStats   → all-time numbers + persistent streak fields
+  //   activityAPI.getStats  → period-windowed numbers WITH deltas
+  // Combined we get current values + week-over-week deltas for the strip.
+  useEffect(() => {
+    studentAPI.getStats()
+      .then((res) => setStats(unwrap(res)?.stats ?? null))
+      .catch(() => setStats(null));
+    activityAPI.getStats({ period: '7d' })
+      .then((res) => setWeekStats(unwrap(res) ?? null))
+      .catch(() => setWeekStats(null));
+    setPickLoading(true);
+    studentAPI.getTodaysPick()
+      .then((res) => setPick(unwrap(res)?.pick ?? null))
+      .catch(() => setPick(null))
+      .finally(() => setPickLoading(false));
+    studentAPI.getStreakGarden(60)
+      .then((res) => setGarden(unwrap(res) ?? null))
+      .catch(() => setGarden(null));
+    studentAPI.getTopicAnalytics(5)
+      .then((res) => setTopicAnalytics(unwrap(res) ?? null))
+      .catch(() => setTopicAnalytics(null));
+  }, []);
+
+  // ── Class-cohort rank + history ─────────────────────────────────────
+  useEffect(() => {
+    if (!user?.class) { setRankLoading(false); return; }
+    setRankLoading(true);
+    Promise.allSettled([
+      leaderboardsAPI.getMe('CLASS_GLOBAL', user.class),
+      activityAPI.getRankHistory({ period: '30d' }),
+    ]).then(([meRes, histRes]) => {
+      if (meRes.status === 'fulfilled') setMeRank(unwrap(meRes.value));
+      if (histRes.status === 'fulfilled') setRankHistory(unwrap(histRes.value)?.points || []);
+    }).finally(() => setRankLoading(false));
+  }, [user?.class]);
+
+  // ── Derived greeting copy ──────────────────────────────────────────
+  const greeting = greetingFor(now);
+  const firstName = user?.firstName || user?.name?.split(' ')?.[0] || 'there';
+  const streak = stats?.streak ?? 0;
+  const longestStreak = stats?.longestStreak ?? 0;
+  const greetingLine = useMemo(() => {
+    if (streak === 0) return <>Ready to start a <span className="urgent">new streak</span>?</>;
+    if (longestStreak > 0 && streak < longestStreak) {
+      return <>You're <span className="urgent">{longestStreak - streak} day{longestStreak - streak === 1 ? '' : 's'}</span> away from your personal best.</>;
+    }
+    return <>You're keeping a <span className="urgent">{streak}-day streak</span> alive.</>;
+  }, [streak, longestStreak]);
+
+  // ── Hero props ─────────────────────────────────────────────────────
+  const ranked = meRank?.ranked === true;
+  const trail = ranked
+    ? buildHistoryTrail(rankHistory, meRank.rank)
+    : [];
+  const subline = user?.class
+    ? [user.target?.[0], `Class ${user.class}`].filter(Boolean).join(' · ')
+    : 'Your class cohort';
 
   return (
     <div className="main">
       {/* Greeting */}
       <div className="greeting">
         <div>
-          <span className="eyebrow line">Tuesday · 8:42 AM · Good morning</span>
+          <span className="eyebrow line">{fmtClock(now)} · {greeting}</span>
           <h1>
-            Hey Astitva. <br />
-            You're one quiz away from a <span className="urgent">18-day streak</span>.
+            Hey {firstName}. <br />
+            {greetingLine}
           </h1>
-        </div>
-        <div className="actions">
-          <button className="btn btn-secondary"><Search size={14} />Browse</button>
-          <button className="btn btn-accent"><Play size={14} />Quick practice</button>
         </div>
       </div>
 
-      {/* Rank Bar Hero */}
-      <RankBarHero rank={88} delta={14} totalStudents={12481} percentile={71.8} />
+      {/* Rank Bar Hero — class-cohort rank, fed by /api/leaderboards/CLASS_GLOBAL/<class>/me */}
+      <RankBarHero
+        loading={rankLoading}
+        ranked={ranked}
+        rank={meRank?.rank}
+        delta={meRank?.delta ?? 0}
+        totalStudents={meRank?.totalParticipants ?? 0}
+        // percentileTop is "top X%" (lower = better); the hero copy reads
+        // "ahead of N% of the field", so we flip it here.
+        percentile={meRank?.percentileTop != null
+          ? Math.round((100 - meRank.percentileTop) * 10) / 10
+          : 0}
+        history={trail}
+        subline={subline}
+      />
 
-      {/* Stat cards */}
-      <div className="stat-grid" style={{ marginTop: 24 }}>
+      {/* Stat cards — real data; "Study time" removed since we don't track
+          per-attempt seconds reliably enough to show a card-level number. */}
+      <div className="stat-grid stat-grid-3" style={{ marginTop: 24 }}>
         <StatCard
           label="Streak"
           icon={Flame}
-          value="17"
-          unit=" days"
-          delta="17 → 18 today"
-          deltaType="warn"
-          hint="Highest: 24 days · Feb"
+          value={String(streak)}
+          unit={streak === 1 ? " day" : " days"}
+          delta={longestStreak > 0 ? `Highest ${longestStreak}` : "Just getting started"}
+          deltaType={streak >= longestStreak && streak > 0 ? "up" : "warn"}
+          hint={longestStreak > 0 ? `Personal best · ${longestStreak} day${longestStreak === 1 ? '' : 's'}` : "Quiz today to start one"}
           color="amber"
         />
         <StatCard
           label="Accuracy"
           icon={Target}
-          value="92.4"
+          value={String(weekStats?.avgAccuracy ?? stats?.accuracy ?? 0)}
           unit="%"
-          delta="+4.2"
-          deltaType="up"
-          hint="7-day average · 412 questions"
+          delta={weekStats?.accuracyDelta != null
+            ? `${weekStats.accuracyDelta >= 0 ? '+' : ''}${weekStats.accuracyDelta}`
+            : '—'}
+          deltaType={
+            weekStats?.accuracyDelta == null ? "warn"
+            : weekStats.accuracyDelta >= 0 ? "up" : "down"
+          }
+          hint={`7-day average · all-time ${stats?.accuracy ?? 0}%`}
           color="emerald"
         />
         <StatCard
-          label="Questions"
+          label="Quizzes"
           icon={CircleCheck}
-          value="412"
-          delta="+38"
-          deltaType="up"
-          hint="This week · 1,247 all time"
+          value={String(weekStats?.quizzesTaken ?? 0)}
+          delta={weekStats?.quizzesDelta != null
+            ? `${weekStats.quizzesDelta >= 0 ? '+' : ''}${weekStats.quizzesDelta}`
+            : '—'}
+          deltaType={
+            weekStats?.quizzesDelta == null ? "warn"
+            : weekStats.quizzesDelta > 0 ? "up"
+            : weekStats.quizzesDelta < 0 ? "down" : "warn"
+          }
+          hint={`This week · ${stats?.quizzesAttempted ?? 0} all time`}
           color="violet"
-        />
-        <StatCard
-          label="Study time"
-          icon={Clock}
-          value="4"
-          unit="h 22m"
-          delta="-12m"
-          deltaType="down"
-          hint="This week · daily avg 38m"
-          color="cyan"
         />
       </div>
 
       {/* Today's picks + Streak garden */}
       <div className="sec-title">
-        <h2>Today's picks for you</h2>
-        <span className="sub">Calibrated to yesterday's weak spots</span>
+        <h2>Today's pick for you</h2>
+        <span className="sub">{
+          pick?.kind === 'resume'   ? 'A quiz you started but never finished'
+          : pick?.kind === 'live'   ? 'A live contest closing soon'
+          : pick?.kind === 'upcoming' ? 'An upcoming rank-rewarding contest'
+          : 'Calibrated to your recent activity'
+        }</span>
       </div>
       <div className="row-2">
-        <div className="todays-pick">
-          <div className="tp-top">
-            <span className="tag"><Sparkles size={12} />Suggested · weak topic</span>
-            <span className="badge violet"><Zap size={12} />1 token</span>
-          </div>
-          <div className="tp-body">
-            <div className="topic">Mathematics · Calculus · Chapter 5</div>
-            <h2>Limits &amp; continuity — the questions you missed yesterday, harder.</h2>
-            <p className="desc">
-              A 20-question set built from your two lowest-accuracy topics this week.
-              Time-pressured. Auto-graded. Solutions included.
-            </p>
-            <div className="tp-meta">
-              <span><Clock size={13} />~12 min</span>
-              <span><CircleCheck size={13} />20 questions</span>
-              <span><TrendingUp size={13} />Avg. +12 ranks</span>
-              <span className="diff">
-                <Zap size={13} />
-                <span className="pill on"></span>
-                <span className="pill on"></span>
-                <span className="pill on"></span>
-                <span className="pill"></span>
-                <span className="pill"></span>
-                <span style={{ marginLeft: 4 }}>Hard</span>
-              </span>
-            </div>
-            <div className="tp-cta">
-              <button className="btn btn-accent"><Play size={14} />Start quiz · 1 token</button>
-            </div>
-          </div>
-        </div>
+        <TodaysPickCard pick={pick} loading={pickLoading} />
 
-        <StreakGarden data={STREAK_DATA} streak={17} misses={3} />
-      </div>
-
-      {/* Topic insights */}
-      <div className="sec-title">
-        <h2>Topic insights</h2>
-        <TimeTabs
-          tabs={["Today", "7 days", "30 days"]}
-          active={insightTab}
-          onChange={setInsightTab}
+        <StreakGarden
+          cells={garden?.cells}
+          streak={garden?.streak ?? stats?.streak ?? 0}
+          blooms={garden?.blooms}
+          misses={garden?.misses}
+          totalMinutes={garden?.totalMinutes}
+          loading={!garden}
         />
       </div>
-      <div className="row-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3 style={{ color: "var(--rr-coral-500)" }}>Needs work</h3>
-              <span className="sub">Below 70% — start here</span>
-            </div>
-            <Link to="/app/quizzes" className="action">Practice all<ArrowRight size={14} /></Link>
-          </div>
-          <div className="topic-list">
-            {WEAK_TOPICS.map(t => (
-              <div key={t.name} className="topic-row weak">
-                <span className="name">{t.name}</span>
-                <span className="qcount">{t.qs} Qs</span>
-                <span className="acc">{t.acc}%</span>
-                <div className="pbar"><div className="pfill" style={{ width: `${t.acc}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3 style={{ color: "var(--rr-emerald-500)" }}>Crushing it</h3>
-              <span className="sub">Above 90% — keep it sharp</span>
-            </div>
-            <Link to="/app/quizzes" className="action">Challenge a friend<ArrowRight size={14} /></Link>
-          </div>
-          <div className="topic-list">
-            {STRONG_TOPICS.map(t => (
-              <div key={t.name} className="topic-row strong">
-                <span className="name">{t.name}</span>
-                <span className="qcount">{t.qs} Qs</span>
-                <span className="acc">{t.acc}%</span>
-                <div className="pbar"><div className="pfill" style={{ width: `${t.acc}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Topic insights — shown up to 5 each for everyone; the deep
+          /app/analytics page is gated behind DETAILED_ANALYTICS (Pro). */}
+      <div className="sec-title">
+        <h2>Topic insights</h2>
+        {!entLoading && (
+          detailedUnlocked ? (
+            <Link
+              to="/app/analytics"
+              style={{ fontSize: 13, color: "var(--rr-violet-500)", fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              View detailed analytics →
+            </Link>
+          ) : (
+            <Link
+              to="/app/analytics"
+              title="Detailed analytics is a Pro feature"
+              style={{ fontSize: 13, color: "var(--rr-fg-muted)", fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Lock size={12} /> View detailed analytics
+            </Link>
+          )
+        )}
+      </div>
+      <div className="row-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <TopicInsightCard
+          tone="weak"
+          title="Needs work"
+          subtitle="Lowest accuracy topics — start here"
+          topics={topicAnalytics?.weak}
+          loading={!topicAnalytics}
+        />
+        <TopicInsightCard
+          tone="strong"
+          title="Crushing it"
+          subtitle="Your sharpest topics — keep them sharp"
+          topics={topicAnalytics?.strong}
+          loading={!topicAnalytics}
+        />
       </div>
 
       {/* Chart + Friends */}
@@ -336,10 +423,132 @@ export default function DashboardPage() {
           <p>50 tokens a month, every previous-year paper, advanced analytics — and the right to never count tokens again.</p>
         </div>
         <div className="right">
-          <Link to="/app/pricing" className="btn btn-ghost btn-lg" style={{ color: "var(--rr-paper)", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <Link to="/app/pricing" className="btn btn-ghost btn-lg" style={{ color: "#FAFAF7", border: "1px solid rgba(255,255,255,0.15)" }}>
             See plans
           </Link>
           <Link to="/app/pricing" className="btn btn-lime btn-lg">Go Pro · ₹299</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Maps Quiz.difficulty enum-ish strings → 1–5 pill count.
+const DIFF_PILL_MAP = { Easy: 1, Medium: 3, Hard: 4, Expert: 5 };
+
+function TopicInsightCard({ tone, title, subtitle, topics, loading }) {
+  const color = tone === 'weak' ? 'var(--rr-coral-500)' : 'var(--rr-emerald-500)';
+  return (
+    <div className="dcard">
+      <div className="head">
+        <div>
+          <h3 style={{ color }}>{title}</h3>
+          <span className="sub">{subtitle}</span>
+        </div>
+      </div>
+      <div className="topic-list">
+        {loading ? (
+          // Skeleton rows so the card doesn't pop height when data arrives.
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={`topic-row ${tone}`} style={{ opacity: 0.4 }}>
+              <span className="name">…</span>
+            </div>
+          ))
+        ) : !topics || topics.length === 0 ? (
+          <div className="topic-row" style={{ color: 'var(--rr-fg-muted)' }}>
+            <span className="name">
+              Complete a few quizzes to populate {tone === 'weak' ? 'weak' : 'strong'} topics.
+            </span>
+          </div>
+        ) : (
+          topics.map((t) => (
+            <div key={t.topic} className={`topic-row ${tone}`}>
+              <span className="name">{t.subject ? `${t.subject} · ${t.topic}` : t.topic}</span>
+              <span className="qcount">{t.attempts} Qs</span>
+              <span className="acc">{t.accuracy}%</span>
+              <div className="pbar"><div className="pfill" style={{ width: `${t.accuracy}%` }} /></div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TodaysPickCard({ pick, loading }) {
+  if (loading) {
+    return (
+      <div className="todays-pick">
+        <div className="tp-top">
+          <span className="tag"><Sparkles size={12} />Suggested</span>
+        </div>
+        <div className="tp-body">
+          <h2 style={{ opacity: 0.6 }}>Picking the best quiz for you…</h2>
+        </div>
+      </div>
+    );
+  }
+  if (!pick) {
+    return (
+      <div className="todays-pick">
+        <div className="tp-top">
+          <span className="tag"><Sparkles size={12} />Suggested</span>
+        </div>
+        <div className="tp-body">
+          <h2>No quizzes to suggest right now.</h2>
+          <p className="desc">Once new quizzes are published or contests open, you'll see them here.</p>
+          <div className="tp-cta">
+            <Link to="/app/quizzes" className="btn btn-accent"><Play size={14} />Browse quizzes</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const cost = pick.attemptCost ?? 1;
+  const minutes = Math.round(pick.timeLimitMins || 0);
+  const duration = minutes >= 60 && minutes % 60 === 0
+    ? `${minutes / 60} hour${minutes / 60 > 1 ? "s" : ""}`
+    : `~${minutes} min`;
+  const diffLevel = DIFF_PILL_MAP[pick.difficulty] ?? 3;
+  const topic = [pick.subject, pick.chapter, pick.topic].filter(Boolean).join(" · ");
+
+  const tagLabel = pick.kind === 'resume'   ? 'Resume in progress'
+                : pick.kind === 'live'      ? 'Live · ends soon'
+                : pick.kind === 'upcoming'  ? 'Upcoming contest'
+                : 'Suggested';
+  const ctaLabel = pick.kind === 'resume'   ? 'Resume quiz'
+                : pick.kind === 'upcoming'  ? 'View quiz'
+                : 'Start quiz';
+  const ctaSuffix = cost === 0 ? 'Free' : `${cost} token${cost === 1 ? '' : 's'}`;
+  const href = `/app/quizzes/${pick.id}/session`;
+
+  return (
+    <div className="todays-pick">
+      <div className="tp-top">
+        <span className="tag"><Sparkles size={12} />{tagLabel}</span>
+        <span className="badge violet"><Zap size={12} />{ctaSuffix}</span>
+      </div>
+      <div className="tp-body">
+        {topic && <div className="topic">{topic}</div>}
+        <h2>{pick.title}</h2>
+        {pick.description && <p className="desc">{pick.description}</p>}
+        <div className="tp-meta">
+          <span><Clock size={13} />{duration}</span>
+          <span><CircleCheck size={13} />{pick.totalQuestions} questions</span>
+          {pick.rankRewarding && <span><TrendingUp size={13} />Rank-rewarding</span>}
+          <span className="diff">
+            <Zap size={13} />
+            {[1, 2, 3, 4, 5].map((i) => (
+              <span key={i} className={`pill${i <= diffLevel ? ' on' : ''}`} />
+            ))}
+            {pick.difficulty && <span style={{ marginLeft: 4 }}>{pick.difficulty}</span>}
+          </span>
+        </div>
+        <div className="tp-cta">
+          <Link to={href} className="btn btn-accent">
+            <Play size={14} />{ctaLabel} · {ctaSuffix}
+          </Link>
         </div>
       </div>
     </div>

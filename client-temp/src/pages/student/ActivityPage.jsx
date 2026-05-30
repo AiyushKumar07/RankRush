@@ -1,59 +1,185 @@
-import React, { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  CircleCheck, Target, TrendingUp, Flame, ArrowUp, Download,
-  Coins, Gift, Medal, UserPlus
+  CircleCheck, Target, TrendingUp, Flame, ArrowUp, ArrowDown, Download,
+  Coins, Gift, Medal, UserPlus, Crown, RefreshCw, ShoppingBag,
+  CircleDot, CircleSlash, Pencil, Loader2,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { activityAPI } from '../../services/api'
 import './ActivityPage.css'
 
-const PERIOD_TABS = ['Today', '7 days', '30 days', '90 days', 'All time']
-
-const TIMELINE_FILTERS = [
-  { label: 'All', count: 28 },
-  { label: 'Quizzes', count: 14, icon: CircleCheck },
-  { label: 'Rank-ups', count: 6, icon: TrendingUp },
-  { label: 'Tokens', count: 5, icon: Coins },
-  { label: 'Badges', count: 2, icon: Medal },
-  { label: 'Streak', count: 1, icon: Flame },
+// Period tab → query-param mapping. Keeps the UI labels stable while the
+// backend speaks the canonical "today | 7d | 30d | 90d | all".
+const PERIODS = [
+  { label: 'Today',    key: 'today' },
+  { label: '7 days',   key: '7d'    },
+  { label: '30 days',  key: '30d'   },
+  { label: '90 days',  key: '90d'   },
+  { label: 'All time', key: 'all'   },
 ]
 
-const GARDEN_DATA = [
-  0,0,1,2,3,3,2,1,0,0,1,1,2,3,4,4,3,2,1,0,0,1,2,3,3,4,
-  0,1,2,3,4,4,4,3,2,1,2,3,4,4,4,4,4,3,2,1,2,3,4,4,4,4,
-  3,4,4,4,4,4,4,4,4,4,3,2,1,0,1,2,3,4,4,4,4,4,4,4,4,4
+const CATEGORY_TABS = [
+  { label: 'All',      key: 'ALL',    icon: null         },
+  { label: 'Quizzes',  key: 'QUIZ',   icon: CircleCheck  },
+  { label: 'Rank-ups', key: 'RANK',   icon: TrendingUp   },
+  { label: 'Tokens',   key: 'TOKEN',  icon: Coins        },
+  { label: 'Badges',   key: 'BADGE',  icon: Medal        },
+  { label: 'Streak',   key: 'STREAK', icon: Flame        },
+  { label: 'Plan',     key: 'PLAN',   icon: Crown        },
+  { label: 'Social',   key: 'SOCIAL', icon: Gift         },
 ]
-const BLOOMS = new Set([10, 30, 52, 67])
 
-const DAYS = ['MON','TUE','WED','THU','FRI','SAT','SUN']
-
-function intensity(d, h) {
-  const baseEvening = h >= 18 && h <= 21 ? 3 : (h >= 22 || h <= 7 ? 0 : (h >= 8 && h <= 11 ? 2 : 1))
-  const weekendBoost = (d === 5 || d === 6) ? (h >= 14 && h <= 16 ? 1 : 0) : 0
-  const random = (d * 7 + h * 3) % 5
-  const val = Math.min(4, baseEvening + weekendBoost + (random === 0 ? 1 : 0) - (random === 4 ? 1 : 0))
-  return Math.max(0, val)
+// Maps backend event type → JSX icon + extra row className for the
+// timeline. Keeps the projector-emitted icon names decoupled from the
+// frontend's lucide set.
+const TYPE_RENDER = {
+  QUIZ_COMPLETED:     { Icon: CircleCheck, rowClass: 'quiz'   },
+  QUIZ_STARTED:       { Icon: CircleDot,   rowClass: 'quiz'   },
+  QUIZ_ABANDONED:     { Icon: CircleSlash, rowClass: 'quiz'   },
+  RANK_CHANGED:       { Icon: TrendingUp,  rowClass: 'rankup' },
+  TOKEN_CREDITED:     { Icon: Coins,       rowClass: 'token'  },
+  TOKEN_DEBITED:      { Icon: Coins,       rowClass: 'token'  },
+  TOKEN_PURCHASED:    { Icon: ShoppingBag, rowClass: 'token'  },
+  BADGE_UNLOCKED:     { Icon: Medal,       rowClass: 'badge'  },
+  STREAK_DAY:         { Icon: Flame,       rowClass: 'streak' },
+  STREAK_MILESTONE:   { Icon: Flame,       rowClass: 'streak' },
+  STREAK_BROKEN:      { Icon: Flame,       rowClass: 'streak' },
+  PLAN_PURCHASED:     { Icon: Crown,       rowClass: 'plan'   },
+  PLAN_CANCELLED:     { Icon: CircleSlash, rowClass: 'plan'   },
+  PLAN_REFRESHED:     { Icon: RefreshCw,   rowClass: 'plan'   },
+  REFERRAL_CONVERTED: { Icon: Gift,        rowClass: 'refer'  },
+  PROFILE_UPDATED:    { Icon: Pencil,      rowClass: 'plan'   },
+  ACCOUNT_CREATED:    { Icon: UserPlus,    rowClass: 'plan'   },
 }
 
-function hourLabel(h) {
-  if (h % 3 !== 0) return ''
-  if (h === 0) return '12a'
-  if (h === 12) return '12p'
-  return h < 12 ? `${h}a` : `${h - 12}p`
+function unwrap(res) { return res?.data ?? res ?? null }
+
+function formatDayHeading(date) {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const d = new Date(date); d.setHours(0,0,0,0)
+  const diffDays = Math.round((today - d) / 86_400_000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays > 1 && diffDays < 14) return `${diffDays} days ago`
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatDaySubheading(date) {
+  return new Date(date).toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+function formatTime(date) {
+  return new Date(date).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
+}
+
+// Group feed items by UTC-ish day so we can render <day-sep> bands.
+function groupByDay(items) {
+  const groups = new Map()
+  for (const it of items) {
+    const dayKey = new Date(it.occurredAt).toDateString()
+    if (!groups.has(dayKey)) groups.set(dayKey, { date: it.occurredAt, items: [] })
+    groups.get(dayKey).items.push(it)
+  }
+  return [...groups.values()]
 }
 
 export default function ActivityPage() {
-  const [activePeriod, setActivePeriod] = useState(1)
-  const [activeFilter, setActiveFilter] = useState(0)
+  const [periodIdx, setPeriodIdx] = useState(1)  // default "7 days"
+  const [categoryIdx, setCategoryIdx] = useState(0)
 
-  const heatmapRows = useMemo(() => {
-    return DAYS.map((day, di) => {
-      const cells = Array.from({ length: 24 }, (_, h) => intensity(di, h))
-      return { day, cells }
-    })
-  }, [])
+  const [stats, setStats] = useState(null)
+  const [counts, setCounts] = useState({})
+  const [rankHistory, setRankHistory] = useState(null)
+  const [subjects, setSubjects] = useState([])
+  const [heatmap, setHeatmap] = useState({ cells: [] })
+  const [feedItems, setFeedItems] = useState([])
+  const [nextCursor, setNextCursor] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const period = PERIODS[periodIdx].key
+  const category = CATEGORY_TABS[categoryIdx].key
+
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    try {
+      const cat = category === 'ALL' ? undefined : category
+      const [statsRes, countsRes, rankRes, subjRes, hmRes, feedRes] = await Promise.all([
+        activityAPI.getStats({ period }).then(unwrap),
+        activityAPI.getCounts({ period }).then(unwrap),
+        activityAPI.getRankHistory({ period }).then(unwrap),
+        activityAPI.getSubjectAccuracy({ period }).then(unwrap),
+        activityAPI.getHeatmap({ days: 364 }).then(unwrap),
+        activityAPI.getFeed({ period, category: cat, limit: 30 }).then(unwrap),
+      ])
+
+      setStats(statsRes)
+      setCounts(countsRes || {})
+      setRankHistory(rankRes)
+      setSubjects(subjRes?.subjects || [])
+      setHeatmap(hmRes || { cells: [] })
+      setFeedItems(feedRes?.items || [])
+      setNextCursor(feedRes?.nextCursor || null)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load activity')
+    } finally {
+      setLoading(false)
+    }
+  }, [period, category])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  const loadMore = async () => {
+    if (!nextCursor) return
+    setLoadingMore(true)
+    try {
+      const cat = category === 'ALL' ? undefined : category
+      const more = await activityAPI.getFeed({
+        period, category: cat, limit: 30, cursor: nextCursor,
+      }).then(unwrap)
+      setFeedItems((prev) => [...prev, ...(more?.items || [])])
+      setNextCursor(more?.nextCursor || null)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load more')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = { period }
+      if (category !== 'ALL') params.category = category
+      const token = localStorage.getItem('rankrush_access_token')
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || '/api'}${activityAPI.exportCsvUrl(params)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `rankrush-activity-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(err?.message || 'Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const grouped = useMemo(() => groupByDay(feedItems), [feedItems])
+
+  const totalCount = counts.ALL ?? 0
 
   return (
     <div className="main">
-
       <div className="page-head">
         <div className="crumb">/ Activity</div>
         <h1>Activity</h1>
@@ -62,47 +188,208 @@ export default function ActivityPage() {
 
       <div className="period-row">
         <div className="period-tabs">
-          {PERIOD_TABS.map((t, i) => (
-            <button key={t} className={activePeriod === i ? 'on' : ''} onClick={() => setActivePeriod(i)}>{t}</button>
+          {PERIODS.map((t, i) => (
+            <button
+              key={t.key}
+              className={periodIdx === i ? 'on' : ''}
+              onClick={() => setPeriodIdx(i)}
+            >{t.label}</button>
           ))}
         </div>
-        <button className="export-btn"><Download size={14} />Export CSV</button>
+        <button className="export-btn" onClick={handleExport} disabled={exporting}>
+          {exporting ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+          Export CSV
+        </button>
       </div>
 
-      <div className="stat-strip">
-        <div className="cell">
-          <div className="lbl"><CircleCheck size={12} />Quizzes taken</div>
-          <div className="v violet">14</div>
-          <span className="delta"><ArrowUp size={12} />+5 vs prev week</span>
-        </div>
-        <div className="cell">
-          <div className="lbl"><Target size={12} />Avg. accuracy</div>
-          <div className="v emerald">92.4<small>%</small></div>
-          <span className="delta"><ArrowUp size={12} />+4.2 pts</span>
-        </div>
-        <div className="cell">
-          <div className="lbl"><TrendingUp size={12} />Rank movement</div>
-          <div className="v cyan">+159</div>
-          <span className="delta"><ArrowUp size={12} />#247 → #88</span>
-        </div>
-        <div className="cell">
-          <div className="lbl"><Flame size={12} />Streak days</div>
-          <div className="v amber">17</div>
-          <span className="delta"><ArrowUp size={12} />4 days to next bonus</span>
-        </div>
-      </div>
+      <StatStrip stats={stats} loading={loading} />
 
-      {/* Rank-history chart + Streak garden */}
+      {/* Rank history + Streak garden */}
       <div className="row-2">
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3>Rank history · 7 days</h3>
-              <span className="sub">#247 → #88 · biggest jump on May 24</span>
-            </div>
-            <span style={{ fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-violet-500)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>↑ better rank</span>
+        <RankHistoryCard rankHistory={rankHistory} loading={loading} />
+        <StreakGardenCard heatmap={heatmap} loading={loading} />
+      </div>
+
+      {/* Subjects — When-you-study is hidden per product call. */}
+      <div className="row-2" style={{ gridTemplateColumns: '1fr' }}>
+        <SubjectAccuracyCard subjects={subjects} loading={loading} period={PERIODS[periodIdx].label} />
+      </div>
+
+      {/* Timeline */}
+      <div className="dcard timeline-card" style={{ marginTop: 18 }}>
+        <div className="timeline-head">
+          <div>
+            <h3>Timeline</h3>
+            <span className="sub">Everything that happened on your account, newest first.</span>
           </div>
-          <div className="rank-chart">
+        </div>
+        <div className="timeline-filters">
+          {CATEGORY_TABS.map((f, i) => {
+            const Icon = f.icon
+            const count = f.key === 'ALL' ? totalCount : (counts[f.key] ?? 0)
+            return (
+              <button
+                key={f.key}
+                className={`chip${categoryIdx === i ? ' on' : ''}`}
+                onClick={() => setCategoryIdx(i)}
+              >
+                {Icon && <Icon size={13} />}
+                {f.label} <span className="n">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--rr-fg-muted)' }}>
+            <Loader2 size={20} className="spin" /> Loading timeline…
+          </div>
+        ) : grouped.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--rr-fg-muted)' }}>
+            No activity yet for this period.
+          </div>
+        ) : (
+          <>
+            {grouped.map((group) => (
+              <DayGroup key={group.date} group={group} />
+            ))}
+            <div className="tl-foot">
+              <span>
+                Showing <b style={{ color: 'var(--rr-fg)' }}>{feedItems.length}</b>
+                {totalCount > feedItems.length && <> of {totalCount}</>} events
+              </span>
+              {nextCursor && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  style={{
+                    background: 'transparent', border: 0,
+                    color: 'var(--rr-violet-500)', cursor: 'pointer', fontSize: 13,
+                  }}
+                >
+                  {loadingMore ? 'Loading…' : 'Load more →'}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Sub-components ────────────────────────────────────────────────
+
+function StatStrip({ stats, loading }) {
+  const fmtDelta = (n) => (n == null ? null : (n > 0 ? `+${n}` : String(n)))
+  const fmtDeltaPts = (n) => (n == null ? null : (n > 0 ? `+${n} pts` : `${n} pts`))
+
+  return (
+    <div className="stat-strip">
+      <div className="cell">
+        <div className="lbl"><CircleCheck size={12} />Quizzes taken</div>
+        <div className="v violet">{loading ? '—' : (stats?.quizzesTaken ?? 0)}</div>
+        {stats?.quizzesDelta != null && (
+          <span className="delta">
+            {stats.quizzesDelta >= 0
+              ? <ArrowUp size={12} />
+              : <ArrowDown size={12} />}
+            {fmtDelta(stats.quizzesDelta)} vs prev
+          </span>
+        )}
+      </div>
+      <div className="cell">
+        <div className="lbl"><Target size={12} />Avg. accuracy</div>
+        <div className="v emerald">
+          {loading ? '—' : (stats?.avgAccuracy ?? 0)}<small>%</small>
+        </div>
+        {stats?.accuracyDelta != null && (
+          <span className="delta">
+            {stats.accuracyDelta >= 0
+              ? <ArrowUp size={12} />
+              : <ArrowDown size={12} />}
+            {fmtDeltaPts(stats.accuracyDelta)}
+          </span>
+        )}
+      </div>
+      <div className="cell">
+        <div className="lbl"><TrendingUp size={12} />Rank movement</div>
+        <div className="v cyan">
+          {loading
+            ? '—'
+            : stats?.rankDelta == null
+              ? '–'
+              : (stats.rankDelta < 0 ? `+${Math.abs(stats.rankDelta)}` : `−${stats.rankDelta}`)}
+        </div>
+        {stats?.rankStart != null && stats?.rankEnd != null && (
+          <span className="delta">
+            <ArrowUp size={12} />#{stats.rankStart} → #{stats.rankEnd}
+          </span>
+        )}
+      </div>
+      <div className="cell">
+        <div className="lbl"><Flame size={12} />Streak days</div>
+        <div className="v amber">{loading ? '—' : (stats?.streakDays ?? 0)}</div>
+        {stats?.tokensEarned != null && (
+          <span className="delta">+{stats.tokensEarned} tokens earned</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RankHistoryCard({ rankHistory, loading }) {
+  // Convert rank points to an inverted-y SVG path: rank 1 sits at the top
+  // (y=10), worst rank in the dataset at the bottom (y=190). Empty
+  // dataset shows a neutral "not enough history yet" message.
+  const { pts, minRank, maxRank, current, scope } = useMemo(() => {
+    const points = rankHistory?.points || []
+    if (points.length === 0) {
+      return { pts: [], minRank: null, maxRank: null, current: rankHistory?.current, scope: rankHistory?.scope }
+    }
+    const ranks = points.map((p) => p.rank)
+    const min = Math.min(...ranks)
+    const max = Math.max(...ranks)
+    const range = Math.max(1, max - min)
+    const w = 700, h = 200, pad = 10
+    const xStep = points.length > 1 ? (w / (points.length - 1)) : w
+    const pts = points.map((p, i) => {
+      const x = i * xStep
+      const yNorm = (p.rank - min) / range
+      const y = pad + yNorm * (h - 2 * pad)
+      return { x, y, rank: p.rank, at: p.at }
+    })
+    return { pts, minRank: min, maxRank: max, current: rankHistory?.current, scope: rankHistory?.scope }
+  }, [rankHistory])
+
+  const pathLine = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const pathArea = pts.length
+    ? `${pathLine} L ${pts[pts.length - 1].x} 200 L 0 200 Z`
+    : ''
+
+  return (
+    <div className="dcard">
+      <div className="head">
+        <div>
+          <h3>Rank history</h3>
+          <span className="sub">
+            {scope?.displayName ?? 'Class cohort'}
+            {pts.length > 1 && ` · #${pts[0].rank} → #${pts[pts.length - 1].rank}`}
+          </span>
+        </div>
+        <span style={{ fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-violet-500)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>
+          ↑ better rank
+        </span>
+      </div>
+      <div className="rank-chart">
+        {loading ? (
+          <div style={{ padding: 60, textAlign: 'center', color: 'var(--rr-fg-muted)' }}>Loading…</div>
+        ) : pts.length === 0 ? (
+          <div style={{ padding: 60, textAlign: 'center', color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+            Not enough rank history yet. Complete a few rank-rewarding quizzes to get on the board.
+          </div>
+        ) : (
+          <>
             <svg viewBox="0 0 700 200" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="vGrad" x1="0" x2="0" y1="0" y2="1">
@@ -117,315 +404,215 @@ export default function ActivityPage() {
                 <line x1="0" x2="700" y1="150" y2="150"/>
                 <line x1="0" x2="700" y1="200" y2="200"/>
               </g>
-              <path className="area" d="M0 180 L100 168 L200 152 L300 130 L400 90 L500 70 L600 50 L700 30 L700 200 L0 200 Z" />
-              <path className="line" d="M0 180 L100 168 L200 152 L300 130 L400 90 L500 70 L600 50 L700 30" />
-              <circle className="pt" cx="0" cy="180" r="4"/>
-              <circle className="pt" cx="100" cy="168" r="4"/>
-              <circle className="pt" cx="200" cy="152" r="4"/>
-              <circle className="pt" cx="300" cy="130" r="4"/>
-              <circle className="pt" cx="400" cy="90" r="4"/>
-              <circle className="pt" cx="500" cy="70" r="4"/>
-              <circle className="pt" cx="600" cy="50" r="4"/>
-              <circle className="pt now" cx="700" cy="30" r="6"/>
+              <path className="area" d={pathArea} />
+              <path className="line" d={pathLine} />
+              {pts.map((p, i) => (
+                <circle
+                  key={i}
+                  className={i === pts.length - 1 ? 'pt now' : 'pt'}
+                  cx={p.x}
+                  cy={p.y}
+                  r={i === pts.length - 1 ? 6 : 4}
+                />
+              ))}
             </svg>
-            <span className="lbl-now">#88 ★</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-fg-dim)', padding: '0 4px' }}>
-            <span>May 21<br /><b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 11, color: 'var(--rr-fg-2)' }}>#247</b></span>
-            <span>May 22</span>
-            <span>May 23</span>
-            <span>May 24<br /><b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 11, color: 'var(--rr-fg-2)' }}>#142</b></span>
-            <span>May 25</span>
-            <span>May 26</span>
-            <span>Today<br /><b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 11, color: 'var(--rr-lime-500)' }}>#88</b></span>
-          </div>
-        </div>
-
-        <div className="dcard garden-card">
-          <div className="head">
-            <div>
-              <h3>Streak garden</h3>
-              <span className="sub">17-day run · 2 blooms · 78 days</span>
-            </div>
-            <span style={{ fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-amber-500)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>🔥 17 days</span>
-          </div>
-          <div className="garden-grid">
-            {GARDEN_DATA.map((l, i) => (
-              <div
-                key={i}
-                className={`garden-cell${BLOOMS.has(i) ? ' bloom' : (l > 0 ? ` s${l}` : '')}`}
-                title={`Day ${i + 1} · ${l === 0 ? 'No study' : (BLOOMS.has(i) ? 'Bloom day!' : `Level ${l}`)}`}
-              />
-            ))}
-          </div>
-          <div className="garden-foot">
-            <span>Less</span>
-            <div className="garden-legend">
-              <span style={{ background: 'var(--rr-bg-alt)' }}></span>
-              <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 22%, var(--rr-bg-alt))' }}></span>
-              <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 45%, var(--rr-bg-alt))' }}></span>
-              <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 70%, var(--rr-bg-alt))' }}></span>
-              <span style={{ background: 'var(--rr-emerald-500)' }}></span>
-              <span style={{ background: 'var(--rr-lime-400)', boxShadow: '0 0 0 1px var(--rr-amber-500)' }}></span>
-            </div>
-            <span>More · bloom</span>
-          </div>
-        </div>
+            {current?.rank != null && <span className="lbl-now">#{current.rank} ★</span>}
+          </>
+        )}
       </div>
-
-      {/* Subjects + heatmap */}
-      <div className="row-2" style={{ gridTemplateColumns: '1fr 1.6fr' }}>
-        <div className="dcard">
-          <div className="head">
-            <div>
-              <h3>Accuracy by subject</h3>
-              <span className="sub">Last 7 days · 412 questions</span>
-            </div>
-          </div>
-          <div className="subj-bars">
-            <div className="subj-row">
-              <span className="nm"><span className="d" style={{ background: 'var(--rr-violet-500)' }}></span>Maths</span>
-              <div className="bar"><div className="fill" style={{ width: '94%', background: 'var(--rr-violet-500)' }}></div></div>
-              <span className="acc" style={{ color: 'var(--rr-emerald-500)' }}>94%</span>
-            </div>
-            <div className="subj-row">
-              <span className="nm"><span className="d" style={{ background: 'var(--rr-amber-500)' }}></span>Chemistry</span>
-              <div className="bar"><div className="fill" style={{ width: '89%', background: 'var(--rr-amber-500)' }}></div></div>
-              <span className="acc" style={{ color: 'var(--rr-emerald-500)' }}>89%</span>
-            </div>
-            <div className="subj-row">
-              <span className="nm"><span className="d" style={{ background: 'var(--rr-cyan-500)' }}></span>Physics</span>
-              <div className="bar"><div className="fill" style={{ width: '76%', background: 'var(--rr-cyan-500)' }}></div></div>
-              <span className="acc" style={{ color: 'var(--rr-amber-500)' }}>76%</span>
-            </div>
-            <div className="subj-row">
-              <span className="nm"><span className="d" style={{ background: 'var(--rr-emerald-500)' }}></span>Biology</span>
-              <div className="bar"><div className="fill" style={{ width: '62%', background: 'var(--rr-emerald-500)' }}></div></div>
-              <span className="acc" style={{ color: 'var(--rr-coral-500)' }}>62%</span>
-            </div>
-          </div>
+      {pts.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--rr-font-mono)', fontSize: 10, color: 'var(--rr-fg-dim)', padding: '0 4px' }}>
+          <span>
+            {new Date(pts[0].at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+            <br />
+            <b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 11, color: 'var(--rr-fg-2)' }}>
+              #{pts[0].rank}
+            </b>
+          </span>
+          <span>
+            Today
+            <br />
+            <b style={{ fontFamily: 'var(--rr-font-display)', fontWeight: 700, fontSize: 11, color: 'var(--rr-lime-500)' }}>
+              #{pts[pts.length - 1].rank}
+            </b>
+          </span>
         </div>
-
-        <div className="dcard dh-card">
-          <div className="head">
-            <div>
-              <h3>When you study</h3>
-              <span className="sub">Questions per hour · last 30 days · peak <b style={{ color: 'var(--rr-fg)' }}>6–9 PM</b></span>
-            </div>
-          </div>
-          <div className="dh-grid">
-            {heatmapRows.map(({ day, cells }) => (
-              <React.Fragment key={day}>
-                <div className="row-lbl">{day}</div>
-                {cells.map((l, h) => (
-                  <div key={h} className={`dh-cell${l > 0 ? ` l${l}` : ''}`} title={`${day} · ${h}:00 · ${l} questions`} />
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
-          <div className="dh-hours">
-            <div className="pad"></div>
-            {Array.from({ length: 24 }, (_, h) => (
-              <span key={h} className="ix">{hourLabel(h)}</span>
-            ))}
-          </div>
-          <div className="dh-foot">
-            <span>Sleep-late peak: <b style={{ color: 'var(--rr-fg)' }}>11 PM Sat</b></span>
-            <span>Productivity sweet spot: <b style={{ color: 'var(--rr-fg)' }}>Tue 7 PM</b></span>
-          </div>
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="dcard timeline-card" style={{ marginTop: 18 }}>
-        <div className="timeline-head">
-          <div>
-            <h3>Timeline</h3>
-            <span className="sub">Everything that happened on your account, newest first.</span>
-          </div>
-        </div>
-        <div className="timeline-filters">
-          {TIMELINE_FILTERS.map((f, i) => {
-            const Icon = f.icon
-            return (
-              <button key={f.label} className={`chip${activeFilter === i ? ' on' : ''}`} onClick={() => setActiveFilter(i)}>
-                {Icon && <Icon size={13} />}
-                {f.label} <span className="n">{f.count}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* TODAY */}
-        <div className="day-sep">
-          <span className="left">Today<small>Tuesday, 27 May 2026</small></span>
-          <span className="right"><b>3 events</b> · <b>1 quiz</b> · <b>+14 ranks</b></span>
-        </div>
-
-        <div className="t-item rankup">
-          <div className="t-rail"></div>
-          <div className="t-ico"><TrendingUp size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Climbed <b>14 ranks</b> · now <b>#88</b></span>
-            <span className="t-meta">JEE Main · Class 12 · ahead of <b>71.8%</b> of the field</span>
-          </div>
-          <div className="t-right"><span className="t-time">8:44 AM</span><span className="t-amt rank">+14</span></div>
-        </div>
-
-        <div className="t-item quiz">
-          <div className="t-rail"></div>
-          <div className="t-ico"><CircleCheck size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Calculus · <b>Limits &amp; continuity</b></span>
-            <span className="t-meta">Standard quiz · 12 min · <b>18 / 20 correct</b> · cost 1 token</span>
-          </div>
-          <div className="t-right"><span className="t-time">8:42 AM</span><span className="t-score-pill good">90%</span></div>
-        </div>
-
-        <div className="t-item token">
-          <div className="t-rail"></div>
-          <div className="t-ico"><Coins size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Spent <b>1 token</b> on Calculus quiz</span>
-            <span className="t-meta">Wallet: 13 → <b>12 tokens</b></span>
-          </div>
-          <div className="t-right"><span className="t-time">8:41 AM</span><span className="t-amt neg">−1</span></div>
-        </div>
-
-        {/* YESTERDAY */}
-        <div className="day-sep">
-          <span className="left">Yesterday<small>Monday, 26 May 2026</small></span>
-          <span className="right"><b>5 events</b> · <b>2 quizzes</b> · <b>+22 ranks</b> · <b>+1 token</b></span>
-        </div>
-
-        <div className="t-item streak">
-          <div className="t-rail"></div>
-          <div className="t-ico"><Flame size={16} /></div>
-          <div className="t-body">
-            <span className="t-title"><b>14-day streak</b> milestone hit · earned <b>+1 token</b></span>
-            <span className="t-meta">Keep going: 21 days for the next bonus</span>
-          </div>
-          <div className="t-right"><span className="t-time">11:24 PM</span><span className="t-amt pos">+1</span></div>
-        </div>
-
-        <div className="t-item rankup">
-          <div className="t-rail"></div>
-          <div className="t-ico"><TrendingUp size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Climbed <b>22 ranks</b> · #124 → <b>#102</b></span>
-            <span className="t-meta">After JEE Main mock test 04</span>
-          </div>
-          <div className="t-right"><span className="t-time">7:38 PM</span><span className="t-amt rank">+22</span></div>
-        </div>
-
-        <div className="t-item quiz">
-          <div className="t-rail"></div>
-          <div className="t-ico"><CircleCheck size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">JEE Main · <b>Mock test 04</b></span>
-            <span className="t-meta">Full-length · 3 hours · <b>78 / 90 correct</b> · cost 3 tokens</span>
-          </div>
-          <div className="t-right"><span className="t-time">4:18 PM</span><span className="t-score-pill ok">87%</span></div>
-        </div>
-
-        <div className="t-item quiz">
-          <div className="t-rail"></div>
-          <div className="t-ico"><CircleCheck size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Physics · <b>Wave optics</b></span>
-            <span className="t-meta">Standard quiz · 14 min · <b>16 / 18 correct</b> · cost 1 token</span>
-          </div>
-          <div className="t-right"><span className="t-time">11:02 AM</span><span className="t-score-pill good">89%</span></div>
-        </div>
-
-        <div className="t-item badge">
-          <div className="t-rail"></div>
-          <div className="t-ico"><Medal size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Badge unlocked · <b>Calc Slayer</b></span>
-            <span className="t-meta">100 calculus questions answered at &gt;90% accuracy</span>
-          </div>
-          <div className="t-right"><span className="t-time">10:38 AM</span></div>
-        </div>
-
-        {/* TWO DAYS AGO */}
-        <div className="day-sep">
-          <span className="left">2 days ago<small>Sunday, 25 May 2026</small></span>
-          <span className="right"><b>4 events</b> · <b>2 quizzes</b> · <b>+2 tokens</b></span>
-        </div>
-
-        <div className="t-item refer">
-          <div className="t-rail"></div>
-          <div className="t-ico"><Gift size={16} /></div>
-          <div className="t-body">
-            <span className="t-title"><b>Tanvi Sharma</b> upgraded to Starter via your link</span>
-            <span className="t-meta">+2 tokens to you · +2 tokens to Tanvi · 2 of 5 referrals converted</span>
-          </div>
-          <div className="t-right"><span className="t-time">6:14 PM</span><span className="t-amt pos">+2</span></div>
-        </div>
-
-        <div className="t-item quiz">
-          <div className="t-rail"></div>
-          <div className="t-ico"><CircleCheck size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Chemistry · <b>Periodic table</b></span>
-            <span className="t-meta">Standard quiz · 10 min · <b>19 / 20 correct</b> · cost 1 token</span>
-          </div>
-          <div className="t-right"><span className="t-time">2:24 PM</span><span className="t-score-pill good">95%</span></div>
-        </div>
-
-        <div className="t-item quiz">
-          <div className="t-rail"></div>
-          <div className="t-ico"><CircleCheck size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Maths · <b>Trigonometry identities</b></span>
-            <span className="t-meta">Standard quiz · 10 min · <b>18 / 20 correct</b> · cost 1 token</span>
-          </div>
-          <div className="t-right"><span className="t-time">11:48 AM</span><span className="t-score-pill good">90%</span></div>
-        </div>
-
-        <div className="t-item rankup">
-          <div className="t-rail"></div>
-          <div className="t-ico"><TrendingUp size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Climbed <b>18 ranks</b> · #142 → <b>#124</b></span>
-            <span className="t-meta">After Periodic table quiz</span>
-          </div>
-          <div className="t-right"><span className="t-time">2:26 PM</span><span className="t-amt rank">+18</span></div>
-        </div>
-
-        {/* A WEEK AGO */}
-        <div className="day-sep">
-          <span className="left">7 days ago<small>Tuesday, 20 May 2026</small></span>
-          <span className="right"><b>2 events</b></span>
-        </div>
-
-        <div className="t-item plan">
-          <div className="t-rail"></div>
-          <div className="t-ico"><UserPlus size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Account created</span>
-            <span className="t-meta">Welcome to RankRush · +1 free token credited</span>
-          </div>
-          <div className="t-right"><span className="t-time">9:14 AM</span></div>
-        </div>
-
-        <div className="t-item token">
-          <div className="t-rail"></div>
-          <div className="t-ico"><Coins size={16} /></div>
-          <div className="t-body">
-            <span className="t-title">Welcome bonus · <b>+1 token</b></span>
-            <span className="t-meta">First-time signup gift · wallet: 0 → <b>1 token</b></span>
-          </div>
-          <div className="t-right"><span className="t-time">9:14 AM</span><span className="t-amt pos">+1</span></div>
-        </div>
-
-        <div className="tl-foot">
-          <span>Showing <b style={{ color: 'var(--rr-fg)' }}>14</b> of 28 events · last 7 days</span>
-          <a href="#">Load more →</a>
-        </div>
-      </div>
-
+      )}
     </div>
   )
+}
+
+function StreakGardenCard({ heatmap, loading }) {
+  // Render the last ~78 cells (visually matches the previous static grid).
+  const cells = (heatmap?.cells || []).slice(-78)
+  return (
+    <div className="dcard garden-card">
+      <div className="head">
+        <div>
+          <h3>Streak garden</h3>
+          <span className="sub">{cells.filter(c => c.count > 0).length} active days in this view</span>
+        </div>
+      </div>
+      <div className="garden-grid">
+        {loading ? (
+          <div style={{ padding: 30, color: 'var(--rr-fg-muted)' }}>Loading…</div>
+        ) : (
+          cells.map((c, i) => (
+            <div
+              key={i}
+              className={`garden-cell${c.level > 0 ? ` s${c.level}` : ''}`}
+              title={`${c.date} · ${c.count} attempt${c.count === 1 ? '' : 's'}`}
+            />
+          ))
+        )}
+      </div>
+      <div className="garden-foot">
+        <span>Less</span>
+        <div className="garden-legend">
+          <span style={{ background: 'var(--rr-bg-alt)' }}></span>
+          <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 22%, var(--rr-bg-alt))' }}></span>
+          <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 45%, var(--rr-bg-alt))' }}></span>
+          <span style={{ background: 'color-mix(in oklab, var(--rr-emerald-500) 70%, var(--rr-bg-alt))' }}></span>
+          <span style={{ background: 'var(--rr-emerald-500)' }}></span>
+        </div>
+        <span>More</span>
+      </div>
+    </div>
+  )
+}
+
+const SUBJECT_COLORS = {
+  Mathematics: 'var(--rr-violet-500)',
+  Maths:       'var(--rr-violet-500)',
+  Chemistry:   'var(--rr-amber-500)',
+  Physics:     'var(--rr-cyan-500)',
+  Biology:     'var(--rr-emerald-500)',
+}
+function colorForSubject(name) {
+  return SUBJECT_COLORS[name] || 'var(--rr-fg-muted)'
+}
+function accuracyTone(pct) {
+  if (pct >= 85) return 'var(--rr-emerald-500)'
+  if (pct >= 70) return 'var(--rr-amber-500)'
+  return 'var(--rr-coral-500)'
+}
+
+function SubjectAccuracyCard({ subjects, loading, period }) {
+  const totalQ = subjects.reduce((s, x) => s + (x.questions || 0), 0)
+  return (
+    <div className="dcard">
+      <div className="head">
+        <div>
+          <h3>Accuracy by subject</h3>
+          <span className="sub">{period} · {totalQ} questions</span>
+        </div>
+      </div>
+      <div className="subj-bars">
+        {loading ? (
+          <div style={{ padding: 30, color: 'var(--rr-fg-muted)' }}>Loading…</div>
+        ) : subjects.length === 0 ? (
+          <div style={{ padding: 30, color: 'var(--rr-fg-muted)', fontSize: 13 }}>
+            No completed quizzes for this period yet.
+          </div>
+        ) : subjects.map((s) => (
+          <div key={s.subject} className="subj-row">
+            <span className="nm">
+              <span className="d" style={{ background: colorForSubject(s.subject) }}></span>
+              {s.subject}
+            </span>
+            <div className="bar">
+              <div
+                className="fill"
+                style={{ width: `${s.accuracy}%`, background: colorForSubject(s.subject) }}
+              ></div>
+            </div>
+            <span className="acc" style={{ color: accuracyTone(s.accuracy) }}>{s.accuracy}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DayGroup({ group }) {
+  const heading = formatDayHeading(group.date)
+  const sub = formatDaySubheading(group.date)
+  const quizCount = group.items.filter(i => i.type === 'QUIZ_COMPLETED').length
+  const rankDelta = group.items
+    .filter(i => i.type === 'RANK_CHANGED')
+    .reduce((s, i) => s + (i.amount || 0), 0)
+  const tokenDelta = group.items
+    .filter(i => i.category === 'TOKEN' || i.type === 'STREAK_MILESTONE')
+    .reduce((s, i) => s + (i.amount || 0), 0)
+
+  return (
+    <>
+      <div className="day-sep">
+        <span className="left">{heading}<small>{sub}</small></span>
+        <span className="right">
+          <b>{group.items.length} event{group.items.length === 1 ? '' : 's'}</b>
+          {quizCount > 0 && <> · <b>{quizCount} quiz{quizCount === 1 ? '' : 'zes'}</b></>}
+          {rankDelta !== 0 && <> · <b>{rankDelta > 0 ? `+${rankDelta}` : rankDelta} ranks</b></>}
+          {tokenDelta !== 0 && <> · <b>{tokenDelta > 0 ? `+${tokenDelta}` : tokenDelta} tokens</b></>}
+        </span>
+      </div>
+      {group.items.map((it) => <TimelineRow key={it.id} item={it} />)}
+    </>
+  )
+}
+
+function TimelineRow({ item }) {
+  const meta = TYPE_RENDER[item.type] || { Icon: CircleDot, rowClass: 'plan' }
+  const Icon = meta.Icon
+  const amount = item.amount
+
+  // Right-side chip: amount or score pill depending on category.
+  let right = null
+  if (item.category === 'QUIZ' && item.type === 'QUIZ_COMPLETED' && amount != null) {
+    const tone = amount >= 80 ? 'good' : amount >= 50 ? 'ok' : 'bad'
+    right = <span className={`t-score-pill ${tone}`}>{Math.round(amount)}%</span>
+  } else if (item.category === 'TOKEN' && amount != null) {
+    right = <span className={`t-amt ${amount >= 0 ? 'pos' : 'neg'}`}>
+      {amount >= 0 ? `+${amount}` : amount}
+    </span>
+  } else if (item.category === 'RANK' && amount != null && amount !== 0) {
+    right = <span className="t-amt rank">{amount > 0 ? `+${amount}` : amount}</span>
+  } else if (item.category === 'STREAK' && amount != null && amount > 0) {
+    right = <span className="t-amt pos">+{amount}</span>
+  } else if (item.category === 'PLAN' && amount != null && amount !== 0) {
+    right = <span className={`t-amt ${amount >= 0 ? 'pos' : 'neg'}`}>
+      {amount >= 0 ? `+${amount}` : amount}
+    </span>
+  } else if (item.category === 'SOCIAL' && amount != null && amount > 0) {
+    right = <span className="t-amt pos">+{amount}</span>
+  }
+
+  return (
+    <div className={`t-item ${meta.rowClass}`}>
+      <div className="t-rail"></div>
+      <div className="t-ico"><Icon size={16} /></div>
+      <div className="t-body">
+        <span className="t-title" dangerouslySetInnerHTML={{ __html: boldifyTitle(item.title) }} />
+        {item.meta && <span className="t-meta">{item.meta}</span>}
+      </div>
+      <div className="t-right">
+        <span className="t-time">{formatTime(item.occurredAt)}</span>
+        {right}
+      </div>
+    </div>
+  )
+}
+
+// Very small allowlist-ish "bold the last segment after the dash" helper.
+// The backend ships title strings like "Maths · Limits & continuity" —
+// rendering them as plain text drops the visual hierarchy the old static
+// page had, so we bold the bit after the last separator.
+function boldifyTitle(title) {
+  if (!title) return ''
+  const safe = title.replace(/</g, '&lt;')
+  const lastDot = safe.lastIndexOf(' · ')
+  if (lastDot === -1) return safe
+  const left = safe.slice(0, lastDot + 3)
+  const right = safe.slice(lastDot + 3)
+  return `${left}<b>${right}</b>`
 }

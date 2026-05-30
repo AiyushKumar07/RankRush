@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Cadence, FeatureValueType, Prisma } from '@prisma/client';
+import { EventBusService } from '../events/event-bus.service.js';
 import { DEFAULT_PLAN_SEEDS } from '../scripts/seed-data/default-plans.js';
 
 type PricingInput = {
@@ -49,7 +50,10 @@ const PLAN_INCLUDE = {
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventBus: EventBusService,
+  ) {}
 
   // ─── Public: student-facing (active plans + active pricings) ─────────
   async getPlans() {
@@ -120,6 +124,7 @@ export class SubscriptionsService {
     const sub = await this.prisma.studentSubscription.findFirst({
       where: { userId, status: 'ACTIVE' },
       orderBy: { startDate: 'desc' },
+      include: { plan: { select: { name: true } } },
     });
     if (!sub) throw new NotFoundException('No active subscription to cancel');
 
@@ -131,6 +136,18 @@ export class SubscriptionsService {
       data: {
         isAutoRenewEnabled: false,
         nextRefreshDate: sub.endDate ?? sub.nextRefreshDate,
+      },
+    });
+
+    this.eventBus.emit({
+      type: 'PLAN_CANCELLED',
+      userId,
+      refType: 'StudentSubscription',
+      refId: sub.id,
+      payload: {
+        subscriptionId: sub.id,
+        planName: sub.plan?.name ?? 'Plan',
+        endDate: sub.endDate ?? new Date(),
       },
     });
 

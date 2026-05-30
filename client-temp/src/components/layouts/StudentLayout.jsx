@@ -55,10 +55,10 @@ const STUDY = [
   { to: "/app", icon: Home, label: "Home" },
   { to: "/app/quizzes", icon: BookOpen, label: "Quizzes", pill: "147" },
   { to: "/app/activity", icon: Flame, label: "Activity" },
+  { to: "/app/leaderboards", icon: Trophy, label: "Leaderboards" },
 ];
 
 const COMING_SOON = [
-  { icon: Trophy, label: "Leaderboard" },
   { icon: Users, label: "Study Groups" },
   { icon: MessageCircle, label: "Chat" },
   { icon: Bookmark, label: "Notes" },

@@ -21,6 +21,7 @@ import {
   CreateQuizDto,
   UpdateQuizDto,
   UpdateQuizStatusDto,
+  UpdateRankRewardingDto,
   QueryQuizzesDto,
 } from './dto/quizzes.dto.js';
 
@@ -79,6 +80,32 @@ export class QuizzesController {
     @Req() req: any,
   ) {
     return this.quizzesService.updateStatus(id, dto, userId, req);
+  }
+
+  @Patch(':id/rank-rewarding')
+  @Permissions('quizzes:update')
+  updateRankRewarding(
+    @Param('id') id: string,
+    @Body() dto: UpdateRankRewardingDto,
+    @CurrentUser('id') userId: string,
+    @Req() req: any,
+  ) {
+    return this.quizzesService.updateRankRewarding(
+      id,
+      dto.rankRewarding,
+      userId,
+      req,
+    );
+  }
+
+  @Post(':id/close-leaderboard')
+  @Permissions('quizzes:update')
+  closeLeaderboard(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Req() req: any,
+  ) {
+    return this.quizzesService.closeQuizNow(id, userId, req);
   }
 
   @Delete(':id')

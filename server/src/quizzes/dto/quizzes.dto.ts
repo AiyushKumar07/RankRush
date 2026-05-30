@@ -79,6 +79,13 @@ export class CreateQuizDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  // Tokens deducted per attempt. Defaults to 1 server-side; admin can pass 0
+  // for free practice or a higher value for premium quizzes.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  attemptCost?: number;
 }
 
 export class UpdateQuizDto {
@@ -101,11 +108,23 @@ export class UpdateQuizDto {
   @IsOptional() @IsBoolean() shuffleQuestions?: boolean;
   @IsOptional() @IsString() difficulty?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) tags?: string[];
+  // When true, the quiz contributes to the global rank score and gets its
+  // own per-quiz leaderboard. Off by default.
+  @IsOptional() @IsBoolean() rankRewarding?: boolean;
+  // Contest window — ISO strings on the wire, dates server-side.
+  @IsOptional() @IsString() quizStartsAt?: string;
+  @IsOptional() @IsString() quizEndsAt?: string;
+  @IsOptional() @IsNumber() @Min(0) attemptCost?: number;
 }
 
 export class UpdateQuizStatusDto {
   @IsString()
   status: string;
+}
+
+export class UpdateRankRewardingDto {
+  @IsBoolean()
+  rankRewarding: boolean;
 }
 
 export class QueryQuizzesDto {

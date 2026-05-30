@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { Clock, CircleCheck, Users, ArrowRight, Lock, Crown } from "lucide-react";
+import {
+  Clock, CircleCheck, Users, ArrowRight, Lock, Crown,
+  Bookmark, BookmarkCheck,
+} from "lucide-react";
 
 const SUBJ_COLORS = {
   math: "var(--rr-violet-500)",
@@ -42,6 +45,9 @@ export default function QuizCard({
   quizId = "1",
   locked = false,
   lockMessage,
+  saved = false,
+  onToggleSave,
+  saving = false,
 }) {
   const isLocked = locked || !!lockMessage;
   const isDone = status === "done";
@@ -75,6 +81,22 @@ export default function QuizCard({
         <span className="quiz-lock-chip" title={lockMessage}>
           <Crown size={11} />Pro
         </span>
+      )}
+      {onToggleSave && !lockMessage && (
+        <button
+          type="button"
+          className={`quiz-save-btn${saved ? " on" : ""}`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!saving) onToggleSave();
+          }}
+          disabled={saving}
+          aria-label={saved ? "Remove from saved" : "Save quiz"}
+          title={saved ? "Saved" : "Save for later"}
+        >
+          {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+        </button>
       )}
       <div className="body">
         <div className="top">

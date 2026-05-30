@@ -130,10 +130,12 @@
   color: var(--rr-fg);
 }
 
-/* Today's pick hero card */
+/* Today's pick hero card — always-dark surface. Hardcoded colours so the
+   theme-variable flips (which swap --rr-ink-900 ↔ --rr-paper between
+   modes) don't invert the text into the same dark hue as the background. */
 .featured-card {
-  background: linear-gradient(135deg, var(--rr-ink-900) 0%, #1B1A2E 100%);
-  color: var(--rr-paper);
+  background: linear-gradient(135deg, #0E0E13 0%, #1B1A2E 100%);
+  color: #FAFAF7;
   border-radius: var(--rr-r-2xl);
   padding: 32px;
   margin-bottom: 32px;
@@ -144,12 +146,11 @@
   grid-template-columns: 1.4fr 1fr;
   gap: 32px; align-items: center;
 }
-[data-theme="dark"] .featured-card { background: linear-gradient(135deg, #1B1A2E 0%, var(--rr-ink-900) 100%); }
 @media (max-width: 880px) { .featured-card { grid-template-columns: 1fr; } }
 .featured-card::before {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(circle at 100% 100%, color-mix(in oklab, var(--rr-violet-500) 25%, transparent), transparent 50%),
-              radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--rr-cyan-500) 16%, transparent), transparent 50%);
+  background: radial-gradient(circle at 100% 100%, color-mix(in oklab, #7C6CFF 25%, transparent), transparent 50%),
+              radial-gradient(circle at 0% 0%, color-mix(in oklab, #38BDF8 16%, transparent), transparent 50%);
   pointer-events: none;
 }
 .featured-card > * { position: relative; z-index: 1; }
@@ -158,7 +159,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--rr-lime-400);
+  color: #B7F37A;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .featured-card .lbl i { font-size: 12px; }
@@ -169,11 +170,11 @@
   letter-spacing: -0.025em;
   line-height: 1.1;
   margin: 14px 0 12px;
-  color: var(--rr-paper);
+  color: #FAFAF7;
   max-width: 520px;
 }
 .featured-card .desc {
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
   font-size: 15px;
   line-height: 1.5;
   max-width: 520px;
@@ -184,13 +185,13 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
   margin-bottom: 8px;
 }
 .featured-card .meta-row {
   display: flex; gap: 20px; flex-wrap: wrap;
   font-size: 12px;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
   margin-bottom: 22px;
 }
 .featured-card .meta-row span { display: inline-flex; align-items: center; gap: 6px; }
@@ -208,7 +209,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--rr-ink-300);
+  color: #9D9DA6;
 }
 .featured-side .stat-row { display: flex; align-items: baseline; gap: 8px; }
 .featured-side .big {
@@ -217,11 +218,11 @@
   font-size: 36px;
   letter-spacing: -0.025em;
   line-height: 1;
-  color: var(--rr-paper);
+  color: #FAFAF7;
   font-variant-numeric: tabular-nums;
 }
-.featured-side .big.lime { color: var(--rr-lime-400); }
-.featured-side .small { font-size: 13px; color: var(--rr-ink-300); }
+.featured-side .big.lime { color: #B7F37A; }
+.featured-side .small { font-size: 13px; color: #9D9DA6; }
 .featured-side hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0; }
 
 /* Section title */
@@ -301,6 +302,30 @@
   pointer-events: none;
 }
 .quiz-card { position: relative; }
+
+.quiz-card .quiz-save-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--rr-border);
+  background: var(--rr-surface);
+  color: var(--rr-fg-muted);
+  cursor: pointer;
+  transition: all var(--rr-dur-fast);
+}
+.quiz-card .quiz-save-btn:hover { color: var(--rr-fg); border-color: var(--rr-border-strong); }
+.quiz-card .quiz-save-btn.on {
+  color: var(--rr-violet-500);
+  border-color: color-mix(in oklab, var(--rr-violet-500) 35%, transparent);
+  background: color-mix(in oklab, var(--rr-violet-500) 10%, var(--rr-surface));
+}
+.quiz-card .quiz-save-btn:disabled { opacity: 0.6; cursor: progress; }
 
 /* subject color band */
 .quiz-card .band { height: 4px; background: var(--rr-violet-500); }
@@ -421,6 +446,21 @@
   background: color-mix(in oklab, var(--rr-coral-500) 8%, var(--rr-bg-alt));
   border-top-color: color-mix(in oklab, var(--rr-coral-500) 22%, var(--rr-border));
 }
+
+/* Empty / loading */
+.quiz-empty {
+  grid-column: 1 / -1;
+  padding: 48px 24px;
+  text-align: center;
+  border: 1px dashed var(--rr-border);
+  border-radius: var(--rr-r-lg);
+  background: var(--rr-bg);
+  color: var(--rr-fg-muted);
+  font-size: 14px;
+}
+.quiz-empty strong { display: block; color: var(--rr-fg); font-size: 15px; margin-bottom: 4px; }
+.quiz-spin { animation: quiz-spin 0.8s linear infinite; }
+@keyframes quiz-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 /* Pagination */
 .pager {

@@ -19,25 +19,91 @@
  * "Better rank" maps to the right side of the bar.
  */
 import { motion } from "framer-motion";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 
-const DEFAULT_HISTORY = [
-  { when: "4 wks ago", rank: 1204 },
-  { when: "2 wks ago", rank: 412 },
-  { when: "Last wk",   rank: 247 },
-  { when: "Now",       rank: 88 },
-];
+// Shared visual constants for the dark banner — kept in sync with the
+// always-dark palette used elsewhere (Today's Pick, Pro nudge) so theme
+// flips never invert this card.
+const cardStyle = {
+  background: "#0E0E13",
+  color: "#FAFAF7",
+  borderRadius: "var(--rr-r-2xl)",
+  padding: "28px 32px",
+  position: "relative",
+  overflow: "hidden",
+  boxShadow: "var(--rr-shadow-lg)",
+};
+const glowStyle = {
+  position: "absolute",
+  inset: 0,
+  background:
+    "radial-gradient(circle at 0% 100%, color-mix(in oklab, var(--rr-violet-500) 22%, transparent), transparent 50%), radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--rr-cyan-500) 14%, transparent), transparent 50%)",
+  pointerEvents: "none",
+};
+const eyebrowStyle = {
+  display: "flex",
+  gap: 12,
+  alignItems: "center",
+  fontFamily: "var(--rr-font-mono)",
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: "0.14em",
+  color: "#9D9DA6",
+  marginBottom: 14,
+};
+const liveDotWrap = { color: "var(--rr-coral-400)", display: "inline-flex", alignItems: "center", gap: 6 };
+const liveDotStyle = {
+  width: 6, height: 6,
+  background: "var(--rr-coral-400)",
+  borderRadius: "50%",
+  animation: "rr-pulse 1.6s ease-in-out infinite",
+};
 
 export default function RankBarHero({
-  rank = 88,
-  delta = 14,
-  totalStudents = 12481,
-  percentile = 71.8,
+  rank,
+  delta = 0,
+  totalStudents = 0,
+  percentile = 0,
   topRank = 1,
   bottomRank,
-  history = DEFAULT_HISTORY,
-  subline = "JEE Main · Class 12",
+  history = [],
+  subline = "",
+  loading = false,
+  ranked = true,
 }) {
+  // Unranked / loading state — show the same dark surface but with a
+  // contextual placeholder rather than a fabricated #88.
+  if (loading || !ranked || rank == null) {
+    return (
+      <div style={cardStyle}>
+        <div style={glowStyle} />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={eyebrowStyle}>
+            <span style={liveDotWrap}>
+              <span style={liveDotStyle} />
+              {loading ? "Loading" : "Unranked"}
+            </span>
+            <span>{subline || "Your class cohort"}</span>
+          </div>
+          {loading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#9D9DA6", fontSize: 14 }}>
+              <Loader2 size={18} className="lb-spin" /> Loading your rank…
+            </div>
+          ) : (
+            <>
+              <h2 style={{ fontFamily: "var(--rr-font-display)", fontWeight: 600, fontSize: 26, letterSpacing: "-0.02em", margin: "4px 0 8px", color: "#FAFAF7" }}>
+                You're not on the board yet.
+              </h2>
+              <p style={{ color: "#9D9DA6", fontSize: 14, margin: 0, maxWidth: 480, lineHeight: 1.5 }}>
+                Finish a rank-rewarding quiz and you'll show up on your class cohort leaderboard within minutes.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const bot = bottomRank ?? totalStudents;
   // Map rank → 0–1 progress. Better rank (smaller number) = further right.
   const progress = Math.min(0.96, Math.max(0.04, 1 - (rank - topRank) / (bot - topRank)));
@@ -49,8 +115,10 @@ export default function RankBarHero({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        background: "var(--rr-ink-900)",
-        color: "var(--rr-paper)",
+        // Always-dark surface — hardcoded so the --rr-ink-900 ↔ --rr-paper
+        // flip in dark mode doesn't invert the banner into a white card.
+        background: "#0E0E13",
+        color: "#FAFAF7",
         borderRadius: "var(--rr-r-2xl)",
         padding: "28px 32px",
         position: "relative",
@@ -80,7 +148,7 @@ export default function RankBarHero({
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.14em",
-            color: "var(--rr-ink-300)",
+            color: "#9D9DA6",
             marginBottom: 14,
           }}
         >
@@ -109,7 +177,7 @@ export default function RankBarHero({
               fontSize: 56,
               letterSpacing: "-0.03em",
               lineHeight: 1,
-              color: "var(--rr-paper)",
+              color: "#FAFAF7",
             }}
           >
             #{rank.toLocaleString()}
@@ -138,12 +206,12 @@ export default function RankBarHero({
           )}
         </div>
 
-        <div style={{ fontSize: 13, color: "var(--rr-ink-300)", marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: "#9D9DA6", marginBottom: 20 }}>
           Ahead of{" "}
-          <b style={{ color: "var(--rr-paper)", fontWeight: 600 }}>
+          <b style={{ color: "#FAFAF7", fontWeight: 600 }}>
             {(totalStudents - rank).toLocaleString()} students
           </b>{" "}
-          · <b style={{ color: "var(--rr-paper)", fontWeight: 600 }}>{percentile}%</b> of the field
+          · <b style={{ color: "#FAFAF7", fontWeight: 600 }}>{percentile}%</b> of the field
         </div>
 
         {/* The bar */}
@@ -179,20 +247,20 @@ export default function RankBarHero({
             justifyContent: "space-between",
             fontFamily: "var(--rr-font-mono)",
             fontSize: 10,
-            color: "var(--rr-ink-300)",
+            color: "#9D9DA6",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             marginBottom: 24,
           }}
         >
           <span>
-            <b style={{ color: "var(--rr-paper)", fontFamily: "var(--rr-font-display)" }}>
+            <b style={{ color: "#FAFAF7", fontFamily: "var(--rr-font-display)" }}>
               #{bot.toLocaleString()}
             </b>{" "}
             bottom
           </span>
           <span>
-            <b style={{ color: "var(--rr-paper)", fontFamily: "var(--rr-font-display)" }}>
+            <b style={{ color: "#FAFAF7", fontFamily: "var(--rr-font-display)" }}>
               #{topRank}
             </b>{" "}
             top
@@ -213,7 +281,7 @@ export default function RankBarHero({
                   fontSize: 10,
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "var(--rr-ink-300)",
+                  color: "#9D9DA6",
                 }}
               >
                 <span>{h.when}</span>
@@ -224,7 +292,7 @@ export default function RankBarHero({
                     fontWeight: 700,
                     fontSize: 20,
                     letterSpacing: "-0.02em",
-                    color: i === history.length - 1 ? "var(--rr-lime-400)" : "var(--rr-paper)",
+                    color: i === history.length - 1 ? "var(--rr-lime-400)" : "#FAFAF7",
                   }}
                 >
                   #{h.rank.toLocaleString()}

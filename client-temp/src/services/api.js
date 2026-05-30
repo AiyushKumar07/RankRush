@@ -132,6 +132,14 @@ export const studentAPI = {
   getDashboard: () => api.get('/student/dashboard'),
   getStats: () => api.get('/student/stats'),
   listAvailableQuizzes: (params) => api.get('/student/quizzes', { params }),
+  getQuizFacets: () => api.get('/student/quizzes/facets'),
+  listSavedQuizzes: () => api.get('/student/quizzes/saved'),
+  getQuizHistory: (params) => api.get('/student/quizzes/history', { params }),
+  getTodaysPick: () => api.get('/student/quizzes/todays-pick'),
+  getStreakGarden: (days) => api.get('/student/streak-garden', { params: days ? { days } : undefined }),
+  getTopicAnalytics: (limit) => api.get('/student/topic-analytics', { params: limit ? { limit } : undefined }),
+  saveQuiz: (quizId) => api.post(`/student/quizzes/${quizId}/save`),
+  unsaveQuiz: (quizId) => api.delete(`/student/quizzes/${quizId}/save`),
   getQuiz: (id) => api.get(`/student/quizzes/${id}`),
   startAttempt: (quizId) => api.post(`/student/quizzes/${quizId}/start`),
   submitAttempt: (quizId, data) => api.post(`/student/quizzes/${quizId}/submit`, data),
@@ -144,6 +152,11 @@ export const quizzesAPI = {
   getById: (id) => api.get(`/quizzes/${id}`),
   update: (id, data) => api.put(`/quizzes/${id}`, data),
   updateStatus: (id, data) => api.patch(`/quizzes/${id}/status`, data),
+  setRankRewarding: (id, rankRewarding) =>
+    api.patch(`/quizzes/${id}/rank-rewarding`, { rankRewarding }),
+  setWindow: (id, { quizStartsAt, quizEndsAt }) =>
+    api.put(`/quizzes/${id}`, { quizStartsAt, quizEndsAt }),
+  closeLeaderboard: (id) => api.post(`/quizzes/${id}/close-leaderboard`),
   delete: (id) => api.delete(`/quizzes/${id}`),
 };
 
@@ -174,6 +187,31 @@ export const analyticsAPI = {
 export const tokensAPI = {
   getBalance: () => api.get('/tokens/balance'),
   getReferrals: () => api.get('/tokens/referrals'),
+};
+
+// Phase-3 activity feed + stat strip. Replaces studentAPI.getActivity for
+// the new ActivityPage; the old endpoint stays until the migration is done.
+export const activityAPI = {
+  getFeed: (params) => api.get('/activity/feed', { params }),
+  getCounts: (params) => api.get('/activity/feed/counts', { params }),
+  getStats: (params) => api.get('/activity/stats', { params }),
+  getRankHistory: (params) => api.get('/activity/rank-history', { params }),
+  getSubjectAccuracy: (params) => api.get('/activity/subject-accuracy', { params }),
+  getHeatmap: (params) => api.get('/activity/heatmap', { params }),
+  // CSV — return raw axios response so we can pull the Blob without the
+  // global interceptor unwrapping `response.data` (which would discard
+  // the Content-Disposition header we need for the filename).
+  exportCsvUrl: (params) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return `/activity/export.csv${qs ? `?${qs}` : ''}`;
+  },
+};
+
+// Phase-4 leaderboards.
+export const leaderboardsAPI = {
+  listForUser: () => api.get('/leaderboards'),
+  getScope: (kind, key, params) => api.get(`/leaderboards/${encodeURIComponent(kind)}/${encodeURIComponent(key)}`, { params }),
+  getMe: (kind, key) => api.get(`/leaderboards/${encodeURIComponent(kind)}/${encodeURIComponent(key)}/me`),
 };
 
 export const paymentsAPI = {

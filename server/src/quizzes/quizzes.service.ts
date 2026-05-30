@@ -7,6 +7,8 @@ import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { RankingService } from '../ranking/ranking.service.js';
+import { QuizLifecycleService } from '../ranking/quiz-lifecycle.service.js';
 import {
   CreateQuizDto,
   UpdateQuizDto,
@@ -19,6 +21,8 @@ export class QuizzesService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private ranking: RankingService,
+    private lifecycle: QuizLifecycleService,
   ) {}
 
   async create(dto: CreateQuizDto, userId: string, req: any) {
@@ -173,6 +177,14 @@ export class QuizzesService {
 
     const updateData: any = { ...dto };
 
+    // Contest-window fields arrive as ISO strings; Prisma needs Dates.
+    if (typeof updateData.quizStartsAt === 'string') {
+      updateData.quizStartsAt = new Date(updateData.quizStartsAt);
+    }
+    if (typeof updateData.quizEndsAt === 'string') {
+      updateData.quizEndsAt = new Date(updateData.quizEndsAt);
+    }
+
     // Recalculate totals if questions changed
     if (dto.questions) {
       const questionDbIds = dto.questions.map((q) => q.questionId);
@@ -212,6 +224,71 @@ export class QuizzesService {
 
     return {
       message: 'Quiz updated',
+      data: { quiz: { ...updated, _id: updated.id } },
+    };
+  }
+
+  // Admin override — close a quiz immediately regardless of its
+  // quizEndsAt. Idempotent; safe to spam.
+  async closeQuizNow(id: string, userId: string, req: any) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id },
+      select: { id: true, quizId: true, title: true, isClosed: true },
+    });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+
+    await this.lifecycle.closeQuiz(id, 'manual');
+
+    await this.audit.log({
+      action: 'STATUS_CHANGE',
+      entityType: 'Quiz',
+      entityId: quiz.quizId,
+      performedBy: userId,
+      previousState: { isClosed: quiz.isClosed },
+      newState: { isClosed: true, closedAt: new Date(), reason: 'manual' },
+      req,
+    });
+
+    return {
+      message: `Quiz "${quiz.title}" leaderboard closed`,
+      data: { quizId: id },
+    };
+  }
+
+  async updateRankRewarding(
+    id: string,
+    rankRewarding: boolean,
+    userId: string,
+    req: any,
+  ) {
+    const quiz = await this.prisma.quiz.findUnique({ where: { id } });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+
+    const updated = await this.prisma.quiz.update({
+      where: { id },
+      data: { rankRewarding },
+    });
+
+    // When flipping ON, eagerly create the per-quiz scope so the
+    // leaderboard surface is live even before the first completion.
+    // The ranking projector also calls ensureQuizScope on every
+    // QUIZ_COMPLETED, so this is belt-and-suspenders idempotency.
+    if (rankRewarding) {
+      await this.ranking.ensureQuizScope(quiz.id, quiz.title);
+    }
+
+    await this.audit.log({
+      action: 'UPDATE',
+      entityType: 'Quiz',
+      entityId: quiz.quizId,
+      performedBy: userId,
+      previousState: { rankRewarding: quiz.rankRewarding },
+      newState: { rankRewarding },
+      req,
+    });
+
+    return {
+      message: `Quiz ${rankRewarding ? 'marked as' : 'removed from'} rank-rewarding`,
       data: { quiz: { ...updated, _id: updated.id } },
     };
   }
