@@ -146,6 +146,15 @@ export const studentAPI = {
   submitAttempt: (quizId, data) => api.post(`/student/quizzes/${quizId}/submit`, data),
   getQuizResult: (quizId) => api.get(`/student/quizzes/${quizId}/result`),
   revealQuizAnswers: (quizId) => api.post(`/student/quizzes/${quizId}/reveal-answers`),
+  // Proctoring evidence (multipart). FormData carries the file + metadata
+  // (kind, sequence, linkedViolationType, linkedViolationTimestamp,
+  // capturedAt). Returns the persisted Cloudinary URL + record id.
+  uploadEvidence: (quizId, formData) =>
+    api.post(`/student/quizzes/${quizId}/evidence`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  getAttemptEvidence: (attemptId) =>
+    api.get(`/student/attempts/${attemptId}/evidence`),
   getActivity: (params) => api.get('/student/activity', { params }),
 };
 

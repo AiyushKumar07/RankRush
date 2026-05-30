@@ -8,6 +8,7 @@ import {
   LandingPage,
   LoginPage,
   SignupPage,
+  ForgotPasswordPage,
   AdminLoginPage,
   DashboardPage,
   QuizzesPage,
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
         <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
+        <Route path="/forgot-password" element={<RedirectIfAuth><ForgotPasswordPage /></RedirectIfAuth>} />
         <Route path="/admin/login" element={<RedirectIfAuth><AdminLoginPage /></RedirectIfAuth>} />
 
         {/* Student — wrapped in StudentLayout */}

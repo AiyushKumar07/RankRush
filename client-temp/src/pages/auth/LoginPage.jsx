@@ -106,7 +106,7 @@ export default function LoginPage() {
         </div>
 
         <div className="form-field">
-          <label>Password <a href="/forgot-password">Forgot?</a></label>
+          <label>Password <Link to="/forgot-password">Forgot?</Link></label>
           <div className="input-shell">
             <Lock size={16} className="left" />
             <input

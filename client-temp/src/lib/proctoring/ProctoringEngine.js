@@ -14,8 +14,12 @@
  *     uses this for toasts.
  *   - onStrike({ type, message, totalStrikes, limit }) — fired when an
  *     observation adds to the strike counter (the UI shows X-of-N).
- *   - onDisqualify({ reason, violations }) — fired once when totalStrikes
- *     >= DISQUALIFY_AT. Engine auto-stops after this fires.
+ *   - onForceSubmit({ reason, message, violations }) — fired once when
+ *     the attempt should terminate: either totalStrikes >= DISQUALIFY_AT,
+ *     fullscreen was exited, or any other terminal monitor tripped. The
+ *     page is expected to submit cleanly with the answers gathered so
+ *     far — we explicitly do NOT disqualify the candidate. Engine
+ *     auto-stops after this fires.
  *
  * Why a class and not just hooks: detection runs on a wall-clock interval
  * and the listeners (visibility/blur/fullscreen) need imperative refs to
@@ -28,10 +32,27 @@ import { VIOLATION_RULES, DISQUALIFY_AT, FACE_DETECTION } from './rules.js';
 const noop = () => {};
 
 export class ProctoringEngine {
-  constructor({ onEvent = noop, onStrike = noop, onDisqualify = noop } = {}) {
+  constructor({
+    onEvent = noop,
+    onStrike = noop,
+    onFaceState = noop,
+    onForceSubmit = noop,
+  } = {}) {
     this._onEvent = onEvent;
     this._onStrike = onStrike;
-    this._onDisqualify = onDisqualify;
+    // Single terminal channel for ANY event that should end the attempt
+    // (strike limit reached, fullscreen exited, camera stopped, etc.).
+    // The candidate is never marked as failed — the page is expected to
+    // submit cleanly with the answers gathered so far.
+    this._onForceSubmit = onForceSubmit;
+    // Per-probe status callback — receives one of:
+    //   'ok'      — exactly one face, sufficient confidence + area
+    //   'partial' — exactly one face but too small / low confidence
+    //   'missing' — no face visible
+    //   'multi'   — more than one face in frame
+    // Used by the UI to render a positive alignment indicator. NOT a
+    // violation channel — fires on every probe regardless of cooldown.
+    this._onFaceState = onFaceState;
 
     this._video = null;
     this._stream = null;
@@ -193,12 +214,18 @@ export class ProctoringEngine {
       });
 
       if (this._totalStrikes >= DISQUALIFY_AT) {
-        this._disqualified = true;
-        this._onDisqualify({
-          reason: type,
-          message,
-          violations: this._violations.slice(),
-        });
+        // Strike-limit reached. We treat this as a clean auto-submit, NOT
+        // a disqualification — the candidate's answers should still count.
+        // Same channel as fullscreen-exit so the page only has one
+        // terminal callback to handle.
+        this._disqualified = true; // internal latch — prevents re-fire
+        try {
+          this._onForceSubmit({
+            reason: type,
+            message: `Auto-submitting attempt: ${message}`,
+            violations: this._violations.slice(),
+          });
+        } catch { /* swallow — page handler shouldn't kill the engine */ }
         this.stop();
       }
     }
@@ -221,6 +248,18 @@ export class ProctoringEngine {
     if (!result) return;
 
     const { count, faces } = result;
+    // Compute the live face-state and fire the indicator first — this is
+    // independent of the violation-strike logic below.
+    let faceState = 'missing';
+    if (count > 1) faceState = 'multi';
+    else if (count === 1) {
+      const f0 = faces[0];
+      const okScore = f0?.score >= FACE_DETECTION.MIN_FACE_PROBABILITY;
+      const okSize = (f0?.areaRatio || 0) >= 0.02;
+      faceState = okScore && okSize ? 'ok' : 'partial';
+    }
+    try { this._onFaceState(faceState); } catch { /* ignore */ }
+
     if (count === 0) {
       // No face at all in frame.
       this._noFaceFrames += 1;
@@ -286,9 +325,43 @@ export class ProctoringEngine {
     this.report('WINDOW_BLUR', 'Quiz window lost focus.');
   }
   _onFullscreenChange() {
-    if (!document.fullscreenElement) {
-      this.report('FULLSCREEN_EXIT', 'Quiz exited full-screen mode.');
-    }
+    if (document.fullscreenElement) return;
+    if (!this._running || this._disqualified) return;
+    // Fullscreen-exit is a HARD STOP but NOT a disqualification — the
+    // user's existing answers should still count. We:
+    //   1. Record the event in the audit trail so admins can see why
+    //      the attempt ended early.
+    //   2. Emit a warn-level event so the UI can flash a toast.
+    //   3. Fire onForceSubmit so the page submits with no DQ flag.
+    //   4. Stop the engine so we don't double-fire other monitors.
+    const timestamp = new Date().toISOString();
+    const record = {
+      type: 'FULLSCREEN_EXIT',
+      severity: 'warn',
+      message: 'Quiz exited full-screen — auto-submitting attempt.',
+      timestamp,
+      details: '',
+      count: 1,
+    };
+    this._violations.push(record);
+    this._emit({
+      type: 'FULLSCREEN_EXIT',
+      severity: 'warn',
+      message: record.message,
+      count: 1,
+      totalStrikes: this._totalStrikes,
+    });
+    // Use the same _disqualified latch to make this one-shot — re-entering
+    // fullscreen and exiting again shouldn't trigger a second submit.
+    this._disqualified = true;
+    try {
+      this._onForceSubmit({
+        reason: 'FULLSCREEN_EXIT',
+        message: record.message,
+        violations: this._violations.slice(),
+      });
+    } catch { /* swallow — page handler shouldn't kill the engine */ }
+    this.stop();
   }
   _onCopy(e) {
     e.preventDefault();

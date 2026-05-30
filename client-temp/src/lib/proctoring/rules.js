@@ -5,16 +5,20 @@
  * Strike model
  * ────────────
  * Each violation type contributes a `weight` to a running strike counter.
- * When the counter reaches DISQUALIFY_AT, the attempt is auto-submitted
- * with isProctoringFailure=true. A "warning" event surfaces a UI toast/banner
- * but doesn't add a strike — it's the candidate's chance to self-correct
- * (e.g. lean back into frame, return from a tab) before the next probe.
+ * When the counter reaches DISQUALIFY_AT the attempt is **auto-submitted**
+ * — the candidate's answers still count and the score is computed normally,
+ * isProctoringFailure stays false. The constant is kept named DISQUALIFY_AT
+ * for historical reasons; treat it as the "auto-submit threshold." A
+ * "warning" event surfaces a UI toast/banner but doesn't add a strike —
+ * it's the candidate's chance to self-correct (lean back into frame,
+ * return from a tab) before the next probe.
  *
  * Tuning rationale
  * ────────────────
  * - Face-absent: lenient. We tolerate ~10s of full absence and a warning at
  *   ~6s. Real candidates fidget, look at notes on the desk, sneeze. Three
- *   absences across the attempt = disqualify.
+ *   absences across the attempt = auto-submit (NOT disqualification — the
+ *   candidate's answers still count; we just close the attempt early).
  * - Multiple faces: STRICT. A second face in frame is rarely accidental.
  *   ~4.5s sustained → instant strike of 2 (only one more strike to DQ).
  * - Tab/window switch: STRICT but graded. First switch warns, repeats
@@ -31,24 +35,26 @@ export const DISQUALIFY_AT = 3;
 export const VIOLATION_RULES = {
   NO_FACE_DETECTED: {
     label: 'Face not visible',
-    severity: 'warn',     // surfaces but doesn't strike on first hit
-    weight: 1,            // when it does strike, counts as one
+    severity: 'warn',     // first hit is a soft warn — they can lean back in
+    weight: 1,
     repeatable: true,
-    cooldownMs: 8000,
+    cooldownMs: 5000,     // re-fire as soon as 5s — keeps strikes accumulating
+    escalateAfter: 1,     // first warns, every subsequent absence is a strike
   },
   PARTIAL_FACE: {
     label: 'Face partially out of frame',
     severity: 'warn',
     weight: 1,
     repeatable: true,
-    cooldownMs: 10000,
+    cooldownMs: 8000,
+    escalateAfter: 2,     // 2 free passes, then strikes (face-too-small is noisy)
   },
   MULTIPLE_FACES: {
     label: 'More than one person detected',
     severity: 'strike',
     weight: 2,            // two of these = DQ
     repeatable: true,
-    cooldownMs: 6000,
+    cooldownMs: 5000,
   },
   TAB_SWITCH: {
     label: 'Switched away from the quiz tab',
@@ -56,7 +62,7 @@ export const VIOLATION_RULES = {
     weight: 1,
     repeatable: true,
     cooldownMs: 1000,
-    escalateAfter: 2,     // after 2 tab-switch warnings, every subsequent one is a strike
+    escalateAfter: 1,     // first warn (free), every subsequent switch is a strike
   },
   WINDOW_BLUR: {
     label: 'Quiz window lost focus',
@@ -64,15 +70,18 @@ export const VIOLATION_RULES = {
     weight: 1,
     repeatable: true,
     cooldownMs: 2000,
-    escalateAfter: 3,     // OS notifications often steal focus; more forgiving
+    escalateAfter: 2,     // 2 free passes — OS notifications often steal focus
   },
   FULLSCREEN_EXIT: {
-    label: 'Exited full-screen mode',
+    // Special-cased: the engine routes this to onForceSubmit (clean
+    // auto-submit) rather than the strike path. We keep an entry in
+    // the rule table so the violation still serialises with a label
+    // when it's recorded in the audit trail.
+    label: 'Exited full-screen mode — attempt auto-submitted',
     severity: 'warn',
-    weight: 1,
-    repeatable: true,
-    cooldownMs: 1000,
-    escalateAfter: 1,     // first one warns, second one is a strike
+    weight: 0,
+    repeatable: false,
+    cooldownMs: 0,
   },
   DEVTOOLS_OPENED: {
     label: 'Developer tools detected',
@@ -116,9 +125,9 @@ export const VIOLATION_RULES = {
 // generously).
 export const FACE_DETECTION = {
   PROBE_MS: 1500,
-  WARN_FRAMES: 4,       // ~6s missing → first toast
-  STRIKE_FRAMES: 7,     // ~10.5s missing → strike (1 of 3)
-  MULTI_FACE_FRAMES: 3, // ~4.5s with 2+ faces → multi-face violation
+  WARN_FRAMES: 2,       // ~3s missing → first toast (was 4.5s, too lenient)
+  STRIKE_FRAMES: 4,     // ~6s missing → re-fire (counted as strike via escalateAfter:1)
+  MULTI_FACE_FRAMES: 2, // ~3s with 2+ faces → multi-face violation
   PARTIAL_AREA_RATIO: 0.6, // face bbox must cover ≥60% of its detected area
   MIN_FACE_PROBABILITY: 0.5,
 };

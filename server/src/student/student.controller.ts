@@ -7,7 +7,11 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { StudentService } from './student.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -155,6 +159,40 @@ export class StudentController {
     @Param('id') quizId: string,
   ) {
     return this.studentService.revealAttemptAnswers(userId, quizId);
+  }
+
+  // Proctoring evidence upload (multipart). Hybrid capture strategy:
+  // heartbeat snapshots every 30s + a 3-frame burst on each strike +
+  // an exit frame at submit. Bounded by EVIDENCE_LIMITS in the service
+  // so a misbehaving / hostile client can't fill our quota.
+  @Post('quizzes/:id/evidence')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  uploadEvidence(
+    @CurrentUser('id') userId: string,
+    @Param('id') quizId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: {
+      kind?: string;
+      linkedViolationType?: string;
+      linkedViolationTimestamp?: string;
+      sequence?: string;
+      capturedAt?: string;
+    },
+  ) {
+    if (!file) throw new BadRequestException('No evidence file uploaded');
+    return this.studentService.uploadEvidence(userId, quizId, file, body);
+  }
+
+  // Reads every evidence asset captured for one of the caller's attempts.
+  // Grouped + ordered server-side so the UI can drop it straight into a
+  // timeline. Used by the student's own result-review page; admin/auditor
+  // access would route through a separate controller with broader perms.
+  @Get('attempts/:attemptId/evidence')
+  listAttemptEvidence(
+    @CurrentUser('id') userId: string,
+    @Param('attemptId') attemptId: string,
+  ) {
+    return this.studentService.listAttemptEvidence(userId, attemptId);
   }
 
   @Get('activity')

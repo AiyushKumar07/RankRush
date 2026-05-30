@@ -70,6 +70,11 @@ export default function QuizSessionPage() {
   const [flaggedIds, setFlaggedIds] = useState(new Set());
   const [currentQ, setCurrentQ] = useState(0);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  // Auto-submit explainer modal. Populated when proctoring's terminal
+  // callback fires (strike limit reached or fullscreen exit). The modal
+  // shows the reason for ~2.5s so the candidate can read it, then the
+  // actual submit fires. Set to null when there's nothing to show.
+  const [forceSubmitInfo, setForceSubmitInfo] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
 
   const startedAtRef = useRef(null);
@@ -77,10 +82,35 @@ export default function QuizSessionPage() {
   const submittedRef = useRef(false);
 
   // Floating webcam preview (proctoring indicator).
+  //   webcamRef       — ALWAYS-mounted off-screen <video>, owned by the
+  //                     proctoring engine for detection. Never unmounts,
+  //                     so hiding the preview tile doesn't blind the proctor.
+  //   previewVideoRef — visible preview <video> that mounts/unmounts with
+  //                     the floating tile. Decorative only.
   const webcamRef = useRef(null);
+  const previewVideoRef = useRef(null);
   const webcamStreamRef = useRef(null);
   const [webcamState, setWebcamState] = useState("idle"); // idle | live | denied
   const [webcamHidden, setWebcamHidden] = useState(false);
+
+  // Track fullscreen state so we can prompt the user to re-enter — the
+  // initial request happens during the user gesture on the instructions
+  // page, but if they Esc out we need a click handler to re-enter (the
+  // browser refuses requestFullscreen() outside a user gesture).
+  const [isFullscreen, setIsFullscreen] = useState(
+    typeof document !== "undefined" && !!document.fullscreenElement,
+  );
+  useEffect(() => {
+    const sync = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", sync);
+    sync();
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const reEnterFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (!el.requestFullscreen) return;
+    el.requestFullscreen().catch(() => { /* swallow — browser policy */ });
+  }, []);
 
   // ── Bootstrap: start an attempt (or resume) + load the quiz ───────
   useEffect(() => {
@@ -152,7 +182,12 @@ export default function QuizSessionPage() {
           return;
         }
         webcamStreamRef.current = stream;
+        // Bind the same stream to BOTH the always-on detection video
+        // (used by the proctoring engine) and the preview tile if it's
+        // currently mounted. A single MediaStream can drive multiple
+        // <video> elements without extra GPU cost at 240×180.
         if (webcamRef.current) webcamRef.current.srcObject = stream;
+        if (previewVideoRef.current) previewVideoRef.current.srcObject = stream;
         setWebcamState("live");
       } catch {
         if (!cancelled) setWebcamState("denied");
@@ -168,10 +203,11 @@ export default function QuizSessionPage() {
     };
   }, [quiz]);
 
-  // Reattach stream if the user toggles the webcam tile visibility.
+  // Re-attach the stream to the preview <video> whenever the tile is
+  // re-shown (it unmounts when hidden, so the ref resets to null).
   useEffect(() => {
-    if (!webcamHidden && webcamRef.current && webcamStreamRef.current) {
-      webcamRef.current.srcObject = webcamStreamRef.current;
+    if (!webcamHidden && previewVideoRef.current && webcamStreamRef.current) {
+      previewVideoRef.current.srcObject = webcamStreamRef.current;
     }
   }, [webcamHidden, webcamState]);
 
@@ -182,29 +218,57 @@ export default function QuizSessionPage() {
   const submitRef = useRef(null);
   const proctoring = useProctoring({
     enabled: !!quiz,
-    onDisqualify: ({ violations, message }) => {
-      if (submitRef.current) {
-        submitRef.current({
-          isProctoringFailure: true,
-          proctoringViolations: violations.map((v) => ({
-            type: v.type,
-            timestamp: v.timestamp || new Date().toISOString(),
-            details: v.message || message || v.type,
-          })),
-        });
-      }
+    quizId,
+    // Single terminal path — fires for strike-limit reached AND for
+    // fullscreen exit. We NEVER disqualify the candidate: the attempt
+    // is submitted cleanly with whatever answers they have so far, the
+    // failure flag stays off, and the score is computed normally. The
+    // violations array still ships so an admin can see *why* the
+    // attempt ended early on the audit timeline.
+    onForceSubmit: ({ reason, violations, message }) => {
+      if (!submitRef.current) return;
+      const headline =
+        reason === 'FULLSCREEN_EXIT'
+          ? 'Full-screen exited'
+          : 'Proctoring limit reached';
+      const body =
+        message ||
+        (reason === 'FULLSCREEN_EXIT'
+          ? 'You exited full-screen, which ends the attempt early. We are submitting the answers you have right now.'
+          : 'The proctoring strike limit was reached. We are submitting the answers you have right now.');
+      // Show the modal first so the candidate sees WHY this is happening,
+      // then submit after a short read-time. The actual submit call still
+      // runs asynchronously; the modal stays mounted until the page
+      // navigates to the result screen.
+      setForceSubmitInfo({ reason, headline, body });
+      const payload = {
+        isProctoringFailure: false,
+        proctoringViolations: (violations || []).map((v) => ({
+          type: v.type,
+          timestamp: v.timestamp || new Date().toISOString(),
+          details: v.message || v.type,
+        })),
+      };
+      setTimeout(() => {
+        if (submitRef.current) submitRef.current(payload);
+      }, 2500);
     },
   });
 
   // Attach the live webcam stream/video to the engine once both exist,
-  // then kick the monitors off. Strict-mode safe — start() is idempotent.
+  // then kick the monitors off. We depend on `proctoring.controls` (a
+  // memoized handle) rather than the whole `proctoring` object — the
+  // full object is a fresh reference on every render, which would re-
+  // fire this effect every tick and shoot an extra heartbeat frame per
+  // start() call.
+  const proctorControls = proctoring.controls;
   useEffect(() => {
     if (!quiz || webcamState !== "live") return;
-    proctoring.attachVideo(webcamRef.current);
-    proctoring.attachStream(webcamStreamRef.current);
-    proctoring.start();
-    return () => proctoring.stop();
-  }, [quiz, webcamState, proctoring]);
+    proctorControls.attachVideo(webcamRef.current);
+    proctorControls.attachStream(webcamStreamRef.current);
+    proctorControls.start();
+    return () => proctorControls.stop();
+  }, [quiz, webcamState, proctorControls]);
 
   // Request fullscreen as soon as the quiz mounts. We can't force it from
   // JS without a user gesture in some browsers — Begin Quiz on the
@@ -340,6 +404,12 @@ export default function QuizSessionPage() {
       proctoringViolations,
     };
     try {
+      // Snapshot a final "exit" frame before we stop the camera. Caught
+      // by the BE as kind=EXIT and surfaces as the closing photo on the
+      // attempt timeline. Best-effort — failures don't block submit.
+      if (!isProctoringFailure) {
+        try { await proctoring.captureExit(); } catch { /* ignore */ }
+      }
       // Drop fullscreen before navigating away so the result page isn't stuck.
       if (document.fullscreenElement) {
         try { await document.exitFullscreen(); } catch { /* ignore */ }
@@ -356,7 +426,7 @@ export default function QuizSessionPage() {
       setShowSubmitModal(false);
       setLoadError(err?.response?.data?.message || err?.message || "Couldn't submit your attempt");
     }
-  }, [submitting, questions, answers, quizId, navigate, quiz]);
+  }, [submitting, questions, answers, quizId, navigate, quiz, proctoring]);
 
   // Expose the latest submit() to the proctoring onDisqualify callback
   // (which was created above with a forward-reference ref).
@@ -414,8 +484,59 @@ export default function QuizSessionPage() {
 
   const selectedForCurrent = currentId ? answers[currentId] || [] : [];
 
+  // Live face state from the proctoring engine — drives the alignment pill
+  // shown next to the webcam tile.
+  const faceState = proctoring.faceState || "idle";
+  const faceLabel = {
+    ok: "Aligned · face clearly visible",
+    partial: "Re-center · move closer or face the camera",
+    missing: "Face not detected — return to frame",
+    multi: "More than one person detected",
+    idle: "Detecting…",
+  }[faceState];
+  const faceTone = {
+    ok: "ok",
+    partial: "warn",
+    missing: "bad",
+    multi: "bad",
+    idle: "idle",
+  }[faceState];
+
   return (
     <div style={{ background: "var(--rr-bg-alt)", minHeight: "100vh" }}>
+      {/* Fullscreen re-entry banner — visible only when the browser
+          dropped fullscreen (Esc or alt-tab). requestFullscreen() needs
+          a user gesture, so the user must click. */}
+      {!isFullscreen && (
+        <div
+          role="alert"
+          style={{
+            position: "sticky", top: 0, zIndex: 60,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+            padding: "10px 14px",
+            background: "color-mix(in oklab, #E5484D 16%, var(--rr-surface))",
+            borderBottom: "1px solid color-mix(in oklab, #E5484D 40%, var(--rr-border))",
+            color: "var(--rr-fg)", fontSize: 13, fontWeight: 500,
+          }}
+        >
+          <AlertTriangle size={16} style={{ color: "#E5484D" }} />
+          <span>
+            <b>Full-screen required.</b> If you exit, your attempt will be auto-submitted with the answers you have so far — click below to stay in full-screen.
+          </span>
+          <button
+            type="button"
+            onClick={reEnterFullscreen}
+            style={{
+              background: "var(--rr-violet-500)", color: "white",
+              border: 0, borderRadius: 999, padding: "6px 14px",
+              fontWeight: 600, cursor: "pointer", fontSize: 12,
+            }}
+          >
+            Re-enter full-screen
+          </button>
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="qs-top">
         <div className="qs-left">
@@ -630,7 +751,65 @@ export default function QuizSessionPage() {
         </div>
       </Modal>
 
-      {/* Floating webcam tile — proctoring indicator */}
+      {/* Auto-submit explainer modal. Mounts the moment the proctoring
+          engine fires onForceSubmit; not dismissible — the actual submit
+          runs 2.5s after this mounts so the candidate has time to read
+          the reason. Modal stays mounted until the page navigates to the
+          result screen. */}
+      <Modal
+        open={!!forceSubmitInfo}
+        onClose={() => { /* no-op — submission is in progress */ }}
+        title={forceSubmitInfo?.headline || "Auto-submitting your attempt"}
+      >
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, padding: "8px 4px 4px" }}>
+          <div
+            style={{
+              width: 56, height: 56, borderRadius: "50%",
+              background: "color-mix(in oklab, #E5484D 18%, var(--rr-surface))",
+              border: "1px solid color-mix(in oklab, #E5484D 40%, var(--rr-border))",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#E5484D",
+            }}
+          >
+            <AlertTriangle size={26} />
+          </div>
+          <p style={{ margin: 0, textAlign: "center", color: "var(--rr-fg)", fontSize: 14, lineHeight: 1.55, maxWidth: 380 }}>
+            {forceSubmitInfo?.body}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--rr-fg-muted)", fontSize: 12, fontWeight: 500 }}>
+            <Loader2 size={14} className="spin" />
+            <span>Submitting your answers now — please don't close this tab…</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 11, color: "var(--rr-fg-dim)", textAlign: "center", maxWidth: 380 }}>
+            Your answers still count. You'll be taken to your result page in a moment.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Always-mounted off-screen detection video. The proctoring
+          engine attaches to this ref, so hiding the visible tile
+          (below) doesn't kill face detection. 1×1 / opacity 0 / off-
+          screen left so it never paints, but the MediaStream keeps
+          flowing and face-api can pull frames from it. */}
+      <video
+        ref={webcamRef}
+        autoPlay
+        playsInline
+        muted
+        aria-hidden
+        tabIndex={-1}
+        style={{
+          position: "fixed",
+          left: -9999,
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Floating webcam tile — visible preview only. */}
       {webcamHidden ? (
         <button
           type="button"
@@ -648,7 +827,7 @@ export default function QuizSessionPage() {
         <div className={`qs-webcam${webcamState === "denied" ? " denied" : ""}`}>
           <div className="qs-webcam-frame">
             <video
-              ref={webcamRef}
+              ref={previewVideoRef}
               autoPlay
               playsInline
               muted
@@ -671,6 +850,38 @@ export default function QuizSessionPage() {
             )}
             <span className={`qs-webcam-dot ${webcamState === "live" ? "on" : "off"}`} />
           </div>
+          {webcamState === "live" && (
+            <div
+              className={`qs-webcam-align qs-webcam-align-${faceTone}`}
+              role="status"
+              title={faceLabel}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 10px",
+                fontSize: 11, fontWeight: 600,
+                background:
+                  faceTone === "ok" ? "color-mix(in oklab, #5BD06A 18%, transparent)" :
+                  faceTone === "warn" ? "color-mix(in oklab, #E8A53C 22%, transparent)" :
+                  faceTone === "bad" ? "color-mix(in oklab, #E5484D 22%, transparent)" :
+                  "color-mix(in oklab, var(--rr-fg-dim) 20%, transparent)",
+                color:
+                  faceTone === "ok" ? "#3CB553" :
+                  faceTone === "warn" ? "#E8A53C" :
+                  faceTone === "bad" ? "#E5484D" :
+                  "var(--rr-fg-muted)",
+                borderTop: "1px solid var(--rr-border)",
+              }}
+            >
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "currentColor", flexShrink: 0,
+                boxShadow: faceTone === "ok" ? "0 0 6px currentColor" : "none",
+              }} />
+              <span style={{
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{faceLabel}</span>
+            </div>
+          )}
           <div className="qs-webcam-foot">
             <span className="qs-webcam-label">
               {webcamState === "live" ? "Recording" : webcamState === "denied" ? "Blocked" : "Idle"}

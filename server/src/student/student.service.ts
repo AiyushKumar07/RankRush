@@ -6,6 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import {
@@ -17,6 +19,21 @@ import {
 import { TokensService } from '../tokens/tokens.service.js';
 import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import { EventBusService } from '../events/event-bus.service.js';
+
+// Per-attempt rate limits — prevents a misbehaving client from ballooning
+// our Cloudinary quota. Heartbeats fire every 30s, so a 30-minute quiz
+// emits ~60 of them; the burst fires per-strike (3 frames each); audio
+// is rare. Caps below leave plenty of headroom for real attempts but
+// shut off the obvious abuse path.
+const EVIDENCE_LIMITS: Record<string, number> = {
+  HEARTBEAT: 200,
+  BURST: 120,
+  AUDIO: 40,
+  EXIT: 4,
+};
+
+const EVIDENCE_KINDS = ['HEARTBEAT', 'BURST', 'AUDIO', 'EXIT'] as const;
+type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
 
 // ── Gamification constants (simple formula) ──────────────────────
 const XP_PER_CORRECT = 10;
@@ -1252,6 +1269,133 @@ export class StudentService {
       });
     }
     return { data: await this.buildAttemptResult(attempt.id) };
+  }
+
+  // ── Proctoring evidence upload (hybrid strategy) ─────────────────
+  // Accepts a single capture (frame or audio clip), uploads to Cloudinary,
+  // and indexes it under the latest in-progress / freshly-submitted
+  // attempt for this user+quiz. The lookup is intentionally permissive so
+  // a strike-triggered burst that fires concurrently with submit doesn't
+  // get rejected by a race with the status flip.
+  async uploadEvidence(
+    userId: string,
+    quizId: string,
+    file: Express.Multer.File,
+    body: {
+      kind?: string;
+      linkedViolationType?: string;
+      linkedViolationTimestamp?: string;
+      sequence?: string;
+      capturedAt?: string;
+    },
+  ) {
+    const kind = (body.kind || '').toUpperCase() as EvidenceKind;
+    if (!EVIDENCE_KINDS.includes(kind)) {
+      throw new BadRequestException(`Unknown evidence kind: ${body.kind}`);
+    }
+
+    // Bind to the most recent attempt — IN_PROGRESS preferred, otherwise
+    // the latest COMPLETED/FAILED_PROCTORING (allows late-arriving burst
+    // uploads after auto-submit on DQ).
+    const attempt = await this.prisma.quizAttempt.findFirst({
+      where: {
+        studentId: userId,
+        quizId,
+        status: { in: ['IN_PROGRESS', 'COMPLETED', 'FAILED_PROCTORING'] },
+      },
+      orderBy: [{ status: 'asc' }, { startedAt: 'desc' }],
+    });
+    if (!attempt) {
+      throw new NotFoundException('No attempt found for this quiz to attach evidence to');
+    }
+
+    // Per-attempt rate limit — silent 200 (we don't want to break the
+    // client's collection loop if it overshoots; the audit is just bounded).
+    const existingCount = await this.prisma.quizAttemptEvidence.count({
+      where: { attemptId: attempt.id, kind },
+    });
+    const limit = EVIDENCE_LIMITS[kind] ?? 50;
+    if (existingCount >= limit) {
+      return { data: { skipped: true, reason: 'rate_limit', kind, limit } };
+    }
+
+    const isAudio = kind === 'AUDIO' || (file.mimetype || '').startsWith('audio/');
+    const resourceType = isAudio ? 'video' : 'image'; // Cloudinary lumps audio under 'video'
+    const folder = `rankrush/evidence/${attempt.id}`;
+
+    const upload = await new Promise<{ url: string; key: string } | null>(
+      (resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder, resource_type: resourceType, access_mode: 'authenticated' },
+          (err, result) => {
+            if (err) return reject(err);
+            if (!result) return resolve(null);
+            resolve({ url: result.secure_url, key: result.public_id });
+          },
+        );
+        Readable.from(file.buffer).pipe(stream);
+      },
+    ).catch((err) => {
+      this.logger.error(`Evidence upload failed for attempt ${attempt.id}: ${err.message}`);
+      throw new BadRequestException(`Evidence upload failed: ${err.message}`);
+    });
+    if (!upload) throw new BadRequestException('Evidence upload returned no result');
+
+    const record = await this.prisma.quizAttemptEvidence.create({
+      data: {
+        attemptId: attempt.id,
+        studentId: userId,
+        kind,
+        mimeType: file.mimetype || (isAudio ? 'audio/webm' : 'image/jpeg'),
+        url: upload.url,
+        storageKey: upload.key,
+        linkedViolationType: body.linkedViolationType || null,
+        linkedViolationTimestamp: body.linkedViolationTimestamp
+          ? new Date(body.linkedViolationTimestamp)
+          : null,
+        sequence: body.sequence ? parseInt(body.sequence, 10) || null : null,
+        capturedAt: body.capturedAt ? new Date(body.capturedAt) : new Date(),
+      },
+    });
+
+    return {
+      data: {
+        id: record.id,
+        url: record.url,
+        kind: record.kind,
+        capturedAt: record.capturedAt,
+      },
+    };
+  }
+
+  // Auditor / admin read: returns every piece of evidence linked to the
+  // attempt, in capture order, grouped by kind so a reviewer can land on
+  // the burst that matters without scrolling through 60 heartbeats.
+  async listAttemptEvidence(userId: string, attemptId: string) {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      select: { id: true, studentId: true, quizId: true, quizTitle: true, status: true },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    // Students can only read their own evidence; admin endpoints would
+    // route through a separate controller (skipped that wiring for now).
+    if (attempt.studentId !== userId) {
+      throw new NotFoundException('Attempt not found');
+    }
+    const evidence = await this.prisma.quizAttemptEvidence.findMany({
+      where: { attemptId },
+      orderBy: { capturedAt: 'asc' },
+    });
+    return {
+      data: {
+        attempt,
+        evidence,
+        counts: evidence.reduce<Record<string, number>>((acc, e) => {
+          acc[e.kind] = (acc[e.kind] || 0) + 1;
+          return acc;
+        }, {}),
+      },
+    };
   }
 
   // Hydrates a single attempt into the full result-page payload — score,

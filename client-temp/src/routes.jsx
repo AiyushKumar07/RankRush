@@ -3,6 +3,7 @@ import { lazy } from 'react'
 const LandingPage = lazy(() => import('./pages/marketing/LandingPage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const SignupPage = lazy(() => import('./pages/auth/SignupPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
 const AdminLoginPage = lazy(() => import('./pages/auth/AdminLoginPage'))
 
 const DashboardPage = lazy(() => import('./pages/student/DashboardPage'))
@@ -30,6 +31,7 @@ export {
   LandingPage,
   LoginPage,
   SignupPage,
+  ForgotPasswordPage,
   AdminLoginPage,
   DashboardPage,
   QuizzesPage,

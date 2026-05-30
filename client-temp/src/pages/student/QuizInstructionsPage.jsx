@@ -27,7 +27,7 @@ const RULES = [
   {
     icon: Maximize2,
     title: "Stay in full-screen",
-    body: "Exiting full-screen or switching tabs is flagged and may invalidate your attempt.",
+    body: "Exiting full-screen (Esc, Alt+Tab) auto-submits your attempt immediately with whatever answers you have at that moment. Tab switches are also tracked.",
   },
   {
     icon: Ban,

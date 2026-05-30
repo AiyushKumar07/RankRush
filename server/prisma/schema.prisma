@@ -585,6 +585,53 @@ model QuizAttempt {
   @@index([status])
 }
 
+// ─── Proctoring evidence ─────────────────────────────────────────────
+// Stores frames + audio clips captured during a proctored attempt.
+// Hybrid capture strategy:
+//   - HEARTBEAT: 1 frame every 30s while the attempt is active.
+//   - BURST:     3 frames at 1s intervals, fired when a strike-severity
+//                violation is reported. Linked back to the violation by
+//                its (type, timestamp) so an auditor can pivot quickly.
+//   - AUDIO:     ~10s rolling audio clip flushed at the same trigger as
+//                BURST. Only shipped on demand — never streamed.
+//   - EXIT:      single frame captured at submit time as the "exit photo".
+// The actual blob lives in Cloudinary; this table is just the index that
+// links a media asset to (attempt, violation).
+model QuizAttemptEvidence {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  attemptId String   @db.ObjectId
+  studentId String   @db.ObjectId
+
+  kind      EvidenceKind
+  mimeType  String
+  url       String     // Cloudinary secure_url
+  storageKey String    // Cloudinary public_id, for deletion + retention jobs
+
+  // Optional link back to the violation that triggered the capture.
+  // (HEARTBEAT and EXIT frames leave these null.)
+  linkedViolationType      String?
+  linkedViolationTimestamp DateTime?
+
+  // Burst sequence index (1, 2, 3) for BURST kinds — lets the UI group
+  // related frames into a single timeline marker.
+  sequence  Int?
+
+  capturedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([attemptId])
+  @@index([attemptId, kind])
+  @@index([studentId, capturedAt])
+}
+
+enum EvidenceKind {
+  HEARTBEAT
+  BURST
+  AUDIO
+  EXIT
+}
+
 // ─── Daily activity rollup ───────────────────────────────────────────
 // One row per (user, UTC day). Aggregates login + quiz activity so we can
 // render the streak garden (last 30–60 days) without scanning every event.
