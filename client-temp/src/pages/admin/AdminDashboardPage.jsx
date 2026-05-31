@@ -25,16 +25,6 @@ const CHART_PERIODS = [
   { label: "90d", days: 90 },
 ];
 
-// Health + Quick actions are operational fixtures, not analytics — kept
-// inline so they don't depend on the overview API.
-const HEALTH = [
-  { label: "API uptime", dot: "ok", val: "99.98%", stat: "OK", statClass: "ok" },
-  { label: "p99 response", dot: "ok", val: "142ms", stat: "OK", statClass: "ok" },
-  { label: "Queue depth", dot: "warn", val: "847 jobs", stat: "Watch", statClass: "warn" },
-  { label: "DB connections", dot: "ok", val: "42 / 100", stat: "OK", statClass: "ok" },
-  { label: "CDN cache hit", dot: "ok", val: "94.2%", stat: "OK", statClass: "ok" },
-];
-
 const QA = [
   { to: "/admin/quizzes", Icon: Plus, title: "New quiz", sub: "Add to library" },
   { to: "/admin/plans", Icon: Crown, title: "Edit plans", sub: "Pricing & tokens" },
@@ -116,6 +106,7 @@ export default function AdminDashboardPage() {
   const [trend, setTrend] = useState(null);
   const [topQuizzes, setTopQuizzes] = useState([]);
   const [feed, setFeed] = useState([]);
+  const [health, setHealth] = useState(null);
 
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [trendLoading, setTrendLoading] = useState(true);
@@ -154,6 +145,18 @@ export default function AdminDashboardPage() {
     adminOverviewAPI.getActivityFeed(12)
       .then((data) => setFeed(unwrap(data)?.rows || []))
       .catch(() => {});
+  }, []);
+
+  // System health re-polls every 30s — uptime and queue depth move in real
+  // time and a stale panel is misleading.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => adminOverviewAPI.getSystemHealth()
+      .then((data) => { if (!cancelled) setHealth(unwrap(data)); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
   }, []);
 
   const kpis = overview?.kpis;
@@ -504,19 +507,35 @@ export default function AdminDashboardPage() {
             <div className="acard-head">
               <div>
                 <h3>System health</h3>
-                <p className="sub">All systems normal</p>
+                <p className="sub">
+                  {health?.overall === "bad" ? "Degraded — investigate"
+                    : health?.overall === "warn" ? "Watch — running hot"
+                    : "All systems normal"}
+                </p>
               </div>
-              <span className="status-pill published">Healthy</span>
+              <span className={`status-pill ${health?.overall === "bad" ? "draft" : health?.overall === "warn" ? "scheduled" : "published"}`}>
+                {health?.overall === "bad" ? "Down"
+                  : health?.overall === "warn" ? "Watch"
+                  : "Healthy"}
+              </span>
             </div>
             <div className="acard-body">
               <div className="health-list">
-                {HEALTH.map((h, i) => (
-                  <div className="health-row" key={i}>
-                    <span className="label"><span className={`dot ${h.dot}`} />{h.label}</span>
-                    <span className="val">{h.val}</span>
-                    <span className={`stat ${h.statClass}`}>{h.stat}</span>
-                  </div>
-                ))}
+                {!health ? (
+                  <p className="sub" style={{ padding: "16px 0", textAlign: "center" }}>Loading…</p>
+                ) : (
+                  health.rows.map((h) => {
+                    const statLabel = h.status === "bad" ? "Down" : h.status === "warn" ? "Watch" : "OK";
+                    const dotClass = h.status === "bad" ? "bad" : h.status === "warn" ? "warn" : "ok";
+                    return (
+                      <div className="health-row" key={h.key}>
+                        <span className="label"><span className={`dot ${dotClass}`} />{h.label}</span>
+                        <span className="val">{h.value}</span>
+                        <span className={`stat ${h.status}`}>{statLabel}</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

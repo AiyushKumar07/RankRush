@@ -184,16 +184,25 @@
   letter-spacing: -0.005em;
 }
 .atable .check {
-  width: 16px; height: 16px;
+  width: 18px; height: 18px;
   border: 1.5px solid var(--rr-border-strong);
   border-radius: 4px;
   cursor: pointer;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  transition: all var(--rr-dur-fast);
+  color: white;
+  /* Hide the check unless .on is applied. */
 }
+.atable .check svg { opacity: 0; transition: opacity var(--rr-dur-fast); }
+.atable .check:hover { border-color: var(--rr-violet-500); }
 .atable .check.on {
   background: var(--rr-violet-500);
   border-color: var(--rr-violet-500);
 }
+.atable .check.on svg { opacity: 1; }
 
 /* Status pills */
 .status-pill {

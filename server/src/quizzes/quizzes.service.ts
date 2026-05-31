@@ -136,6 +136,82 @@ export class QuizzesService {
     };
   }
 
+  // Build a CSV of every quiz matching the filter — used by the admin
+  // "Export" button. Bypasses pagination on purpose; quiz catalogs are
+  // typically under a few thousand rows so an in-memory build is fine.
+  // The caller is expected to be ADMIN (route guarded with quizzes:read).
+  async exportCsv(query: QueryQuizzesDto): Promise<string> {
+    const where: Prisma.QuizWhereInput = {};
+    if (query.status) where.status = query.status as any;
+    if (query.subject) where.subject = query.subject;
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+        { quizId: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const rows = await this.prisma.quiz.findMany({
+      where, orderBy: { createdAt: 'desc' },
+      select: {
+        quizId: true, title: true, subject: true, chapter: true, topic: true,
+        difficulty: true, status: true, totalQuestions: true, totalMarks: true,
+        timeLimitMins: true, negativeMarking: true, shuffleQuestions: true,
+        rankRewarding: true, isClosed: true, quizStartsAt: true, quizEndsAt: true,
+        tags: true, attemptCost: true, createdBy: true,
+        createdAt: true, updatedAt: true,
+      },
+    });
+
+    // Resolve creator names in a single query — beats one-per-row.
+    const creatorIds = Array.from(new Set(rows.map((r) => r.createdBy).filter(Boolean)));
+    const creators = creatorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const creatorById = new Map(creators.map((u) => [u.id, u]));
+
+    const headers = [
+      'Quiz ID', 'Title', 'Subject', 'Chapter', 'Topic', 'Difficulty',
+      'Status', 'Questions', 'Total marks', 'Time limit (min)',
+      'Negative marking', 'Shuffle questions', 'Rank-rewarding', 'Closed',
+      'Contest starts', 'Contest ends', 'Tags', 'Attempt cost',
+      'Created by', 'Created at', 'Updated at',
+    ];
+
+    const lines = [headers.map(csvCell).join(',')];
+    for (const r of rows) {
+      const creator = creatorById.get(r.createdBy);
+      lines.push([
+        r.quizId,
+        r.title,
+        r.subject,
+        r.chapter ?? '',
+        r.topic ?? '',
+        r.difficulty ?? '',
+        r.status,
+        r.totalQuestions,
+        r.totalMarks,
+        r.timeLimitMins,
+        r.negativeMarking ? 'yes' : 'no',
+        r.shuffleQuestions ? 'yes' : 'no',
+        r.rankRewarding ? 'yes' : 'no',
+        r.isClosed ? 'yes' : 'no',
+        r.quizStartsAt ? r.quizStartsAt.toISOString() : '',
+        r.quizEndsAt ? r.quizEndsAt.toISOString() : '',
+        (r.tags || []).join('|'),
+        r.attemptCost ?? 1,
+        creator ? `${creator.name} <${creator.email}>` : r.createdBy,
+        r.createdAt.toISOString(),
+        r.updatedAt.toISOString(),
+      ].map(csvCell).join(','));
+    }
+    return lines.join('\n');
+  }
+
   async findById(id: string) {
     const quiz = await this.prisma.quiz.findUnique({ where: { id } });
     if (!quiz) throw new NotFoundException('Quiz not found');
@@ -340,4 +416,15 @@ export class QuizzesService {
 
     return { message: 'Quiz deleted', data: null };
   }
+}
+
+// RFC 4180-style CSV cell quoting. Wraps in quotes whenever the value
+// contains a comma, quote, newline, or carriage return; doubles any
+// embedded quotes. Plain values pass through unquoted so the file stays
+// human-readable.
+function csvCell(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }

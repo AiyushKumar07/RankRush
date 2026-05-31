@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import * as v8 from 'node:v8';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { QUEUE } from '../events/queue-names.js';
 import {
   PaymentStatus,
   PaymentMode,
@@ -18,7 +22,13 @@ const RECENT_FEED_LIMIT = 20;
 
 @Injectable()
 export class AdminOverviewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue(QUEUE.RANKING_RECOMPUTE) private rankingRecomputeQ: Queue,
+    @InjectQueue(QUEUE.RANKING_SNAPSHOT) private rankingSnapshotQ: Queue,
+    @InjectQueue(QUEUE.BADGE_EVAL) private badgeEvalQ: Queue,
+    @InjectQueue(QUEUE.STATS_ROLLUP) private statsRollupQ: Queue,
+  ) {}
 
   private rangeForPeriod(period: PeriodKey): { start: Date; end: Date; prevStart: Date; prevEnd: Date } {
     const now = new Date();
@@ -370,6 +380,260 @@ export class AdminOverviewService {
       .slice(0, take);
 
     return { data: { rows } };
+  }
+
+  async listTransactions(opts: {
+    page: number;
+    limit: number;
+    status?: PaymentStatus | 'ALL';
+    mode?: PaymentMode | 'ALL';
+    search?: string;
+    from?: string;
+    to?: string;
+  }) {
+    const page = Math.max(1, opts.page || 1);
+    const limit = Math.max(1, Math.min(100, opts.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (opts.status && opts.status !== 'ALL') where.status = opts.status;
+    if (opts.mode && opts.mode !== 'ALL') where.mode = opts.mode;
+
+    const createdAt: Record<string, Date> = {};
+    if (opts.from) {
+      const d = new Date(opts.from);
+      if (!isNaN(d.getTime())) createdAt.gte = d;
+    }
+    if (opts.to) {
+      const d = new Date(opts.to);
+      if (!isNaN(d.getTime())) {
+        // Treat `to` inclusively (end of selected day).
+        d.setHours(23, 59, 59, 999);
+        createdAt.lte = d;
+      }
+    }
+    if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+
+    // Search resolves to user-name/email match — we look up matching userIds
+    // first and add an `in` filter, since PaymentTransaction has no joinable
+    // name fields of its own.
+    const q = opts.search?.trim();
+    if (q) {
+      const matching = await this.prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true }, take: 200,
+      });
+      where.userId = { in: matching.map((u) => u.id) };
+      // Short-circuit: no users matched, no results possible.
+      if (matching.length === 0) {
+        return {
+          data: {
+            rows: [], totals: { gross: 0, net: 0, success: 0, failed: 0, refunded: 0 },
+          },
+          pagination: { page, limit, total: 0, pages: 0 },
+        };
+      }
+    }
+
+    const [rows, total, statusAgg] = await Promise.all([
+      this.prisma.paymentTransaction.findMany({
+        where, orderBy: { createdAt: 'desc' }, skip, take: limit,
+        select: {
+          id: true, amount: true, currency: true, status: true, mode: true,
+          cadence: true, planId: true, redeemCode: true,
+          gatewayPaymentId: true, gatewayOrderId: true,
+          createdAt: true, updatedAt: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      this.prisma.paymentTransaction.count({ where }),
+      this.prisma.paymentTransaction.groupBy({
+        by: ['status'], where, _sum: { amount: true }, _count: { _all: true },
+      }),
+    ]);
+
+    const planIds = Array.from(new Set(rows.map((r) => r.planId).filter(Boolean) as string[]));
+    const plans = planIds.length
+      ? await this.prisma.subscriptionPlan.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+    const out = rows.map((r) => ({
+      id: r.id,
+      amount: r.amount,
+      currency: r.currency,
+      status: r.status,
+      mode: r.mode,
+      cadence: r.cadence,
+      planId: r.planId,
+      planName: r.planId ? planNameById.get(r.planId) ?? 'Unknown plan' : '—',
+      redeemCode: r.redeemCode,
+      gatewayPaymentId: r.gatewayPaymentId,
+      gatewayOrderId: r.gatewayOrderId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      user: r.user,
+    }));
+
+    const totals = {
+      success: 0, failed: 0, refunded: 0, pending: 0,
+      gross: 0, net: 0,
+    };
+    for (const row of statusAgg) {
+      const sum = row._sum.amount ?? 0;
+      const cnt = row._count._all ?? 0;
+      if (row.status === PaymentStatus.SUCCESS) { totals.success = cnt; totals.gross += sum; totals.net += sum; }
+      else if (row.status === PaymentStatus.FAILED) totals.failed = cnt;
+      else if (row.status === PaymentStatus.REFUNDED) { totals.refunded = cnt; totals.net -= sum; }
+      else if (row.status === PaymentStatus.PENDING) totals.pending = cnt;
+    }
+
+    return {
+      data: { rows: out, totals },
+      pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
+    };
+  }
+
+  async getSystemHealth() {
+    const [dbPingMs, queueCounts, inProgressAttempts] = await Promise.all([
+      this.pingDb(),
+      this.collectQueueCounts(),
+      this.prisma.quizAttempt.count({ where: { status: AttemptStatus.IN_PROGRESS } }),
+    ]);
+
+    // V8's `heap_size_limit` is the real ceiling (--max-old-space-size,
+    // ~4 GB by default). `process.memoryUsage().heapTotal` is just the
+    // currently-allocated arena and grows on demand, so used/total always
+    // sits near 90% on a healthy small app — useless as a health signal.
+    const heap = v8.getHeapStatistics();
+    const heapUsedMB = heap.used_heap_size / 1024 / 1024;
+    const heapLimitMB = heap.heap_size_limit / 1024 / 1024;
+    const heapPct = heapLimitMB > 0 ? (heapUsedMB / heapLimitMB) * 100 : 0;
+
+    const queueDepth = queueCounts.reduce((s, q) => s + q.waiting + q.active + q.delayed, 0);
+    const queueFailed = queueCounts.reduce((s, q) => s + q.failed, 0);
+
+    // Status thresholds chosen so the panel goes amber before a user
+    // notices and red only when it's almost certainly already paging.
+    const rows = [
+      {
+        key: 'uptime',
+        label: 'API uptime',
+        value: this.formatUptime(process.uptime()),
+        status: 'ok' as const,
+      },
+      {
+        key: 'db',
+        label: 'DB ping',
+        value: dbPingMs === null ? 'down' : `${dbPingMs}ms`,
+        status: this.classify(dbPingMs, { warn: 150, bad: 500, downIsBad: true }),
+      },
+      {
+        key: 'queue',
+        label: 'Queue depth',
+        value: `${queueDepth.toLocaleString('en-IN')} job${queueDepth === 1 ? '' : 's'}`,
+        status: this.classify(queueDepth, { warn: 500, bad: 5000 }),
+      },
+      {
+        key: 'memory',
+        label: 'Heap memory',
+        value: heapLimitMB >= 1024
+          ? `${heapUsedMB.toFixed(0)} MB / ${(heapLimitMB / 1024).toFixed(1)} GB`
+          : `${heapUsedMB.toFixed(0)} / ${heapLimitMB.toFixed(0)} MB`,
+        status: this.classify(heapPct, { warn: 70, bad: 85 }),
+      },
+      {
+        key: 'attempts',
+        label: 'Attempts in progress',
+        value: `${inProgressAttempts.toLocaleString('en-IN')} live`,
+        status: 'ok' as const,
+      },
+    ];
+
+    const worst = rows.some((r) => r.status === 'bad')
+      ? 'bad'
+      : rows.some((r) => r.status === 'warn')
+        ? 'warn'
+        : 'ok';
+
+    return {
+      data: {
+        overall: worst,
+        rows,
+        queues: queueCounts,
+        meta: {
+          failedJobs: queueFailed,
+          heapUsedMB: +heapUsedMB.toFixed(1),
+          heapLimitMB: +heapLimitMB.toFixed(1),
+          uptimeSec: Math.round(process.uptime()),
+        },
+      },
+    };
+  }
+
+  private async pingDb(): Promise<number | null> {
+    try {
+      const t0 = Date.now();
+      // $runCommandRaw works on MongoDB; the ping result itself is uninteresting.
+      await this.prisma.$runCommandRaw({ ping: 1 });
+      return Date.now() - t0;
+    } catch {
+      return null;
+    }
+  }
+
+  private async collectQueueCounts() {
+    const queues = [
+      { name: QUEUE.RANKING_RECOMPUTE, q: this.rankingRecomputeQ },
+      { name: QUEUE.RANKING_SNAPSHOT, q: this.rankingSnapshotQ },
+      { name: QUEUE.BADGE_EVAL, q: this.badgeEvalQ },
+      { name: QUEUE.STATS_ROLLUP, q: this.statsRollupQ },
+    ];
+    return Promise.all(
+      queues.map(async ({ name, q }) => {
+        try {
+          const c = await q.getJobCounts('waiting', 'active', 'delayed', 'failed');
+          return {
+            name,
+            waiting: c.waiting ?? 0,
+            active: c.active ?? 0,
+            delayed: c.delayed ?? 0,
+            failed: c.failed ?? 0,
+          };
+        } catch {
+          // Redis transient — treat as zero rather than failing the whole panel.
+          return { name, waiting: 0, active: 0, delayed: 0, failed: 0 };
+        }
+      }),
+    );
+  }
+
+  private formatUptime(sec: number): string {
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return `${Math.round(sec)}s`;
+  }
+
+  private classify(
+    value: number | null,
+    opts: { warn: number; bad: number; downIsBad?: boolean },
+  ): 'ok' | 'warn' | 'bad' {
+    if (value === null) return opts.downIsBad ? 'bad' : 'warn';
+    if (value >= opts.bad) return 'bad';
+    if (value >= opts.warn) return 'warn';
+    return 'ok';
   }
 
   private cadenceLabel(c: Cadence | null | undefined): string {

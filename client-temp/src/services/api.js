@@ -188,6 +188,17 @@ export const quizzesAPI = {
     api.put(`/quizzes/${id}`, { quizStartsAt, quizEndsAt }),
   closeLeaderboard: (id) => api.post(`/quizzes/${id}/close-leaderboard`),
   delete: (id) => api.delete(`/quizzes/${id}`),
+  // CSV export — returns the raw axios response (blob + headers) so the
+  // caller can pull the filename out of Content-Disposition. We escape the
+  // global response interceptor (which strips response.data) by going
+  // through a one-off axios get with responseType: 'blob' AND skipping
+  // the interceptor by handing the raw response back via a transform.
+  exportCsv: (params) => api.get('/quizzes/export.csv', {
+    params,
+    responseType: 'blob',
+    // The global interceptor returns response.data — for blob downloads
+    // that's the Blob itself, which is what we want anyway.
+  }),
 };
 
 export const subscriptionPlansAPI = {
@@ -221,6 +232,8 @@ export const adminOverviewAPI = {
   getRevenueTrend: (days) => api.get('/admin/overview/revenue-trend', { params: days ? { days } : undefined }),
   getTopQuizzes: (params) => api.get('/admin/overview/top-quizzes', { params }),
   getActivityFeed: (limit) => api.get('/admin/overview/activity-feed', { params: limit ? { limit } : undefined }),
+  getSystemHealth: () => api.get('/admin/overview/system-health'),
+  listTransactions: (params) => api.get('/admin/overview/transactions', { params }),
 };
 
 export const tokensAPI = {

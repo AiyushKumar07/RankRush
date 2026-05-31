@@ -29,6 +29,7 @@ import {
   AdminQuizzesPage,
   AdminPlansPage,
   AdminCodesPage,
+  AdminTransactionsPage,
 } from './routes'
 
 function Loader() {
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/admin/quizzes" element={<AdminQuizzesPage />} />
           <Route path="/admin/plans" element={<AdminPlansPage />} />
           <Route path="/admin/codes" element={<AdminCodesPage />} />
+          <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

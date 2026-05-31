@@ -9,23 +9,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, BarChart3, Receipt,
+  LayoutDashboard, Receipt,
   BookOpen, List, HelpCircle,
-  Users, Shield,
+  Users,
   Crown, Ticket,
-  UsersRound, Plug, Palette,
-  Search, Bell, Plus, Menu, X, LogOut,
+  Search, Bell, Menu, X, LogOut,
 } from "lucide-react";
 import RRBrand from "../brand/RRBrand";
 import ThemeToggle from "../ui/ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
-import EnvSwitcher, { EnvTag } from "../admin/EnvSwitcher";
+import { EnvTag } from "../admin/EnvSwitcher";
 import "./AdminLayout.css";
 
 const OVERVIEW = [
-  { to: "/admin",         icon: LayoutDashboard, label: "Dashboard", pill: "Live", pillClass: "live" },
-  { icon: BarChart3,      label: "Analytics" },
-  { icon: Receipt,        label: "Transactions" },
+  { to: "/admin",              icon: LayoutDashboard, label: "Dashboard",   pill: "Live", pillClass: "live" },
+  { to: "/admin/transactions", icon: Receipt,         label: "Transactions" },
 ];
 
 const CATALOG = [
@@ -36,18 +34,11 @@ const CATALOG = [
 
 const STUDENTS = [
   { icon: Users,  label: "All students", pill: "12,481" },
-  { icon: Shield, label: "Roles & access" },
 ];
 
 const MONETISATION = [
   { to: "/admin/plans", icon: Crown,  label: "Plans",        pill: "3" },
   { to: "/admin/codes", icon: Ticket, label: "Redeem codes", pill: "8" },
-];
-
-const SETTINGS = [
-  { icon: UsersRound, label: "Team" },
-  { icon: Plug,       label: "Integrations" },
-  { icon: Palette,    label: "Branding" },
 ];
 
 export default function AdminLayout() {
@@ -98,10 +89,6 @@ export default function AdminLayout() {
 
         <SidebarGroup label="Monetisation">
           {MONETISATION.map((item) => <SidebarItem key={item.label} {...item} />)}
-        </SidebarGroup>
-
-        <SidebarGroup label="Settings">
-          {SETTINGS.map((item) => <SidebarItem key={item.label} {...item} />)}
         </SidebarGroup>
 
         <div className="sidebar-footer-wrap">
@@ -185,15 +172,10 @@ function AdminTopbar({ onMenuClick }) {
       </div>
 
       <div className="tb-actions">
-        <EnvSwitcher />
         <ThemeToggle />
         <button className="tb-icon-btn" aria-label="Notifications">
           <Bell size={16} />
           <span className="tb-indicator" />
-        </button>
-        <button className="tb-new-quiz">
-          <Plus size={15} />
-          <span>New quiz</span>
         </button>
       </div>
     </div>

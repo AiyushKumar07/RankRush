@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Upload, Download, Plus, Eye, EyeOff, Archive, Copy, Trash2, X,
+  Download, Plus, Eye, EyeOff, Archive, Copy, Trash2, X,
   Edit, MoreHorizontal, ArrowLeft, ArrowRight, Info, Trophy, Loader2,
-  Calendar, Lock,
+  Calendar, Lock, Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { quizzesAPI } from "../../services/api";
@@ -104,6 +104,10 @@ export default function AdminQuizzesPage() {
   const [togglingId, setTogglingId] = useState(null);
   const [closingId, setClosingId] = useState(null);
   const [windowModal, setWindowModal] = useState(null); // quiz row being edited
+  const [newQuizOpen, setNewQuizOpen] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState(null); // quiz row being edited via NewQuizModal
+  const [bulkBusy, setBulkBusy] = useState(null);       // "publish" | "unpublish" | "archive" | "delete"
+  const [exporting, setExporting] = useState(false);
 
   const params = useMemo(() => {
     const p = { page, limit: 20 };
@@ -187,6 +191,61 @@ export default function AdminQuizzesPage() {
     }
   };
 
+  // Runs an async per-row operation across the current selection, collects
+  // successes/failures, and reloads + reports at the end. Skips zero-selection
+  // calls so the button never fires on an empty set.
+  const runBulk = useCallback(async (kind, fn, opts = {}) => {
+    if (selected.size === 0) return;
+    if (opts.confirm && !confirm(opts.confirm.replace("{n}", selected.size))) return;
+    setBulkBusy(kind);
+    const ids = Array.from(selected);
+    const results = await Promise.allSettled(ids.map((id) => fn(id)));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const ok = results.length - failed;
+    if (ok > 0) toast.success(`${opts.successVerb || "Updated"} ${ok} quiz${ok === 1 ? "" : "zes"}`);
+    if (failed > 0) toast.error(`${failed} ${failed === 1 ? "operation" : "operations"} failed`);
+    setSelected(new Set());
+    setBulkBusy(null);
+    await load();
+  }, [selected, load]);
+
+  const bulkPublish   = () => runBulk("publish",   (id) => quizzesAPI.updateStatus(id, { status: "ACTIVE" }),   { successVerb: "Published" });
+  const bulkUnpublish = () => runBulk("unpublish", (id) => quizzesAPI.updateStatus(id, { status: "DRAFT" }),    { successVerb: "Unpublished" });
+  const bulkArchive   = () => runBulk("archive",   (id) => quizzesAPI.updateStatus(id, { status: "ARCHIVED" }), {
+    successVerb: "Archived",
+    confirm: "Archive {n} quiz(zes)? Students will no longer see them.",
+  });
+  const bulkDelete    = () => runBulk("delete",    (id) => quizzesAPI.delete(id), {
+    successVerb: "Deleted",
+    confirm: "Delete {n} quiz(zes)? This can't be undone.",
+  });
+
+  // CSV download — mirrors the same filter set the table is currently
+  // showing (subject + status; difficulty is client-only so we send
+  // everything matching the server filters and the user filters locally).
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = {};
+      if (subject !== "All") params.subject = subject;
+      if (status !== "All") params.status = status;
+      const blob = await quizzesAPI.exportCsv(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rankrush-quizzes-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Export ready");
+    } catch (err) {
+      toast.error(err?.message || "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const toggleAll = () => {
     if (selected.size === quizzes.length) setSelected(new Set());
     else setSelected(new Set(quizzes.map((q) => q.id)));
@@ -214,9 +273,13 @@ export default function AdminQuizzesPage() {
           </p>
         </div>
         <div className="head-actions">
-          <button className="btn btn-secondary btn-sm" disabled><Upload size={12} />Import CSV</button>
-          <button className="btn btn-secondary btn-sm" disabled><Download size={12} />Export</button>
-          <button className="btn btn-accent btn-sm" disabled><Plus size={12} />New quiz</button>
+          <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 size={12} className="aq-spin" /> : <Download size={12} />}
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+          <button className="btn btn-accent btn-sm" onClick={() => setNewQuizOpen(true)}>
+            <Plus size={12} />New quiz
+          </button>
         </div>
       </div>
 
@@ -252,11 +315,21 @@ export default function AdminQuizzesPage() {
           <span className="count">{selected.size} selected</span>
           <span style={{ opacity: 0.7, fontFamily: "var(--rr-font-mono)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Bulk actions</span>
           <div className="ctrls">
-            <button className="bulk-btn" disabled><Eye size={13} />Publish</button>
-            <button className="bulk-btn" disabled><EyeOff size={13} />Unpublish</button>
-            <button className="bulk-btn" disabled><Archive size={13} />Archive</button>
-            <button className="bulk-btn" disabled><Copy size={13} />Duplicate</button>
-            <button className="bulk-btn danger" disabled><Trash2 size={13} />Delete</button>
+            <button className="bulk-btn" onClick={bulkPublish}   disabled={!!bulkBusy}>
+              {bulkBusy === "publish"   ? <Loader2 size={13} className="aq-spin" /> : <Eye size={13} />}Publish
+            </button>
+            <button className="bulk-btn" onClick={bulkUnpublish} disabled={!!bulkBusy}>
+              {bulkBusy === "unpublish" ? <Loader2 size={13} className="aq-spin" /> : <EyeOff size={13} />}Unpublish
+            </button>
+            <button className="bulk-btn" onClick={bulkArchive}   disabled={!!bulkBusy}>
+              {bulkBusy === "archive"   ? <Loader2 size={13} className="aq-spin" /> : <Archive size={13} />}Archive
+            </button>
+            <button className="bulk-btn" disabled title="Duplicate – backend endpoint not yet built">
+              <Copy size={13} />Duplicate
+            </button>
+            <button className="bulk-btn danger" onClick={bulkDelete} disabled={!!bulkBusy}>
+              {bulkBusy === "delete"    ? <Loader2 size={13} className="aq-spin" /> : <Trash2 size={13} />}Delete
+            </button>
             <button className="bulk-btn" onClick={() => setSelected(new Set())} style={{ marginLeft: 8, border: 0 }}><X size={13} /></button>
           </div>
         </div>
@@ -277,7 +350,9 @@ export default function AdminQuizzesPage() {
             <thead>
               <tr>
                 <th style={{ width: 36, paddingLeft: 22 }}>
-                  <div className={`check${allChecked ? " on" : ""}`} onClick={toggleAll} />
+                  <div className={`check${allChecked ? " on" : ""}`} onClick={toggleAll}>
+                    <Check size={12} strokeWidth={3} />
+                  </div>
                 </th>
                 <th style={{ minWidth: 240 }}>Quiz</th>
                 <th className="opt-md">Difficulty</th>
@@ -306,7 +381,9 @@ export default function AdminQuizzesPage() {
                 return (
                   <tr key={q.id}>
                     <td>
-                      <div className={`check${selected.has(q.id) ? " on" : ""}`} onClick={() => toggleRow(q.id)} />
+                      <div className={`check${selected.has(q.id) ? " on" : ""}`} onClick={() => toggleRow(q.id)}>
+                        <Check size={12} strokeWidth={3} />
+                      </div>
                     </td>
                     <td>
                       <div className="subj-cell">
@@ -362,9 +439,9 @@ export default function AdminQuizzesPage() {
                             {closingId === q.id ? <Loader2 size={14} className="aq-spin" /> : <Lock size={14} />}
                           </button>
                         )}
-                        <button className="row-act" title="View" disabled><Eye size={14} /></button>
-                        <button className="row-act" title="Edit" disabled><Edit size={14} /></button>
-                        <button className="row-act" title="More" disabled><MoreHorizontal size={14} /></button>
+                        <button className="row-act" title="Preview — coming soon" disabled><Eye size={14} /></button>
+                        <button className="row-act" title="Edit" onClick={() => setEditingQuiz(q)}><Edit size={14} /></button>
+                        <button className="row-act" title="More — coming soon" disabled><MoreHorizontal size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -411,6 +488,19 @@ export default function AdminQuizzesPage() {
         quiz={windowModal}
         onClose={() => setWindowModal(null)}
         onSave={handleSaveWindow}
+      />
+
+      <NewQuizModal
+        open={newQuizOpen}
+        onClose={() => setNewQuizOpen(false)}
+        onSaved={() => { setNewQuizOpen(false); load(); }}
+      />
+
+      <NewQuizModal
+        open={!!editingQuiz}
+        quiz={editingQuiz}
+        onClose={() => setEditingQuiz(null)}
+        onSaved={() => { setEditingQuiz(null); load(); }}
       />
     </div>
   );
@@ -544,5 +634,175 @@ function RankSwitch({ on, busy, onClick }) {
         {on ? "On" : "Off"}
       </span>
     </button>
+  );
+}
+
+// Quiz metadata editor. Dual-mode:
+//   - create: opened from the page header's "New quiz" button. POSTs with
+//     `questions: []` (allowed by the DTO — no @ArrayMinSize on it) which
+//     yields a DRAFT stub admins can flesh out from the row's edit screen.
+//   - edit:   opened from a row's pencil button. PUT-updates just the
+//     metadata fields, leaving the existing question list intact.
+function NewQuizModal({ open, quiz, onClose, onSaved }) {
+  const isEdit = !!quiz;
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("Mathematics");
+  const [difficulty, setDifficulty] = useState("MEDIUM");
+  const [timeLimitMins, setTimeLimitMins] = useState(60);
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Pre-fill from the row in edit mode; reset to defaults on close so the
+  // next create-open starts blank.
+  useEffect(() => {
+    if (!open) {
+      setTitle(""); setSubject("Mathematics"); setDifficulty("MEDIUM");
+      setTimeLimitMins(60); setDescription(""); setSaving(false);
+      return;
+    }
+    if (quiz) {
+      setTitle(quiz.title || "");
+      setSubject(quiz.subject || "Mathematics");
+      setDifficulty(quiz.difficulty || "MEDIUM");
+      setTimeLimitMins(quiz.timeLimitMins ?? 60);
+      setDescription(quiz.description || "");
+    }
+  }, [open, quiz]);
+
+  const submit = async () => {
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        subject,
+        difficulty,
+        timeLimitMins: Math.max(1, parseInt(timeLimitMins, 10) || 60),
+        description: description.trim() || undefined,
+      };
+      if (isEdit) {
+        await quizzesAPI.update(quiz.id, payload);
+        toast.success("Quiz updated");
+      } else {
+        await quizzesAPI.create({ ...payload, questions: [] });
+        toast.success("Draft created · add questions next");
+      }
+      onSaved?.();
+    } catch (err) {
+      toast.error(err?.message || (isEdit ? "Failed to update quiz" : "Failed to create quiz"));
+      setSaving(false);
+    }
+  };
+
+  const SUBJECTS = SUBJECT_FILTERS.filter((s) => s !== "All");
+  const DIFFS = DIFF_FILTERS.filter((d) => d !== "Any");
+
+  return (
+    <Modal
+      open={open}
+      onClose={saving ? undefined : onClose}
+      title={isEdit ? "Edit quiz" : "New quiz"}
+      footer={(
+        <>
+          <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-accent" onClick={submit} disabled={saving}>
+            {saving
+              ? <><Loader2 size={14} className="aq-spin" /> {isEdit ? "Saving…" : "Creating…"}</>
+              : (isEdit ? "Save changes" : "Create draft")}
+          </button>
+        </>
+      )}
+    >
+      <div className="cc-form" style={{ minWidth: 360 }}>
+        <label className="cc-field">
+          <span>Title</span>
+          <input
+            type="text"
+            placeholder="e.g. Calculus — Limits & continuity"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+            disabled={saving}
+          />
+        </label>
+
+        <div className="cc-row">
+          <label className="cc-field">
+            <span>Subject</span>
+            <select
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={saving}
+              style={{
+                background: "var(--rr-bg-alt)",
+                border: "1px solid var(--rr-border)",
+                borderRadius: "var(--rr-r-md)",
+                height: 40, padding: "0 12px", color: "var(--rr-fg)",
+                fontFamily: "var(--rr-font-sans)", fontSize: 14, width: "100%",
+              }}
+            >
+              {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+
+          <label className="cc-field">
+            <span>Difficulty</span>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              disabled={saving}
+              style={{
+                background: "var(--rr-bg-alt)",
+                border: "1px solid var(--rr-border)",
+                borderRadius: "var(--rr-r-md)",
+                height: 40, padding: "0 12px", color: "var(--rr-fg)",
+                fontFamily: "var(--rr-font-sans)", fontSize: 14, width: "100%",
+              }}
+            >
+              {DIFFS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <label className="cc-field">
+          <span>Time limit <small>(minutes)</small></span>
+          <input
+            type="number"
+            min={1}
+            value={timeLimitMins}
+            onChange={(e) => setTimeLimitMins(e.target.value)}
+            disabled={saving}
+          />
+        </label>
+
+        <label className="cc-field">
+          <span>Description <small>(optional)</small></span>
+          <textarea
+            rows={3}
+            placeholder="One-line summary that students will see on the quiz card."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={saving}
+            style={{
+              background: "var(--rr-bg-alt)",
+              border: "1px solid var(--rr-border)",
+              borderRadius: "var(--rr-r-md)",
+              padding: 10, color: "var(--rr-fg)",
+              fontFamily: "var(--rr-font-sans)", fontSize: 14,
+              width: "100%", resize: "vertical", minHeight: 64,
+            }}
+          />
+        </label>
+
+        {!isEdit && (
+          <p style={{ margin: 0, fontSize: 12, color: "var(--rr-fg-muted)" }}>
+            Saves as <b style={{ color: "var(--rr-fg)" }}>Draft</b> with zero questions. You can add questions from the row's edit screen, then publish.
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }

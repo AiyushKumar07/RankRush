@@ -10,8 +10,10 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
   BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { QuizzesService } from './quizzes.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
@@ -48,6 +50,18 @@ export class QuizzesController {
   @Permissions('quizzes:read')
   findAll(@Query() query: QueryQuizzesDto) {
     return this.quizzesService.findAll(query);
+  }
+
+  // Sits BEFORE @Get(':id') on purpose — Nest matches routes in declaration
+  // order and `:id` would otherwise swallow the `export.csv` path.
+  @Get('export.csv')
+  @Permissions('quizzes:read')
+  async exportCsv(@Query() query: QueryQuizzesDto, @Res() res: Response) {
+    const csv = await this.quizzesService.exportCsv(query);
+    const filename = `rankrush-quizzes-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
   }
 
   @Get(':id')
