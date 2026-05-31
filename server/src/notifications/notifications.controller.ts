@@ -11,7 +11,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { NotificationsService } from './notifications.service.js';
 
-@Controller('notifications')
+// Codebase convention: every controller carries its own `api/` prefix
+// (there's no app.setGlobalPrefix('api') in main.ts). Without this
+// prefix the routes mount at /notifications and the client's
+// /api/notifications calls 404.
+@Controller('api/notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}

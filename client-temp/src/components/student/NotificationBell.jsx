@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { notificationsAPI } from '../../services/api';
+import Modal from '../ui/Modal';
 import './NotificationBell.css';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -100,6 +101,11 @@ export default function NotificationBell() {
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Confirmation modal for "Clear all" — replaces window.confirm so the
+  // dialog matches the rest of the app's chrome instead of falling
+  // back to the browser's native popup.
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const popupRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -225,13 +231,30 @@ export default function NotificationBell() {
     setUnreadCount(0);
   }, []);
 
-  const handleClearAll = useCallback(async () => {
+  // Two-stage clear: clicking "Clear" opens the confirm modal; the
+  // modal's confirm button calls performClearAll. This keeps the
+  // dropdown open behind the modal so the user has a visible reminder
+  // of what they're about to delete.
+  const handleClearAll = useCallback(() => {
     if (!items.length) return;
-    if (!window.confirm('Delete all notifications? This can’t be undone.')) return;
-    try { await notificationsAPI.deleteAll(); } catch { return; }
-    setItems([]);
-    setUnreadCount(0);
+    setConfirmClearOpen(true);
   }, [items.length]);
+
+  const performClearAll = useCallback(async () => {
+    if (clearing) return;
+    setClearing(true);
+    try {
+      await notificationsAPI.deleteAll();
+      setItems([]);
+      setUnreadCount(0);
+      setConfirmClearOpen(false);
+      toast.success('All notifications cleared');
+    } catch (err) {
+      toast.error(err?.message || 'Could not clear notifications');
+    } finally {
+      setClearing(false);
+    }
+  }, [clearing]);
 
   const badge = useMemo(() => {
     if (unreadCount <= 0) return null;
@@ -306,6 +329,38 @@ export default function NotificationBell() {
           </div>
         </div>
       )}
+
+      <Modal
+        open={confirmClearOpen}
+        onClose={clearing ? undefined : () => setConfirmClearOpen(false)}
+        title="Clear all notifications?"
+        footer={
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setConfirmClearOpen(false)}
+              disabled={clearing}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={performClearAll}
+              disabled={clearing}
+            >
+              {clearing ? 'Clearing…' : 'Clear all'}
+            </button>
+          </div>
+        }
+      >
+        <p style={{ color: 'var(--rr-fg-2, var(--rr-fg-muted))', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+          This permanently deletes every notification in your bell — read
+          and unread alike. The action can't be undone. New events
+          (quiz results, rank changes, bonuses) will still come through.
+        </p>
+      </Modal>
     </div>
   );
 }
