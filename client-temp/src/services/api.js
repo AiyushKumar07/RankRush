@@ -124,8 +124,22 @@ export const userAPI = {
   getPreferences: () => api.get('/user/preferences'),
   updatePreferences: (data) => api.patch('/user/preferences', data),
   resetProgress: () => api.post('/user/reset-progress'),
+  // Class change is intentionally a separate endpoint from updateProfile —
+  // the BE treats it as a hard reset (same wipe as resetProgress + class
+  // update in one audited operation). Keeps the danger-zone semantics
+  // explicit and prevents accidental cohort-mixing on a casual save.
+  changeClass: (newClass) => api.post('/user/change-class', { class: newClass }),
   deleteAccount: () => api.delete('/user/account'),
   getEntitlements: () => api.get('/user/me/entitlements'),
+};
+
+export const notificationsAPI = {
+  list: (params) => api.get('/notifications', { params }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
+  deleteOne: (id) => api.delete(`/notifications/${id}`),
+  deleteAll: () => api.delete('/notifications/clear-all'),
 };
 
 export const studentAPI = {

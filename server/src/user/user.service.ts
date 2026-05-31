@@ -393,6 +393,77 @@ export class UserService {
     return { message: 'Progress has been reset', data: updated };
   }
 
+  /**
+   * Move the user to a different class (Class 9/10/11/12/Dropper) and
+   * wipe everything tied to the old cohort. We can't just patch the
+   * class field — the user's leaderboard partition, rank snapshots,
+   * period-stats rows, and quiz attempts all index by class either
+   * directly or via CLASS_GLOBAL scope ids. Letting them switch in
+   * place would leave the old cohort's data masquerading as the new
+   * one's, breaking ranks for everyone.
+   *
+   * So: same wipe as resetProgress + the class update, in a single
+   * audit-logged operation.
+   */
+  async changeClass(userId: string, newClass: string, req?: any) {
+    if (!newClass || typeof newClass !== 'string') {
+      throw new BadRequestException('A class value is required');
+    }
+    const trimmed = newClass.trim();
+    if (!trimmed) {
+      throw new BadRequestException('A class value is required');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Bail early if nothing would actually change so we don't wipe
+    // progress on an accidental "save" with the same value.
+    if (user.class === trimmed) {
+      return {
+        message: 'No change — already on this class.',
+        data: { class: user.class },
+      };
+    }
+
+    await this.prisma.quizAttempt.deleteMany({ where: { studentId: userId } });
+    await this.prisma.studentActivity.deleteMany({
+      where: { studentId: userId },
+    });
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        class: trimmed,
+        streak: 0,
+        longestStreak: 0,
+        loginXp: 0,
+      },
+    });
+
+    await this.audit.log({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      performedBy: userId,
+      details: {
+        event: 'class_change_with_reset',
+        from: user.class,
+        to: trimmed,
+      },
+      req,
+    });
+
+    this.logger.log(
+      `Class changed for user ${userId}: ${user.class ?? '(none)'} → ${trimmed}; progress reset.`,
+    );
+
+    return {
+      message: 'Class updated and progress reset.',
+      data: updated,
+    };
+  }
+
   async deleteAccount(userId: string, req?: any) {
     // Relying on Prisma's onDelete: Cascade where applicable.
     // Ensure the user actually exists.

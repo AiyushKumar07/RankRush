@@ -83,6 +83,7 @@ model User {
   rankSnapshots  RankingSnapshot[]
   badges         UserBadge[]
   periodStats    UserPeriodStats[]
+  notifications  Notification[]
 
   @@index([role])
   @@index([isVerified])
@@ -645,6 +646,44 @@ enum EvidenceKind {
 enum EvidenceSource {
   CAMERA
   SCREEN
+}
+
+// ─── In-app notifications ───────────────────────────────────────────
+// Lightweight bell-feed for the student app. Each row is one
+// notification surfaced to the user; created by trigger points like
+// quiz-submitted, streak-milestone, badge-earned, token-credited.
+// Read state is a single `readAt` timestamp (null = unread) which keeps
+// "unread count" queries fast via the partial index.
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+
+  type      NotificationType
+  title     String
+  body      String?
+  // Optional in-app link the bell-dropdown row navigates to when clicked.
+  link      String?
+  // Free-form metadata (quizId, attemptId, badgeKey, etc.) so the
+  // dropdown can render icons/colors without joining other tables.
+  meta      Json?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+enum NotificationType {
+  QUIZ_RESULT
+  STREAK_MILESTONE
+  RANK_MOVEMENT
+  BADGE_EARNED
+  TOKEN_CREDIT
+  SUBSCRIPTION
+  SYSTEM
 }
 
 // ─── Daily activity rollup ───────────────────────────────────────────

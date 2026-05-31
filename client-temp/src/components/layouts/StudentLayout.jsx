@@ -27,7 +27,6 @@ import {
   Gift,
   Receipt,
   Crown,
-  Bell,
   Menu,
   X,
   LogOut,
@@ -35,6 +34,7 @@ import {
 import RRBrand from "../brand/RRBrand";
 import ThemeToggle from "../ui/ThemeToggle";
 import TokenWallet from "../ui/TokenWallet";
+import NotificationBell from "../student/NotificationBell";
 import { useAuth } from "../../context/AuthContext";
 import { EntitlementsProvider, useEntitlements } from "../../hooks/useEntitlements";
 import { studentAPI, tokensAPI } from "../../services/api";
@@ -287,10 +287,7 @@ function Topbar({ tokenBalance, plan, onMenuClick }) {
       <div className="tb-actions">
         <ThemeToggle />
         <TokenWallet balance={tokenBalance} plan={plan} />
-        <button className="tb-icon-btn" aria-label="Notifications">
-          <Bell size={17} />
-          <span className="tb-indicator" />
-        </button>
+        <NotificationBell />
       </div>
     </div>
   );

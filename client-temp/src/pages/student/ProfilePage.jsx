@@ -297,7 +297,12 @@ export default function ProfilePage() {
       toast.error('Pick at least one target exam')
       return
     }
-    const { phoneIso, contactNumber, ...rest } = formData
+    // `class` is intentionally stripped from the profile update — the
+    // only way to change it is via the Danger zone, which routes
+    // through /user/change-class and triggers a hard progress reset
+    // (the user's leaderboard partition and cohort can't safely
+    // change in place).
+    const { phoneIso, contactNumber, class: _omitClass, ...rest } = formData
     const phone = validatePhone(phoneIso, contactNumber)
     if (contactNumber && !phone.valid) {
       toast.error(phone.error || 'Enter a valid phone number')
@@ -415,12 +420,31 @@ export default function ProfilePage() {
     }
   }
 
+  // Tracks the class the user has selected inside the class-change
+  // modal. We don't reuse formData.class because it'd lose its sync
+  // with the saved value if the user opens and cancels the modal.
+  const [classChangeTarget, setClassChangeTarget] = useState('Class 12')
+
   const handleDangerAction = async () => {
     try {
       if (dangerModal === 'reset') {
         await userAPI.resetProgress()
         toast.success('Progress reset successfully')
         checkAuth()
+      } else if (dangerModal === 'change-class') {
+        if (!classChangeTarget) {
+          toast.error('Pick a class first')
+          return
+        }
+        if (classChangeTarget === profileData?.class) {
+          toast('Already on this class — nothing to change.', { icon: 'ℹ️' })
+          setDangerModal(null)
+          return
+        }
+        await userAPI.changeClass(classChangeTarget)
+        toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
+        checkAuth()
+        loadProfile()
       } else if (dangerModal === 'delete') {
         await userAPI.deleteAccount()
         toast.success('Account deleted')
@@ -428,7 +452,11 @@ export default function ProfilePage() {
       }
       setDangerModal(null)
     } catch (err) {
-      toast.error(`Failed to ${dangerModal === 'reset' ? 'reset progress' : 'delete account'}`)
+      const label =
+        dangerModal === 'reset' ? 'reset progress'
+          : dangerModal === 'change-class' ? 'change class'
+          : 'delete account'
+      toast.error(`Failed to ${label}`)
     }
   }
 
@@ -577,18 +605,11 @@ export default function ProfilePage() {
             <div className="form-grid">
               <div className="field">
                 <label>Class / Standard</label>
-                <Select
-                  value={formData.class}
-                  onChange={(v) => setFormData(p => ({ ...p, class: v }))}
-                  ariaLabel="Class / Standard"
-                  options={[
-                    { value: 'Class 9',  label: 'Class 9'  },
-                    { value: 'Class 10', label: 'Class 10' },
-                    { value: 'Class 11', label: 'Class 11' },
-                    { value: 'Class 12', label: 'Class 12' },
-                    { value: 'Dropper',  label: 'Dropper'  },
-                  ]}
-                />
+                <div className="locked-pill" title="Class can only be changed from the Danger Zone — it resets your progress.">
+                  <Lock size={12} />
+                  <span>{profileData?.class || formData.class || 'N/A'}</span>
+                  <span className="locked-hint">Change via Danger zone</span>
+                </div>
               </div>
               <div className="field">
                 <label>Board</label>
@@ -875,6 +896,25 @@ export default function ProfilePage() {
           <div className="head"><div><h2>Danger zone</h2><span className="sub">Permanent actions. No undo.</span></div></div>
           <div className="body">
             <div className="danger-row">
+              <div>
+                <div className="title">Change class</div>
+                <div className="desc">
+                  Currently <b>{profileData?.class || 'N/A'}</b>. Switching class
+                  resets your progress (streak, rank, attempts) — your cohort
+                  on the leaderboard cannot change in place.
+                </div>
+              </div>
+              <button
+                className="btn-danger"
+                onClick={() => {
+                  setClassChangeTarget(profileData?.class || 'Class 12')
+                  setDangerModal('change-class')
+                }}
+              >
+                <RotateCcw size={14} />Change class
+              </button>
+            </div>
+            <div className="danger-row">
               <div><div className="title">Reset all progress</div><div className="desc">Clears your streak, accuracy, rank history, and badges. Your account stays.</div></div>
               <button className="btn-danger" onClick={() => setDangerModal('reset')}><RotateCcw size={14} />Reset progress</button>
             </div>
@@ -886,22 +926,53 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <Modal 
-        open={!!dangerModal} 
+      <Modal
+        open={!!dangerModal}
         onClose={() => setDangerModal(null)}
-        title={dangerModal === 'reset' ? 'Reset Progress' : 'Delete Account'}
+        title={
+          dangerModal === 'reset' ? 'Reset Progress'
+            : dangerModal === 'change-class' ? 'Change class & reset progress'
+            : 'Delete Account'
+        }
         footer={
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%' }}>
             <button className="btn btn-secondary" onClick={() => setDangerModal(null)}>Cancel</button>
-            <button className="btn btn-danger" onClick={handleDangerAction}>{dangerModal === 'reset' ? 'Reset Progress' : 'Delete Account'}</button>
+            <button className="btn btn-danger" onClick={handleDangerAction}>
+              {dangerModal === 'reset' ? 'Reset Progress'
+                : dangerModal === 'change-class' ? 'Change class & reset'
+                : 'Delete Account'}
+            </button>
           </div>
         }
       >
-        <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5 }}>
-          {dangerModal === 'reset' 
-            ? 'Are you absolutely sure you want to reset all your progress? This action will wipe your streak, xp, accuracy, and badges. This cannot be undone.'
-            : 'Are you absolutely sure you want to delete your account? This action permanently removes all your data, progress, and active subscriptions. This cannot be undone.'}
-        </p>
+        {dangerModal === 'change-class' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+              Picking a different class will <b>wipe your streak, accuracy, rank history, and quiz attempts</b> the same way a reset does — then move you onto the new class's leaderboard. This can't be undone.
+            </p>
+            <div className="field">
+              <label>New class</label>
+              <Select
+                value={classChangeTarget}
+                onChange={(v) => setClassChangeTarget(v)}
+                ariaLabel="New class"
+                options={[
+                  { value: 'Class 9',  label: 'Class 9'  },
+                  { value: 'Class 10', label: 'Class 10' },
+                  { value: 'Class 11', label: 'Class 11' },
+                  { value: 'Class 12', label: 'Class 12' },
+                  { value: 'Dropper',  label: 'Dropper'  },
+                ]}
+              />
+            </div>
+          </div>
+        ) : (
+          <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5 }}>
+            {dangerModal === 'reset'
+              ? 'Are you absolutely sure you want to reset all your progress? This action will wipe your streak, xp, accuracy, and badges. This cannot be undone.'
+              : 'Are you absolutely sure you want to delete your account? This action permanently removes all your data, progress, and active subscriptions. This cannot be undone.'}
+          </p>
+        )}
       </Modal>
 
     </div>

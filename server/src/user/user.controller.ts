@@ -99,6 +99,21 @@ export class UserController {
     return this.userService.resetProgress(userId, req);
   }
 
+  // Changing class wipes the user's leaderboard partition under their
+  // feet — their rank, period stats, and quiz attempts all belong to
+  // the old class's CLASS_GLOBAL scope. Rather than letting the data
+  // bleed across cohorts, we treat a class change as a hard reset
+  // and run the same progress-wipe as /reset-progress.
+  @Post('change-class')
+  @HttpCode(HttpStatus.OK)
+  changeClass(
+    @CurrentUser('id') userId: string,
+    @Body() body: { class: string },
+    @Req() req: any,
+  ) {
+    return this.userService.changeClass(userId, body?.class, req);
+  }
+
   @Delete('account')
   @HttpCode(HttpStatus.OK)
   deleteAccount(@CurrentUser('id') userId: string, @Req() req: any) {
