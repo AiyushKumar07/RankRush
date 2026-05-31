@@ -49,6 +49,11 @@ export class QuizzesService {
 
     const quizId = `QUIZ-${uuidv4().slice(0, 8).toUpperCase()}`;
 
+    // Contest window — ignore if rankRewarding isn't on; pass through as
+    // Date so Mongo stores it natively (DTO receives ISO string).
+    const startsAt = dto.rankRewarding && dto.quizStartsAt ? new Date(dto.quizStartsAt) : null;
+    const endsAt   = dto.rankRewarding && dto.quizEndsAt   ? new Date(dto.quizEndsAt)   : null;
+
     const quiz = await this.prisma.quiz.create({
       data: {
         quizId,
@@ -71,6 +76,10 @@ export class QuizzesService {
         shuffleQuestions: dto.shuffleQuestions ?? false,
         difficulty: dto.difficulty,
         tags: dto.tags || [],
+        attemptCost: dto.attemptCost,
+        rankRewarding: dto.rankRewarding ?? false,
+        quizStartsAt: startsAt,
+        quizEndsAt: endsAt,
         status: 'DRAFT',
         createdBy: userId,
       },

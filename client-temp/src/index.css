@@ -261,6 +261,13 @@
   flex-direction: column;
   animation: rr-modal-slide-up var(--rr-dur-base) var(--rr-ease-out);
 }
+/* Size presets — keep the body's overflow-y inside the dialog so wider
+   modals never bleed past the viewport. The 92vw/95vw caps stop big
+   dialogs from kissing the edge on small windows. */
+.modal-dialog--sm { max-width: 420px; }
+.modal-dialog--md { max-width: 520px; }
+.modal-dialog--lg { max-width: min(720px, 92vw); }
+.modal-dialog--xl { max-width: min(1080px, 95vw); width: 95%; }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 20px 24px 0;

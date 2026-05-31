@@ -86,6 +86,23 @@ export class CreateQuizDto {
   @IsNumber()
   @Min(0)
   attemptCost?: number;
+
+  // When true, the quiz contributes to global rank scoring and gets its own
+  // per-quiz leaderboard. Off by default; only admins should turn this on
+  // (it's exposed via the create wizard for first-class contest quizzes).
+  @IsOptional()
+  @IsBoolean()
+  rankRewarding?: boolean;
+
+  // Optional contest window — ISO datetime strings on the wire, converted
+  // to Date in the service. Only meaningful when rankRewarding is true.
+  @IsOptional()
+  @IsString()
+  quizStartsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  quizEndsAt?: string;
 }
 
 export class UpdateQuizDto {

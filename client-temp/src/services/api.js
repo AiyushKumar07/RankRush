@@ -201,6 +201,19 @@ export const quizzesAPI = {
   }),
 };
 
+// Question bank — used by the admin "New quiz" wizard to populate the
+// cohort → subject → chapter cascading pickers and to pull the candidate
+// question pool for auto-picking.
+export const questionsAPI = {
+  list: (params) => api.get('/questions', { params }),
+  getById: (id) => api.get(`/questions/${id}`),
+  // All distinct values across the bank, no scoping. Cheap, cached.
+  getFilters: () => api.get('/questions/filters'),
+  // Facets scoped to (examType, class, subject). Returns chapters/topics
+  // that actually have questions inside the cohort.
+  getDynamicFilters: (params) => api.get('/questions/filters/dynamic', { params }),
+};
+
 export const subscriptionPlansAPI = {
   // Public
   list: () => api.get('/subscriptions/plans'),
@@ -234,6 +247,7 @@ export const adminOverviewAPI = {
   getActivityFeed: (limit) => api.get('/admin/overview/activity-feed', { params: limit ? { limit } : undefined }),
   getSystemHealth: () => api.get('/admin/overview/system-health'),
   listTransactions: (params) => api.get('/admin/overview/transactions', { params }),
+  listStudents: (params) => api.get('/admin/overview/students', { params }),
 };
 
 export const tokensAPI = {

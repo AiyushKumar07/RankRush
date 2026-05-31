@@ -27,6 +27,8 @@ const AdminQuizzesPage = lazy(() => import('./pages/admin/AdminQuizzesPage'))
 const AdminPlansPage = lazy(() => import('./pages/admin/AdminPlansPage'))
 const AdminCodesPage = lazy(() => import('./pages/admin/AdminCodesPage'))
 const AdminTransactionsPage = lazy(() => import('./pages/admin/AdminTransactionsPage'))
+const AdminStudentsPage = lazy(() => import('./pages/admin/AdminStudentsPage'))
+const AdminQuestionsPage = lazy(() => import('./pages/admin/AdminQuestionsPage'))
 
 export {
   LandingPage,
@@ -54,4 +56,6 @@ export {
   AdminPlansPage,
   AdminCodesPage,
   AdminTransactionsPage,
+  AdminStudentsPage,
+  AdminQuestionsPage,
 }

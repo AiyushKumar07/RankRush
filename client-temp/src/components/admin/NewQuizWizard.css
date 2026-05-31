@@ -1,0 +1,332 @@
+/* =====================================================================
+   NewQuizWizard — 3-step admin "create quiz" flow
+   Self-contained styles. Don't depend on AdminCodesPage/Dashboard CSS;
+   that bit us once with lazy-loaded routes leaving the modal unstyled.
+   ===================================================================== */
+
+/* Fill whatever width the parent <Modal size="xl"> gives us, instead of
+   forcing an inner cap. This prevents the horizontal-overflow / scroll
+   that the previous min(720px, 92vw) caused on wide dialogs. */
+.nqw {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--rr-font-sans);
+  color: var(--rr-fg);
+}
+
+/* Step indicator */
+.nqw-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.nqw-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--rr-fg-muted);
+}
+.nqw-step .num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1px solid var(--rr-border);
+  background: var(--rr-bg-alt);
+  color: var(--rr-fg-muted);
+  font-weight: 600;
+  font-size: 11px;
+}
+.nqw-step.done .num {
+  background: var(--rr-violet-500);
+  border-color: var(--rr-violet-500);
+  color: white;
+}
+.nqw-step.active .num {
+  background: var(--rr-violet-500);
+  border-color: var(--rr-violet-500);
+  color: white;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-violet-500) 22%, transparent);
+}
+.nqw-step.active .lbl { color: var(--rr-fg); font-weight: 600; }
+.nqw-step.done .lbl { color: var(--rr-fg-2); }
+.nqw-step-divider {
+  flex: 0 0 24px;
+  height: 1px;
+  background: var(--rr-border);
+}
+
+/* Generic field block */
+.nqw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nqw-label {
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rr-fg-muted);
+  font-weight: 600;
+}
+.nqw-label small {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--rr-fg-dim);
+}
+.nqw-help {
+  font-size: 12px;
+  color: var(--rr-fg-muted);
+  margin: 0;
+}
+
+/* Segment (radio-as-buttons) */
+.nqw-segment {
+  display: inline-flex;
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  padding: 3px;
+  gap: 2px;
+  align-self: flex-start;
+}
+.nqw-segment button {
+  background: transparent;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: var(--rr-r-sm);
+  font-family: var(--rr-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rr-fg-muted);
+  cursor: pointer;
+  transition: all var(--rr-dur-fast);
+}
+.nqw-segment button:hover { color: var(--rr-fg); }
+.nqw-segment button.on {
+  background: var(--rr-violet-500);
+  color: white;
+}
+
+/* Chip group (multi-select) */
+.nqw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.nqw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--rr-r-full);
+  border: 1px solid var(--rr-border);
+  background: var(--rr-bg-alt);
+  color: var(--rr-fg-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--rr-dur-fast);
+}
+.nqw-chip:hover {
+  border-color: var(--rr-violet-400);
+  color: var(--rr-fg);
+}
+.nqw-chip.on {
+  background: color-mix(in oklab, var(--rr-violet-500) 16%, transparent);
+  border-color: var(--rr-violet-500);
+  color: var(--rr-violet-200, var(--rr-violet-500));
+}
+[data-theme="dark"] .nqw-chip.on { color: var(--rr-violet-200); }
+.nqw-chip.on::before {
+  content: "✓";
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* Input + select shared shell */
+.nqw-input,
+.nqw-select,
+.nqw-textarea {
+  background: var(--rr-bg-alt);
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  color: var(--rr-fg);
+  font-family: var(--rr-font-sans);
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color var(--rr-dur-fast), box-shadow var(--rr-dur-fast);
+}
+.nqw-input, .nqw-select { height: 40px; padding: 0 12px; }
+.nqw-textarea { padding: 10px 12px; resize: vertical; min-height: 72px; line-height: 1.4; }
+.nqw-input:focus, .nqw-select:focus, .nqw-textarea:focus {
+  outline: 0;
+  border-color: var(--rr-violet-500);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--rr-violet-500) 18%, transparent);
+}
+.nqw-input:disabled, .nqw-select:disabled, .nqw-textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.nqw-row { display: flex; gap: 12px; }
+.nqw-row > * { flex: 1; min-width: 0; }
+
+/* Auto-pick row */
+.nqw-autopick {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.nqw-autopick .nqw-field { flex: 1; }
+.nqw-autopick button {
+  height: 40px;
+  padding: 0 16px;
+  background: var(--rr-violet-500);
+  color: white;
+  border: 0;
+  border-radius: var(--rr-r-md);
+  font-family: var(--rr-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--rr-dur-fast);
+}
+.nqw-autopick button:hover { background: var(--rr-violet-600); }
+.nqw-autopick button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Selected summary strip */
+.nqw-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: color-mix(in oklab, var(--rr-violet-500) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--rr-violet-500) 22%, transparent);
+  border-radius: var(--rr-r-md);
+  font-size: 13px;
+}
+.nqw-summary .v { font-family: var(--rr-font-display); font-weight: 700; color: var(--rr-fg); font-size: 18px; font-variant-numeric: tabular-nums; }
+.nqw-summary .lbl { font-size: 11px; color: var(--rr-fg-muted); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--rr-font-mono); }
+.nqw-summary-col { display: flex; flex-direction: column; gap: 2px; }
+.nqw-summary-actions { display: flex; gap: 8px; }
+.nqw-summary-actions button {
+  background: transparent;
+  border: 1px solid var(--rr-border-strong);
+  color: var(--rr-fg-2);
+  padding: 6px 12px;
+  border-radius: var(--rr-r-sm);
+  font-size: 12px;
+  cursor: pointer;
+}
+.nqw-summary-actions button:hover { color: var(--rr-fg); border-color: var(--rr-violet-400); }
+
+/* Question list */
+.nqw-qlist {
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--rr-bg-alt);
+}
+.nqw-qlist-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--rr-fg-muted);
+  font-size: 13px;
+}
+.nqw-qrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rr-border);
+  cursor: pointer;
+  transition: background var(--rr-dur-fast);
+}
+.nqw-qrow:last-child { border-bottom: 0; }
+.nqw-qrow:hover { background: var(--rr-surface); }
+.nqw-qrow.picked { background: color-mix(in oklab, var(--rr-violet-500) 10%, transparent); }
+
+.nqw-qrow .check {
+  flex: 0 0 18px;
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--rr-border-strong);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  transition: all var(--rr-dur-fast);
+  color: white;
+}
+.nqw-qrow .check svg { opacity: 0; transition: opacity var(--rr-dur-fast); }
+.nqw-qrow.picked .check { background: var(--rr-violet-500); border-color: var(--rr-violet-500); }
+.nqw-qrow.picked .check svg { opacity: 1; }
+
+.nqw-qrow .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nqw-qrow .title { font-size: 13px; color: var(--rr-fg); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.nqw-qrow .meta { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.nqw-qrow .badge {
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--rr-r-sm);
+  color: var(--rr-fg-2);
+  background: var(--rr-bg);
+  border: 1px solid var(--rr-border);
+  white-space: nowrap;
+}
+.nqw-qrow .badge.diff-easy   { color: var(--rr-emerald-500); border-color: color-mix(in oklab, var(--rr-emerald-500) 30%, transparent); }
+.nqw-qrow .badge.diff-medium { color: var(--rr-amber-500);   border-color: color-mix(in oklab, var(--rr-amber-500) 30%, transparent); }
+.nqw-qrow .badge.diff-hard,
+.nqw-qrow .badge.diff-expert { color: var(--rr-coral-500);   border-color: color-mix(in oklab, var(--rr-coral-500) 30%, transparent); }
+.nqw-qrow .secs { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-muted); white-space: nowrap; }
+
+/* Step 3 toggles */
+.nqw-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--rr-border);
+  border-radius: var(--rr-r-md);
+  background: var(--rr-bg-alt);
+  cursor: pointer;
+}
+.nqw-toggle .label { display: flex; flex-direction: column; gap: 2px; }
+.nqw-toggle .label .t { font-size: 13px; color: var(--rr-fg); font-weight: 500; }
+.nqw-toggle .label .h { font-size: 11px; color: var(--rr-fg-muted); }
+.nqw-toggle .switch {
+  flex: 0 0 36px;
+  width: 36px; height: 20px;
+  border-radius: 999px;
+  background: var(--rr-border-strong);
+  position: relative;
+  transition: background var(--rr-dur-fast);
+}
+.nqw-toggle .switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--rr-dur-fast);
+}
+.nqw-toggle.on .switch { background: var(--rr-violet-500); }
+.nqw-toggle.on .switch::after { transform: translateX(16px); }
+
+/* Spinner */
+.nqw-spin { animation: nqw-spin 0.8s linear infinite; }
+@keyframes nqw-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

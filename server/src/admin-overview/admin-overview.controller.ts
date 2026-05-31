@@ -52,6 +52,28 @@ export class AdminOverviewController {
 
   // Paginated transaction list — separate from the overview KPI roll-up so
   // the dashboard's 30-day MRR query doesn't have to pull every row.
+  @Get('students')
+  listStudents(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('class') klass?: string,
+    @Query('target') target?: string,
+    @Query('isActive') isActive?: string,
+    @Query('isVerified') isVerified?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.overview.listStudents({
+      page: page ? parseInt(page, 10) || 1 : 1,
+      limit: limit ? parseInt(limit, 10) || 20 : 20,
+      search, klass, target,
+      isActive: (isActive === 'true' || isActive === 'false') ? isActive : 'all',
+      isVerified: (isVerified === 'true' || isVerified === 'false') ? isVerified : 'all',
+      from, to,
+    });
+  }
+
   @Get('transactions')
   listTransactions(
     @Query('page') page?: string,

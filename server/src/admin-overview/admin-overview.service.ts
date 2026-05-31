@@ -502,6 +502,134 @@ export class AdminOverviewService {
     };
   }
 
+  async listStudents(opts: {
+    page: number;
+    limit: number;
+    search?: string;
+    klass?: string;        // class is a reserved word — rename in API/service
+    target?: string;       // single exam target ("JEE" / "NEET" / "Boards" / "Other")
+    isActive?: 'true' | 'false' | 'all';
+    isVerified?: 'true' | 'false' | 'all';
+    from?: string;         // createdAt >= from
+    to?: string;           // createdAt <= to
+  }) {
+    const page = Math.max(1, opts.page || 1);
+    const limit = Math.max(1, Math.min(100, opts.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = { role: Role.STUDENT };
+
+    if (opts.search?.trim()) {
+      const q = opts.search.trim();
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { username: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (opts.klass) where.class = opts.klass;
+    if (opts.target) where.target = { has: opts.target };
+    if (opts.isActive === 'true') where.isActive = true;
+    if (opts.isActive === 'false') where.isActive = false;
+    if (opts.isVerified === 'true') where.isVerified = true;
+    if (opts.isVerified === 'false') where.isVerified = false;
+
+    const createdAt: Record<string, Date> = {};
+    if (opts.from) {
+      const d = new Date(opts.from);
+      if (!isNaN(d.getTime())) createdAt.gte = d;
+    }
+    if (opts.to) {
+      const d = new Date(opts.to);
+      if (!isNaN(d.getTime())) { d.setHours(23, 59, 59, 999); createdAt.lte = d; }
+    }
+    if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+
+    const [rows, total, totalAll, activeCount, verifiedCount, newToday] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip, take: limit,
+        select: {
+          id: true, name: true, email: true, avatar: true,
+          class: true, target: true, board: true, city: true,
+          isActive: true, isVerified: true, isOnboarded: true,
+          streak: true, longestStreak: true, bestRank: true,
+          createdAt: true, lastActive: true, lastLogin: true,
+          tokenWallet: { select: { balance: true } },
+          subscriptions: {
+            where: { status: SubscriptionStatus.ACTIVE },
+            select: { plan: { select: { name: true } }, cadence: true },
+            take: 1,
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: { role: Role.STUDENT } }),
+      this.prisma.user.count({
+        where: {
+          role: Role.STUDENT, isActive: true,
+          lastActive: { gte: new Date(Date.now() - 14 * 86400_000) },
+        },
+      }),
+      this.prisma.user.count({ where: { role: Role.STUDENT, isVerified: true } }),
+      this.prisma.user.count({
+        where: {
+          role: Role.STUDENT,
+          createdAt: { gte: this.startOfToday() },
+        },
+      }),
+    ]);
+
+    // Quiz-completed counts in one query, grouped by studentId — beats one
+    // count per row.
+    const ids = rows.map((r) => r.id);
+    const attemptAgg = ids.length
+      ? await this.prisma.quizAttempt.groupBy({
+          by: ['studentId'],
+          where: { studentId: { in: ids }, status: AttemptStatus.COMPLETED },
+          _count: { _all: true },
+        })
+      : [];
+    const attemptsByStudent = new Map(attemptAgg.map((a) => [a.studentId, a._count._all]));
+
+    const out = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      avatar: r.avatar,
+      class: r.class,
+      target: r.target,
+      board: r.board,
+      city: r.city,
+      isActive: r.isActive,
+      isVerified: r.isVerified,
+      isOnboarded: r.isOnboarded,
+      streak: r.streak,
+      longestStreak: r.longestStreak,
+      bestRank: r.bestRank,
+      createdAt: r.createdAt,
+      lastActive: r.lastActive,
+      lastLogin: r.lastLogin,
+      tokenBalance: r.tokenWallet?.balance ?? 0,
+      plan: r.subscriptions[0]?.plan?.name ?? 'Free',
+      cadence: r.subscriptions[0]?.cadence ?? null,
+      quizzesCompleted: attemptsByStudent.get(r.id) ?? 0,
+    }));
+
+    return {
+      data: {
+        rows: out,
+        totals: { total: totalAll, active: activeCount, verified: verifiedCount, newToday },
+      },
+      pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
+    };
+  }
+
+  private startOfToday(): Date {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+  }
+
   async getSystemHealth() {
     const [dbPingMs, queueCounts, inProgressAttempts] = await Promise.all([
       this.pingDb(),

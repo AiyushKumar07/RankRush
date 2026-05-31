@@ -175,6 +175,7 @@ export class QueryQuestionsDto {
   @IsOptional() @IsString() subject?: string;
   @IsOptional() @IsString() chapter?: string;
   @IsOptional() @IsString() topic?: string;
+  @IsOptional() @IsString() subTopic?: string;
   @IsOptional() @IsString() class?: string;
   @IsOptional() @IsString() examType?: string;
   @IsOptional() @IsString() search?: string;

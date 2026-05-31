@@ -197,6 +197,7 @@ export class QuestionsService {
     if (query.subject) where.subject = query.subject;
     if (query.chapter) where.chapter = query.chapter;
     if (query.topic) where.topic = query.topic;
+    if (query.subTopic) where.subTopic = query.subTopic;
     if (query.class) where.class = query.class;
     if (query.uploadBatchId) where.uploadBatchId = query.uploadBatchId;
     if (query.examType) where.examType = { hasSome: query.examType.split(',') };

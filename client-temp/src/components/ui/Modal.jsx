@@ -9,8 +9,11 @@ import { X } from "lucide-react";
  * @param {string}   [title]    - Optional header title
  * @param {ReactNode} children  - Modal body
  * @param {ReactNode} [footer]  - Optional footer (buttons, etc.)
+ * @param {"sm"|"md"|"lg"|"xl"} [size] - Width preset (default "md" = 520px).
+ *   Larger callers (wizards, data pickers) should use "lg" / "xl" to avoid
+ *   horizontal overflow from inner content.
  */
-export default function Modal({ open, onClose, title, children, footer }) {
+export default function Modal({ open, onClose, title, children, footer, size = "md" }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         ref={dialogRef}
-        className="modal-dialog"
+        className={`modal-dialog modal-dialog--${size}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

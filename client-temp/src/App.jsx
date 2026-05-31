@@ -30,6 +30,8 @@ import {
   AdminPlansPage,
   AdminCodesPage,
   AdminTransactionsPage,
+  AdminStudentsPage,
+  AdminQuestionsPage,
 } from './routes'
 
 function Loader() {
@@ -92,6 +94,8 @@ export default function App() {
           <Route path="/admin/plans" element={<AdminPlansPage />} />
           <Route path="/admin/codes" element={<AdminCodesPage />} />
           <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
+          <Route path="/admin/students" element={<AdminStudentsPage />} />
+          <Route path="/admin/questions" element={<AdminQuestionsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -7,6 +7,7 @@ import {
 import toast from "react-hot-toast";
 import { quizzesAPI } from "../../services/api";
 import Modal from "../../components/ui/Modal";
+import NewQuizWizard from "../../components/admin/NewQuizWizard";
 import "./AdminQuizzesPage.css";
 
 const SUBJECT_FILTERS = ["All", "Mathematics", "Physics", "Chemistry", "Biology", "Mixed"];
@@ -52,13 +53,17 @@ function phaseOf(q, now = new Date()) {
   return { label: "Live", tone: "live" };
 }
 
-// Renders a window range compactly. Format trims year + seconds for table fit.
+// Renders a window range as a single short string that fits in a table cell
+// without wrapping (`5 Jul 8:00a → 5 Jul 4:00p`). The full timestamp lives
+// in the row's edit modal — this is just the at-a-glance summary.
 function fmtWindow(startIso, endIso) {
   const fmt = (iso) => {
     if (!iso) return null;
-    return new Date(iso).toLocaleString("en-IN", {
-      day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-    });
+    const d = new Date(iso);
+    const day = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })
+      .replace(/\s?(am|pm|AM|PM)/, (m, ap) => ap[0].toLowerCase());
+    return `${day} ${time}`;
   };
   const s = fmt(startIso);
   const e = fmt(endIso);
@@ -346,6 +351,10 @@ export default function AdminQuizzesPage() {
             No quizzes match these filters.
           </div>
         ) : (
+          // The card has overflow:hidden; without this wrapper the table
+          // silently clips the rightmost Actions column (lock / view / edit
+          // / more) when the viewport narrows.
+          <div style={{ overflowX: "auto" }}>
           <table className="atable">
             <thead>
               <tr>
@@ -449,6 +458,7 @@ export default function AdminQuizzesPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
 
         {!loading && pagination.pages > 1 && (
@@ -490,17 +500,19 @@ export default function AdminQuizzesPage() {
         onSave={handleSaveWindow}
       />
 
-      <NewQuizModal
+      {/* Both create and edit go through the wizard — edit mode pre-fills
+          every field from the row and switches the submit to PUT. */}
+      <NewQuizWizard
         open={newQuizOpen}
         onClose={() => setNewQuizOpen(false)}
-        onSaved={() => { setNewQuizOpen(false); load(); }}
+        onCreated={() => { setNewQuizOpen(false); load(); }}
       />
 
-      <NewQuizModal
+      <NewQuizWizard
         open={!!editingQuiz}
         quiz={editingQuiz}
         onClose={() => setEditingQuiz(null)}
-        onSaved={() => { setEditingQuiz(null); load(); }}
+        onCreated={() => { setEditingQuiz(null); load(); }}
       />
     </div>
   );
@@ -637,172 +649,3 @@ function RankSwitch({ on, busy, onClick }) {
   );
 }
 
-// Quiz metadata editor. Dual-mode:
-//   - create: opened from the page header's "New quiz" button. POSTs with
-//     `questions: []` (allowed by the DTO — no @ArrayMinSize on it) which
-//     yields a DRAFT stub admins can flesh out from the row's edit screen.
-//   - edit:   opened from a row's pencil button. PUT-updates just the
-//     metadata fields, leaving the existing question list intact.
-function NewQuizModal({ open, quiz, onClose, onSaved }) {
-  const isEdit = !!quiz;
-  const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("Mathematics");
-  const [difficulty, setDifficulty] = useState("MEDIUM");
-  const [timeLimitMins, setTimeLimitMins] = useState(60);
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Pre-fill from the row in edit mode; reset to defaults on close so the
-  // next create-open starts blank.
-  useEffect(() => {
-    if (!open) {
-      setTitle(""); setSubject("Mathematics"); setDifficulty("MEDIUM");
-      setTimeLimitMins(60); setDescription(""); setSaving(false);
-      return;
-    }
-    if (quiz) {
-      setTitle(quiz.title || "");
-      setSubject(quiz.subject || "Mathematics");
-      setDifficulty(quiz.difficulty || "MEDIUM");
-      setTimeLimitMins(quiz.timeLimitMins ?? 60);
-      setDescription(quiz.description || "");
-    }
-  }, [open, quiz]);
-
-  const submit = async () => {
-    if (!title.trim()) {
-      toast.error("Title is required");
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        subject,
-        difficulty,
-        timeLimitMins: Math.max(1, parseInt(timeLimitMins, 10) || 60),
-        description: description.trim() || undefined,
-      };
-      if (isEdit) {
-        await quizzesAPI.update(quiz.id, payload);
-        toast.success("Quiz updated");
-      } else {
-        await quizzesAPI.create({ ...payload, questions: [] });
-        toast.success("Draft created · add questions next");
-      }
-      onSaved?.();
-    } catch (err) {
-      toast.error(err?.message || (isEdit ? "Failed to update quiz" : "Failed to create quiz"));
-      setSaving(false);
-    }
-  };
-
-  const SUBJECTS = SUBJECT_FILTERS.filter((s) => s !== "All");
-  const DIFFS = DIFF_FILTERS.filter((d) => d !== "Any");
-
-  return (
-    <Modal
-      open={open}
-      onClose={saving ? undefined : onClose}
-      title={isEdit ? "Edit quiz" : "New quiz"}
-      footer={(
-        <>
-          <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-accent" onClick={submit} disabled={saving}>
-            {saving
-              ? <><Loader2 size={14} className="aq-spin" /> {isEdit ? "Saving…" : "Creating…"}</>
-              : (isEdit ? "Save changes" : "Create draft")}
-          </button>
-        </>
-      )}
-    >
-      <div className="cc-form" style={{ minWidth: 360 }}>
-        <label className="cc-field">
-          <span>Title</span>
-          <input
-            type="text"
-            placeholder="e.g. Calculus — Limits & continuity"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-            disabled={saving}
-          />
-        </label>
-
-        <div className="cc-row">
-          <label className="cc-field">
-            <span>Subject</span>
-            <select
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              disabled={saving}
-              style={{
-                background: "var(--rr-bg-alt)",
-                border: "1px solid var(--rr-border)",
-                borderRadius: "var(--rr-r-md)",
-                height: 40, padding: "0 12px", color: "var(--rr-fg)",
-                fontFamily: "var(--rr-font-sans)", fontSize: 14, width: "100%",
-              }}
-            >
-              {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-
-          <label className="cc-field">
-            <span>Difficulty</span>
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              disabled={saving}
-              style={{
-                background: "var(--rr-bg-alt)",
-                border: "1px solid var(--rr-border)",
-                borderRadius: "var(--rr-r-md)",
-                height: 40, padding: "0 12px", color: "var(--rr-fg)",
-                fontFamily: "var(--rr-font-sans)", fontSize: 14, width: "100%",
-              }}
-            >
-              {DIFFS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </label>
-        </div>
-
-        <label className="cc-field">
-          <span>Time limit <small>(minutes)</small></span>
-          <input
-            type="number"
-            min={1}
-            value={timeLimitMins}
-            onChange={(e) => setTimeLimitMins(e.target.value)}
-            disabled={saving}
-          />
-        </label>
-
-        <label className="cc-field">
-          <span>Description <small>(optional)</small></span>
-          <textarea
-            rows={3}
-            placeholder="One-line summary that students will see on the quiz card."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={saving}
-            style={{
-              background: "var(--rr-bg-alt)",
-              border: "1px solid var(--rr-border)",
-              borderRadius: "var(--rr-r-md)",
-              padding: 10, color: "var(--rr-fg)",
-              fontFamily: "var(--rr-font-sans)", fontSize: 14,
-              width: "100%", resize: "vertical", minHeight: 64,
-            }}
-          />
-        </label>
-
-        {!isEdit && (
-          <p style={{ margin: 0, fontSize: 12, color: "var(--rr-fg-muted)" }}>
-            Saves as <b style={{ color: "var(--rr-fg)" }}>Draft</b> with zero questions. You can add questions from the row's edit screen, then publish.
-          </p>
-        )}
-      </div>
-    </Modal>
-  );
-}

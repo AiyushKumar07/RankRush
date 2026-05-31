@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Receipt,
-  BookOpen, List, HelpCircle,
+  BookOpen, HelpCircle,
   Users,
   Crown, Ticket,
   Search, Bell, Menu, X, LogOut,
@@ -20,6 +20,12 @@ import ThemeToggle from "../ui/ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
 import { EnvTag } from "../admin/EnvSwitcher";
 import "./AdminLayout.css";
+// Shared admin chrome (.admin-main padding, .page-head, .acard, .status-pill, …)
+// lives in the dashboard CSS for historical reasons. Importing it from the
+// layout ensures those rules ship with EVERY admin route — without this,
+// hard-refreshing on /admin/transactions or /admin/quizzes loaded only that
+// page's CSS and the page header slammed against the viewport edge.
+import "../../pages/admin/AdminDashboardPage.css";
 
 const OVERVIEW = [
   { to: "/admin",              icon: LayoutDashboard, label: "Dashboard",   pill: "Live", pillClass: "live" },
@@ -27,13 +33,12 @@ const OVERVIEW = [
 ];
 
 const CATALOG = [
-  { to: "/admin/quizzes",  icon: BookOpen,    label: "Quizzes",   pill: "147" },
-  { icon: List,            label: "Topics",    pill: "38" },
-  { icon: HelpCircle,      label: "Questions", pill: "2,941" },
+  { to: "/admin/quizzes",   icon: BookOpen,    label: "Quizzes" },
+  { to: "/admin/questions", icon: HelpCircle,  label: "Questions" },
 ];
 
 const STUDENTS = [
-  { icon: Users,  label: "All students", pill: "12,481" },
+  { to: "/admin/students", icon: Users, label: "All students" },
 ];
 
 const MONETISATION = [

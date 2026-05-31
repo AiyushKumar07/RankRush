@@ -1,0 +1,121 @@
+/* =====================================================================
+   Admin Students — paginated list of every student account.
+   Reuses .atable / .status-pill / .pager-bar / .tx-* from sibling pages;
+   only student-specific bits live here.
+   ===================================================================== */
+
+.st-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--rr-violet-500), var(--rr-violet-700));
+  color: white;
+  display: grid; place-items: center;
+  font-family: var(--rr-font-display);
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.st-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.st-user .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st-user .name { color: var(--rr-fg); font-weight: 500; }
+.st-user .email {
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  color: var(--rr-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-cohort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  color: var(--rr-fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.st-cohort .pip {
+  font-weight: 700;
+  color: var(--rr-fg);
+}
+
+.st-num {
+  font-family: var(--rr-font-display);
+  font-weight: 600;
+  color: var(--rr-fg);
+  font-variant-numeric: tabular-nums;
+}
+.st-num small {
+  font-family: var(--rr-font-sans);
+  font-weight: 400;
+  color: var(--rr-fg-muted);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.st-plan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: var(--rr-r-full);
+  border: 1px solid var(--rr-border);
+  color: var(--rr-fg-muted);
+  background: var(--rr-bg-alt);
+}
+.st-plan-pill.paid {
+  color: var(--rr-violet-400);
+  border-color: color-mix(in oklab, var(--rr-violet-500) 30%, transparent);
+  background: color-mix(in oklab, var(--rr-violet-500) 10%, transparent);
+}
+
+.st-flag-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.st-flag {
+  font-family: var(--rr-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: var(--rr-r-sm);
+  border: 1px solid var(--rr-border);
+  color: var(--rr-fg-muted);
+}
+.st-flag.ok {
+  color: var(--rr-emerald-500);
+  border-color: color-mix(in oklab, var(--rr-emerald-500) 30%, transparent);
+  background: color-mix(in oklab, var(--rr-emerald-500) 10%, transparent);
+}
+.st-flag.warn {
+  color: var(--rr-amber-500);
+  border-color: color-mix(in oklab, var(--rr-amber-500) 30%, transparent);
+}
+.st-flag.bad {
+  color: var(--rr-coral-500);
+  border-color: color-mix(in oklab, var(--rr-coral-500) 30%, transparent);
+}
+
+.st-date {
+  font-family: var(--rr-font-mono);
+  font-size: 12px;
+  color: var(--rr-fg-2);
+}
+.st-date small { display: block; font-size: 10px; color: var(--rr-fg-muted); margin-top: 2px; }
