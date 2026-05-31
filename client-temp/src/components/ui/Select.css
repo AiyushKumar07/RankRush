@@ -74,6 +74,27 @@
   overscroll-behavior: contain;
   animation: rr-select-pop 120ms var(--rr-ease-soft);
 }
+
+/* Portal variant — Select renders the dropdown into <body> so it can
+   escape ancestors with overflow:hidden (e.g. Modal bodies). Inline
+   styles drive top/left/width/maxHeight; we just need to neutralise
+   the absolute-position defaults and float above modal overlays. */
+.rr-select-list--portal {
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: auto;
+  /* Modal overlay sits around z-index 1000 in this codebase — keep
+     the dropdown safely above it. */
+  z-index: 1100;
+}
+.rr-select-list--above {
+  animation: rr-select-pop-up 120ms var(--rr-ease-soft);
+}
+@keyframes rr-select-pop-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 @keyframes rr-select-pop {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
