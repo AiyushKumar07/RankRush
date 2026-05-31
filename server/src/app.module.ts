@@ -25,6 +25,7 @@ import { ActivityModule } from './activity/activity.module.js';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module.js';
 import { BadgesModule } from './badges/badges.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { AdminOverviewModule } from './admin-overview/admin-overview.module.js';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     LeaderboardsModule,
     BadgesModule,
     NotificationsModule,
+    AdminOverviewModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

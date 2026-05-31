@@ -2,10 +2,14 @@
    AdminLayout — responsive shell
    ===================================================================== */
 
+/* Shell is a viewport-sized fixed frame; only the main column scrolls.
+   Avoids the position:sticky pitfalls inside CSS grid (stretched grid
+   items, ancestors that create a containing block, etc.). */
 .admin-app {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--rr-bg-alt);
 }
 
@@ -14,14 +18,19 @@
   background: var(--rr-bg);
   border-right: 1px solid var(--rr-border);
   padding: 18px 16px;
-  position: sticky;
-  top: 0;
   height: 100vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 22px;
   z-index: 50;
+}
+
+/* MAIN — own scroll container so the topbar's sticky pins inside it
+   while the sidebar stays put. */
+.admin-app > main {
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .admin-brand-row {

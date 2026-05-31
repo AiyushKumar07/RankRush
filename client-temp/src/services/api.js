@@ -214,6 +214,15 @@ export const analyticsAPI = {
   getAuditLogs: (params) => api.get('/analytics/audit-logs', { params }),
 };
 
+// Admin /admin/* dashboard: aggregate revenue/students/quizzes KPIs that
+// don't fit cleanly into the question-focused analytics endpoint.
+export const adminOverviewAPI = {
+  getOverview: (period) => api.get('/admin/overview', { params: period ? { period } : undefined }),
+  getRevenueTrend: (days) => api.get('/admin/overview/revenue-trend', { params: days ? { days } : undefined }),
+  getTopQuizzes: (params) => api.get('/admin/overview/top-quizzes', { params }),
+  getActivityFeed: (limit) => api.get('/admin/overview/activity-feed', { params: limit ? { limit } : undefined }),
+};
+
 export const tokensAPI = {
   getBalance: () => api.get('/tokens/balance'),
   getReferrals: () => api.get('/tokens/referrals'),
