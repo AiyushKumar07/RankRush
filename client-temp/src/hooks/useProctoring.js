@@ -154,6 +154,17 @@ export default function useProctoring({ enabled = true, quizId, onForceSubmit } 
     engine.attachStream(s);
     evidenceRef.current?.attachStream(s);
   }, [engine]);
+  // Screen-share pipeline — separate from camera. The evidence collector
+  // uses the screen <video> element to draw frames into a JPEG and ship
+  // them as source=SCREEN. The engine doesn't run inference on the
+  // screen feed (no face detection); it only listens for the screen
+  // track ending so we can force-submit if the candidate stops sharing.
+  const attachScreenVideo = useCallback((el) => {
+    evidenceRef.current?.attachScreenVideo(el);
+  }, []);
+  const attachScreenStream = useCallback((s) => {
+    evidenceRef.current?.attachScreenStream(s);
+  }, []);
 
   const start = useCallback(async () => {
     if (!enabled) return;
@@ -177,6 +188,14 @@ export default function useProctoring({ enabled = true, quizId, onForceSubmit } 
     try { await c.drain(2500); } catch { /* ignore */ }
   }, []);
 
+  // Lets the page push a violation into the engine from outside —
+  // used for events that aren't observable from the engine's own
+  // listeners (e.g. the screen-share track ending, which is detected
+  // on the stream the page owns, not anything the engine wired up).
+  const report = useCallback((type, details) => {
+    engine.report(type, details);
+  }, [engine]);
+
   // We split the hook's return into a "controls" object (stable across
   // renders) and a "state" object (rerenders the consumer). The session
   // page wires start/stop/attach inside a useEffect that MUST NOT re-fire
@@ -184,8 +203,17 @@ export default function useProctoring({ enabled = true, quizId, onForceSubmit } 
   // result is what keeps that effect from thrashing and triggering an
   // extra heartbeat capture per render.
   const controls = useMemo(
-    () => ({ attachVideo, attachStream, start, stop, captureExit }),
-    [attachVideo, attachStream, start, stop, captureExit],
+    () => ({
+      attachVideo,
+      attachStream,
+      attachScreenVideo,
+      attachScreenStream,
+      start,
+      stop,
+      captureExit,
+      report,
+    }),
+    [attachVideo, attachStream, attachScreenVideo, attachScreenStream, start, stop, captureExit, report],
   );
 
   return {

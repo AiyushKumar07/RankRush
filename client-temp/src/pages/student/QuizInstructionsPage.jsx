@@ -21,6 +21,10 @@ import {
 import RRBrand from "../../components/brand/RRBrand";
 import ThemeToggle from "../../components/ui/ThemeToggle";
 import { studentAPI } from "../../services/api";
+import {
+  setHandoffScreenStream,
+  clearHandoffScreenStream,
+} from "../../lib/proctoring/streamHandoff";
 import "./QuizInstructionsPage.css";
 
 const RULES = [
@@ -67,6 +71,13 @@ export default function QuizInstructionsPage() {
 
   const [permState, setPermState] = useState("idle"); // idle | requesting | granted | denied
   const [permError, setPermError] = useState(null);
+  // Screen-share is a SEPARATE permission flow because getDisplayMedia
+  // requires its own user gesture per call. We acquire it on the
+  // instructions page (the user's gesture) and hand it off via the
+  // streamHandoff module to the session page.
+  const [screenPermState, setScreenPermState] = useState("idle"); // idle | requesting | granted | denied
+  const [screenPermError, setScreenPermError] = useState(null);
+  const screenStreamRef = useRef(null);
   const [showPreview, setShowPreview] = useState(true);
   const [agreed, setAgreed] = useState(false);
 
@@ -100,7 +111,23 @@ export default function QuizInstructionsPage() {
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  useEffect(() => () => stopStream(), [stopStream]);
+  // Only stops the LOCAL preview stream — the handoff stream (if any)
+  // is intentionally NOT stopped, because the session page will pick it
+  // up. If the user navigates away without starting the quiz, the
+  // unmount cleanup below handles that case too.
+  useEffect(() => () => {
+    stopStream();
+    // If we acquired a screen stream but the user backed out without
+    // starting the quiz, kill it so the "X is sharing" indicator goes
+    // away. handoff.clear() also stops the underlying tracks.
+    if (screenStreamRef.current) {
+      try {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      } catch { /* ignore */ }
+      screenStreamRef.current = null;
+      clearHandoffScreenStream();
+    }
+  }, [stopStream]);
 
   // When the <video> element re-mounts (show/hide preview), reattach the live stream.
   useEffect(() => {
@@ -141,7 +168,59 @@ export default function QuizInstructionsPage() {
     setShowPreview((v) => !v);
   }, []);
 
-  const canStart = permState === "granted" && agreed;
+  const requestScreenShare = useCallback(async () => {
+    setScreenPermError(null);
+    setScreenPermState("requesting");
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setScreenPermState("denied");
+      setScreenPermError("Your browser doesn't support screen sharing. Try Chrome, Edge, or Firefox on a desktop.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 5 },   // we only sample frames every 30s — 5fps is plenty
+        audio: false,              // we don't capture screen audio
+      });
+      // Validate the candidate chose ENTIRE SCREEN, not a single tab or
+      // window. The displaySurface hint isn't always populated (older
+      // browsers) but when it is, it's the cleanest signal.
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings?.() || {};
+      const surface = settings.displaySurface;
+      if (surface && surface !== 'monitor') {
+        // Surface is 'window' (single window) or 'browser' (single tab).
+        // Either lets the candidate hide their cheating behind alt-tab.
+        stream.getTracks().forEach((t) => t.stop());
+        setScreenPermState("denied");
+        setScreenPermError("Please share your ENTIRE SCREEN, not just a window or tab. Click 'Enable screen sharing' again and choose 'Entire screen'.");
+        return;
+      }
+      // If they stop sharing from the browser's "Stop sharing" pill at
+      // any point on THIS page, fall back to the un-granted state so
+      // the start button disables again.
+      track?.addEventListener('ended', () => {
+        screenStreamRef.current = null;
+        clearHandoffScreenStream();
+        setScreenPermState("idle");
+      });
+      screenStreamRef.current = stream;
+      setHandoffScreenStream(stream);
+      setScreenPermState("granted");
+    } catch (err) {
+      setScreenPermState("denied");
+      const name = err?.name || "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setScreenPermError("You declined the screen-share prompt. Click again and approve to continue.");
+      } else if (name === "NotFoundError") {
+        setScreenPermError("No screen available to share.");
+      } else {
+        setScreenPermError(err?.message || "Unable to start screen sharing.");
+      }
+    }
+  }, []);
+
+  const canStart =
+    permState === "granted" && screenPermState === "granted" && agreed;
 
   const handleStart = useCallback(async () => {
     if (!canStart) return;
@@ -153,8 +232,15 @@ export default function QuizInstructionsPage() {
         await document.documentElement.requestFullscreen();
       }
     } catch { /* user can re-enter manually if blocked */ }
-    // Stop preview tracks; the session page will request its own stream.
+    // Stop preview camera tracks; the session page will request its own.
+    // INTENTIONALLY DO NOT stop the screen stream — it lives in the
+    // handoff module and the session page will take ownership of it
+    // (getDisplayMedia needs a user gesture every call, so we can't
+    // re-request after navigation).
     stopStream();
+    // Also clear the local ref so the unmount-cleanup effect doesn't
+    // stop the screen stream we just handed off.
+    screenStreamRef.current = null;
     navigate(`/app/quizzes/${quizId}/session`);
   }, [canStart, navigate, quizId, stopStream]);
 
@@ -306,16 +392,53 @@ export default function QuizInstructionsPage() {
                   <span>{permError}</span>
                 </div>
               )}
+
+              {/* Screen-share permission. Always rendered so candidates
+                  can see what's coming next; only enabled after the
+                  camera step succeeds so the prompts don't pile up. */}
+              {permState === "granted" && screenPermState !== "granted" ? (
+                <button
+                  type="button"
+                  className="btn btn-accent qi-allow-btn"
+                  onClick={requestScreenShare}
+                  disabled={screenPermState === "requesting"}
+                  style={{ marginTop: 10 }}
+                >
+                  {screenPermState === "requesting" ? (
+                    <>
+                      <Loader2 size={14} className="spin" />
+                      Waiting for selection…
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 size={14} />
+                      Enable screen sharing
+                    </>
+                  )}
+                </button>
+              ) : screenPermState === "granted" ? (
+                <div className="qi-perm-success" style={{ marginTop: 10 }}>
+                  <Check size={14} />
+                  Screen sharing is active
+                </div>
+              ) : null}
+
+              {screenPermState === "denied" && screenPermError && (
+                <div className="qi-perm-error">
+                  <AlertTriangle size={14} />
+                  <span>{screenPermError}</span>
+                </div>
+              )}
             </div>
 
             <ul className="qi-perm-bullets">
               <li>
                 <Camera size={12} />
-                Your webcam feed stays on your device — only flags are reported.
+                Your webcam feed stays on your device — only flagged moments are kept.
               </li>
               <li>
-                <Mic size={12} />
-                Audio is sampled for background voices, never recorded in full.
+                <Maximize2 size={12} />
+                We snapshot your screen every 30 s and on each warning. Audio is not recorded.
               </li>
             </ul>
           </section>
@@ -371,7 +494,9 @@ export default function QuizInstructionsPage() {
                 ? "Tick the agreement to continue"
                 : permState !== "granted"
                   ? "Allow camera & microphone access to continue"
-                  : "Begin the quiz"
+                  : screenPermState !== "granted"
+                    ? "Enable screen sharing to continue"
+                    : "Begin the quiz"
             }
           >
             <Play size={16} />

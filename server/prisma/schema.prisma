@@ -604,6 +604,11 @@ model QuizAttemptEvidence {
   studentId String   @db.ObjectId
 
   kind      EvidenceKind
+  // Where the frame came from. CAMERA = candidate's webcam, SCREEN =
+  // their desktop / chosen display surface. Defaults to CAMERA so that
+  // pre-existing rows (which all came from the webcam pipeline) continue
+  // to render correctly without a backfill.
+  source    EvidenceSource @default(CAMERA)
   mimeType  String
   url       String     // Cloudinary secure_url
   storageKey String    // Cloudinary public_id, for deletion + retention jobs
@@ -622,14 +627,24 @@ model QuizAttemptEvidence {
 
   @@index([attemptId])
   @@index([attemptId, kind])
+  @@index([attemptId, source])
   @@index([studentId, capturedAt])
+  // Supports the daily retention purge: "find rows where capturedAt <
+  // threshold". Without this the cron does a full-collection scan,
+  // which gets expensive once the table is in the hundreds of thousands.
+  @@index([capturedAt])
 }
 
 enum EvidenceKind {
   HEARTBEAT
   BURST
-  AUDIO
+  AUDIO    // legacy — no longer captured by client; kept so older rows still type-check
   EXIT
+}
+
+enum EvidenceSource {
+  CAMERA
+  SCREEN
 }
 
 // ─── Daily activity rollup ───────────────────────────────────────────

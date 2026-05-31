@@ -105,6 +105,16 @@ export const VIOLATION_RULES = {
     repeatable: false,
     cooldownMs: 0,
   },
+  SCREEN_SHARE_STOPPED: {
+    // Same shape as CAMERA_STOPPED — one-shot, weight === DISQUALIFY_AT
+    // so the strike-limit path fires immediately and the page auto-
+    // submits with the answers gathered so far.
+    label: 'Screen sharing was stopped',
+    severity: 'strike',
+    weight: 3,
+    repeatable: false,
+    cooldownMs: 0,
+  },
   // Object detection (phone, laptop, etc.) — when wired up via coco-ssd.
   // Strict: one positive detection is enough to DQ.
   PROHIBITED_OBJECT: {

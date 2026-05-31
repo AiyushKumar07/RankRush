@@ -25,15 +25,21 @@ import { EventBusService } from '../events/event-bus.service.js';
 // emits ~60 of them; the burst fires per-strike (3 frames each); audio
 // is rare. Caps below leave plenty of headroom for real attempts but
 // shut off the obvious abuse path.
+// Per-(kind, source) cap. Captures now fire for two sources (camera +
+// screen) so the per-kind ceilings are doubled vs the single-source era.
+// HEARTBEAT 30s × 60min × 4hrs ≈ 480 frames per source upper bound; we
+// keep the cap lower to penalize a runaway client.
 const EVIDENCE_LIMITS: Record<string, number> = {
-  HEARTBEAT: 200,
-  BURST: 120,
-  AUDIO: 40,
-  EXIT: 4,
+  HEARTBEAT: 400,
+  BURST: 240,
+  AUDIO: 0,    // legacy enum — no new uploads accepted (see uploadEvidence)
+  EXIT: 8,
 };
 
 const EVIDENCE_KINDS = ['HEARTBEAT', 'BURST', 'AUDIO', 'EXIT'] as const;
 type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
+const EVIDENCE_SOURCES = ['CAMERA', 'SCREEN'] as const;
+type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
 
 // ── Gamification constants (simple formula) ──────────────────────
 const XP_PER_CORRECT = 10;
@@ -1283,6 +1289,7 @@ export class StudentService {
     file: Express.Multer.File,
     body: {
       kind?: string;
+      source?: string;
       linkedViolationType?: string;
       linkedViolationTimestamp?: string;
       sequence?: string;
@@ -1293,6 +1300,19 @@ export class StudentService {
     if (!EVIDENCE_KINDS.includes(kind)) {
       throw new BadRequestException(`Unknown evidence kind: ${body.kind}`);
     }
+    // AUDIO is a legacy kind kept in the enum for historical rows but
+    // no longer accepted from clients — proctoring switched to a pure
+    // image-capture pipeline (camera + screen frames).
+    if (kind === 'AUDIO') {
+      throw new BadRequestException(
+        'Audio evidence is no longer accepted; capture frames as HEARTBEAT/BURST/EXIT instead.',
+      );
+    }
+    const rawSource = (body.source || 'CAMERA').toUpperCase() as EvidenceSource;
+    if (!EVIDENCE_SOURCES.includes(rawSource)) {
+      throw new BadRequestException(`Unknown evidence source: ${body.source}`);
+    }
+    const source = rawSource;
 
     // Bind to the most recent attempt — IN_PROGRESS preferred, otherwise
     // the latest COMPLETED/FAILED_PROCTORING (allows late-arriving burst
@@ -1321,24 +1341,22 @@ export class StudentService {
       throw new NotFoundException('No attempt found for this quiz to attach evidence to');
     }
 
-    // Per-attempt rate limit — silent 200 (we don't want to break the
-    // client's collection loop if it overshoots; the audit is just bounded).
+    // Per-(attempt, kind, source) rate limit — silent skip on overflow
+    // so a misbehaving client doesn't blow up the user's attempt with
+    // 400s. Per-source so a flood of one stream can't starve the other.
     const existingCount = await this.prisma.quizAttemptEvidence.count({
-      where: { attemptId: attempt.id, kind },
+      where: { attemptId: attempt.id, kind, source },
     });
     const limit = EVIDENCE_LIMITS[kind] ?? 50;
     if (existingCount >= limit) {
-      return { data: { skipped: true, reason: 'rate_limit', kind, limit } };
+      return { data: { skipped: true, reason: 'rate_limit', kind, source, limit } };
     }
 
-    const isAudio = kind === 'AUDIO' || (file.mimetype || '').startsWith('audio/');
-    const resourceType = isAudio ? 'video' : 'image'; // Cloudinary lumps audio under 'video'
     const folder = `rankrush/evidence/${attempt.id}`;
-
     const upload = await new Promise<{ url: string; key: string } | null>(
       (resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder, resource_type: resourceType, access_mode: 'authenticated' },
+          { folder, resource_type: 'image', access_mode: 'authenticated' },
           (err, result) => {
             if (err) return reject(err);
             if (!result) return resolve(null);
@@ -1358,7 +1376,8 @@ export class StudentService {
         attemptId: attempt.id,
         studentId: userId,
         kind,
-        mimeType: file.mimetype || (isAudio ? 'audio/webm' : 'image/jpeg'),
+        source,
+        mimeType: file.mimetype || 'image/jpeg',
         url: upload.url,
         storageKey: upload.key,
         linkedViolationType: body.linkedViolationType || null,

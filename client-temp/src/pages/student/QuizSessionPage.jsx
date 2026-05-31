@@ -10,6 +10,10 @@ import Modal from "../../components/ui/Modal";
 import QuestionPalette from "../../components/student/QuestionPalette";
 import ProctoringHud from "../../components/student/ProctoringHud";
 import useProctoring from "../../hooks/useProctoring";
+import {
+  takeHandoffScreenStream,
+  clearHandoffScreenStream,
+} from "../../lib/proctoring/streamHandoff";
 import { studentAPI } from "../../services/api";
 import "./QuizSessionPage.css";
 
@@ -92,6 +96,15 @@ export default function QuizSessionPage() {
   const webcamStreamRef = useRef(null);
   const [webcamState, setWebcamState] = useState("idle"); // idle | live | denied
   const [webcamHidden, setWebcamHidden] = useState(false);
+
+  // Screen-share — separate from the camera. The MediaStream was
+  // acquired on the instructions page (getDisplayMedia needs a user
+  // gesture every call, so we can't re-request here after navigation)
+  // and handed off via the streamHandoff module. The session page is
+  // responsible for cleaning it up when the attempt ends.
+  const screenVideoRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const [screenState, setScreenState] = useState("idle"); // idle | live | missing
 
   // Track fullscreen state so we can prompt the user to re-enter — the
   // initial request happens during the user gesture on the instructions
@@ -211,6 +224,51 @@ export default function QuizSessionPage() {
     }
   }, [webcamHidden, webcamState]);
 
+  // ── Screen-share handoff ─────────────────────────────────────────
+  // Pull the MediaStream that was acquired on the instructions page.
+  // If it's gone (page reload, direct nav, browser killed the stream),
+  // we still let the quiz run but with camera-only evidence; force-
+  // submit will trigger via SCREEN_SHARE_STOPPED below the first time
+  // a screen capture is attempted with no stream attached.
+  useEffect(() => {
+    if (!quiz) return undefined;
+    const stream = takeHandoffScreenStream();
+    if (!stream) {
+      setScreenState("missing");
+      return undefined;
+    }
+    screenStreamRef.current = stream;
+    if (screenVideoRef.current) screenVideoRef.current.srcObject = stream;
+    setScreenState("live");
+    // The browser's "Stop sharing" pill or the user closing the
+    // shared monitor/window ends the track. We funnel that into the
+    // proctoring engine as SCREEN_SHARE_STOPPED so it tips the
+    // attempt into the auto-submit path.
+    const track = stream.getVideoTracks()[0];
+    const onEnded = () => {
+      setScreenState("missing");
+      // Route through the engine so the violation lands in the audit
+      // trail and the same force-submit flow handles it.
+      const e = proctoringEngineReportRef.current;
+      if (e) e('SCREEN_SHARE_STOPPED');
+    };
+    track?.addEventListener('ended', onEnded);
+    return () => {
+      track?.removeEventListener('ended', onEnded);
+      const s = screenStreamRef.current;
+      if (s) {
+        try { s.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+        screenStreamRef.current = null;
+      }
+      clearHandoffScreenStream();
+    };
+  }, [quiz]);
+
+  // Captured separately so the screen-handoff effect (which runs once
+  // per quiz mount) can poke the engine without depending on the
+  // proctoring hook value (which would re-fire the effect every render).
+  const proctoringEngineReportRef = useRef(null);
+
   // ── Proctoring engine ────────────────────────────────────────────
   // Wires face detection + tab-switch + fullscreen + blur + devtools
   // monitors through one rule book. Auto-submits with isProctoringFailure
@@ -262,13 +320,27 @@ export default function QuizSessionPage() {
   // fire this effect every tick and shoot an extra heartbeat frame per
   // start() call.
   const proctorControls = proctoring.controls;
+
+  // Keep the screen-handoff effect's ref pointing at the current
+  // engine.report — that effect runs once per quiz mount but the
+  // engine identity is stable, so this assignment is effectively
+  // "wire it once."
+  useEffect(() => {
+    proctoringEngineReportRef.current = proctorControls.report;
+    return () => { proctoringEngineReportRef.current = null; };
+  }, [proctorControls]);
+
   useEffect(() => {
     if (!quiz || webcamState !== "live") return;
     proctorControls.attachVideo(webcamRef.current);
     proctorControls.attachStream(webcamStreamRef.current);
+    // Screen attach — safe to call with null refs; collector will just
+    // skip SCREEN captures until both are populated.
+    proctorControls.attachScreenVideo(screenVideoRef.current);
+    proctorControls.attachScreenStream(screenStreamRef.current);
     proctorControls.start();
     return () => proctorControls.stop();
-  }, [quiz, webcamState, proctorControls]);
+  }, [quiz, webcamState, screenState, proctorControls]);
 
   // Request fullscreen as soon as the quiz mounts. We can't force it from
   // JS without a user gesture in some browsers — Begin Quiz on the
@@ -809,6 +881,29 @@ export default function QuizSessionPage() {
           left: -3000,
           top: 0,
           width: 240,
+          height: 180,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Always-mounted off-screen SCREEN-share video. Decoded
+          continuously so the proctoring evidence pipeline can pull
+          1280×720 frames into a canvas on every heartbeat / burst. We
+          render it at a real (but invisible-to-the-user) size for the
+          same reason as the webcam — browsers throttle decoding on
+          opacity:0 / 1×1 media elements. */}
+      <video
+        ref={screenVideoRef}
+        autoPlay
+        playsInline
+        muted
+        aria-hidden
+        tabIndex={-1}
+        style={{
+          position: "fixed",
+          left: -4000,
+          top: 0,
+          width: 320,
           height: 180,
           pointerEvents: "none",
         }}

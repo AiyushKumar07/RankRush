@@ -173,6 +173,7 @@ export class StudentController {
     @UploadedFile() file: Express.Multer.File,
     @Body() body: {
       kind?: string;
+      source?: string;
       linkedViolationType?: string;
       linkedViolationTimestamp?: string;
       sequence?: string;
