@@ -1,6 +1,6 @@
 /* Admin auth — single centered card on dark, deliberately different from student.
    Communicates: this is a privileged surface. */
-.admin-auth-page { background: var(--rr-bg); min-height: 100vh; display: grid; place-items: center; position: relative; overflow: hidden; }
+.admin-auth-page { background: var(--rr-bg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 32px 16px; position: relative; overflow: hidden; }
 
 .bg-grid {
   position: absolute; inset: 0;
@@ -19,14 +19,18 @@
 .admin-card {
   position: relative;
   width: 420px;
-  max-width: calc(100vw - 32px);
+  max-width: 100%;
   background: var(--rr-surface);
   border: 1px solid var(--rr-border-strong);
   border-radius: var(--rr-r-xl);
   padding: 36px 32px 28px;
   box-shadow: var(--rr-shadow-xl);
   z-index: 1;
+  box-sizing: border-box;
 }
+.admin-card *,
+.admin-card *::before,
+.admin-card *::after { box-sizing: border-box; }
 
 .admin-card .top {
   display: flex; flex-direction: column; align-items: flex-start; gap: 20px;
@@ -98,8 +102,9 @@
 .admin-card .input-shell input:focus { outline: none; border-color: var(--rr-violet-400); box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-violet-400) 18%, transparent); }
 .admin-card .input-shell .toggle-pw { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; color: var(--rr-fg-muted); cursor: pointer; width: 28px; height: 28px; border-radius: var(--rr-r-sm); display: grid; place-items: center; }
 
-.totp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.totp-row input { text-align: center; font-family: var(--rr-font-mono); font-size: 18px; letter-spacing: 0.2em; padding: 0; height: 48px; background: var(--rr-bg-alt); border: 1px solid var(--rr-border-strong); border-radius: var(--rr-r-md); color: var(--rr-fg); }
+.totp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+.totp-row input { width: 100%; min-width: 0; text-align: center; font-family: var(--rr-font-mono); font-size: 18px; letter-spacing: 0.2em; padding: 0; height: 48px; background: var(--rr-bg-alt); border: 1px solid var(--rr-border-strong); border-radius: var(--rr-r-md); color: var(--rr-fg); box-sizing: border-box; }
+.totp-row input:focus { outline: none; border-color: var(--rr-violet-400); box-shadow: 0 0 0 4px color-mix(in oklab, var(--rr-violet-400) 18%, transparent); }
 
 .admin-card .submit-btn {
   height: 46px;
@@ -130,7 +135,6 @@
 
 .below-card {
   text-align: center;
-  margin-top: 24px;
   font-family: var(--rr-font-mono);
   font-size: 10px;
   color: var(--rr-fg-dim);
