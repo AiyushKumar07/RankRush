@@ -54,6 +54,11 @@ export class CreateQuizDto {
   @IsString({ each: true })
   examType?: string[];
 
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cohort?: string[];
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => QuizQuestionDto)
@@ -113,6 +118,7 @@ export class UpdateQuizDto {
   @IsOptional() @IsString() topic?: string;
   @IsOptional() @IsString() className?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) examType?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) cohort?: string[];
 
   @IsOptional()
   @IsArray()

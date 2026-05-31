@@ -56,6 +56,15 @@ export class UserService {
 
     if (!user) throw new NotFoundException('User not found');
 
+    if (!user.username) {
+      const newUsername = await this.generateUniqueUsername(user.firstName ?? '', user.lastName ?? '');
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { username: newUsername },
+      });
+      user.username = newUsername;
+    }
+
     const [quizCount, accuracyAgg] = await Promise.all([
       this.prisma.quizAttempt.count({
         where: { studentId: userId, status: 'COMPLETED' },

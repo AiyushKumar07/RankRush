@@ -64,6 +64,7 @@ export class QuizzesService {
         topic: dto.topic,
         className: dto.className,
         examType: dto.examType || [],
+        cohort: dto.cohort || [],
         questions: dto.questions.map((q, i) => ({
           questionId: q.questionId,
           order: q.order ?? i + 1,
@@ -168,7 +169,7 @@ export class QuizzesService {
         difficulty: true, status: true, totalQuestions: true, totalMarks: true,
         timeLimitMins: true, negativeMarking: true, shuffleQuestions: true,
         rankRewarding: true, isClosed: true, quizStartsAt: true, quizEndsAt: true,
-        tags: true, attemptCost: true, createdBy: true,
+        tags: true, attemptCost: true, createdBy: true, cohort: true,
         createdAt: true, updatedAt: true,
       },
     });
@@ -187,7 +188,7 @@ export class QuizzesService {
       'Quiz ID', 'Title', 'Subject', 'Chapter', 'Topic', 'Difficulty',
       'Status', 'Questions', 'Total marks', 'Time limit (min)',
       'Negative marking', 'Shuffle questions', 'Rank-rewarding', 'Closed',
-      'Contest starts', 'Contest ends', 'Tags', 'Attempt cost',
+      'Contest starts', 'Contest ends', 'Tags', 'Cohort', 'Attempt cost',
       'Created by', 'Created at', 'Updated at',
     ];
 
@@ -212,6 +213,7 @@ export class QuizzesService {
         r.quizStartsAt ? r.quizStartsAt.toISOString() : '',
         r.quizEndsAt ? r.quizEndsAt.toISOString() : '',
         (r.tags || []).join('|'),
+        (r.cohort || []).join('|'),
         r.attemptCost ?? 1,
         creator ? `${creator.name} <${creator.email}>` : r.createdBy,
         r.createdAt.toISOString(),

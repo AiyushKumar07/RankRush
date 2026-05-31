@@ -63,6 +63,18 @@ function getRankTitle(level: number): string {
   return RANK_TITLES[level] || RANK_TITLES[1];
 }
 
+export function normalizeUserClass(c?: string | null): string | null {
+  if (!c) return null;
+  const lower = c.toLowerCase();
+  if (lower.includes('11')) return '11';
+  if (lower.includes('12')) return '12';
+  if (lower.includes('dropper')) return 'Dropper';
+  if (lower.includes('10')) return '10';
+  if (lower.includes('9')) return '9';
+  if (lower.includes('8')) return '8';
+  return c;
+}
+
 @Injectable()
 export class StudentService {
   private readonly logger = new Logger(StudentService.name);
@@ -186,7 +198,30 @@ export class StudentService {
     const limit = query.limit || 30;
     const skip = (page - 1) * limit;
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { class: true },
+    });
+    const userClass = normalizeUserClass(user?.class);
+
     const where: Prisma.QuizWhereInput = { status: 'ACTIVE' };
+    
+    if (userClass) {
+      const matchCohorts = [userClass];
+      if (userClass.toLowerCase() === 'dropper') {
+        matchCohorts.push('11', '12');
+      }
+
+      where.AND = [
+        ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+        { OR: [{ cohort: { hasSome: matchCohorts } }, { cohort: { isEmpty: true } }] }
+      ];
+    } else {
+      where.AND = [
+        ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+        { cohort: { isEmpty: true } }
+      ];
+    }
     if (query.subject) {
       where.subject = { equals: query.subject, mode: 'insensitive' };
     }
@@ -282,6 +317,8 @@ export class StudentService {
           rankRewarding: true,
           attemptCost: true,
           createdAt: true,
+          quizStartsAt: true,
+          quizEndsAt: true,
         },
       }),
       this.prisma.quiz.count({ where }),
@@ -302,15 +339,33 @@ export class StudentService {
 
   // ── Subject facets + side counts for the page tab bar ─────────────
   async getQuizFacets(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { class: true },
+    });
+    const userClass = normalizeUserClass(user?.class);
+
+    let cohortFilter: Prisma.QuizWhereInput = {};
+    if (userClass) {
+      const matchCohorts = [userClass];
+      if (userClass.toLowerCase() === 'dropper') {
+        matchCohorts.push('11', '12');
+      }
+      cohortFilter = { OR: [{ cohort: { hasSome: matchCohorts } }, { cohort: { isEmpty: true } }] };
+    } else {
+      cohortFilter = { cohort: { isEmpty: true } };
+    }
+    const baseWhere: Prisma.QuizWhereInput = { status: 'ACTIVE', ...cohortFilter };
+
     const [bySubject, byPaperType, savedCount, attempted] = await Promise.all([
       this.prisma.quiz.groupBy({
         by: ['subject'],
-        where: { status: 'ACTIVE' },
+        where: baseWhere,
         _count: { _all: true },
       }),
       this.prisma.quiz.groupBy({
         by: ['paperType'],
-        where: { status: 'ACTIVE' },
+        where: baseWhere,
         _count: { _all: true },
       }),
       this.prisma.savedQuiz.count({ where: { studentId: userId } }),
@@ -358,6 +413,7 @@ export class StudentService {
         totalMarks: true, totalQuestions: true, timeLimitMins: true,
         difficulty: true, tags: true, paperType: true, year: true,
         rankRewarding: true, attemptCost: true, createdAt: true,
+        quizStartsAt: true, quizEndsAt: true,
       },
     });
     const order = new Map(saved.map((s, i) => [s.quizId, i]));
@@ -571,6 +627,12 @@ export class StudentService {
   //   5) Last resort — any active quiz the user hasn't done.
   async getTodaysPick(userId: string) {
     const now = new Date();
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { class: true },
+    });
+    const userClass = normalizeUserClass(user?.class);
+
     const quizSelect = {
       id: true, quizId: true, title: true, description: true,
       subject: true, chapter: true, topic: true,
@@ -611,6 +673,17 @@ export class StudentService {
     const completedIds = completed.map((c) => c.quizId);
     const excludeIfAny = completedIds.length ? completedIds : ['000000000000000000000000'];
 
+    let cohortFilter: Prisma.QuizWhereInput = {};
+    if (userClass) {
+      const matchCohorts = [userClass];
+      if (userClass.toLowerCase() === 'dropper') {
+        matchCohorts.push('11', '12');
+      }
+      cohortFilter = { OR: [{ cohort: { hasSome: matchCohorts } }, { cohort: { isEmpty: true } }] };
+    } else {
+      cohortFilter = { cohort: { isEmpty: true } };
+    }
+
     // 2) Live rank-rewarding quiz — window is open and not yet closed.
     if (!pick) {
       pick = await this.prisma.quiz.findFirst({
@@ -619,6 +692,7 @@ export class StudentService {
           rankRewarding: true,
           isClosed: false,
           id: { notIn: excludeIfAny },
+          ...cohortFilter,
           AND: [
             { OR: [{ quizStartsAt: null }, { quizStartsAt: { lte: now } }] },
             { OR: [{ quizEndsAt: null },   { quizEndsAt:   { gt:  now } }] },
@@ -639,6 +713,7 @@ export class StudentService {
           rankRewarding: true,
           isClosed: false,
           quizStartsAt: { gt: now },
+          ...cohortFilter,
         },
         orderBy: { quizStartsAt: 'asc' },
         select: quizSelect,
@@ -662,12 +737,19 @@ export class StudentService {
         where: {
           status: 'ACTIVE',
           id: { notIn: excludedOrPlaceholder },
-          OR: weakTopics.length
-            ? [
-                { topic: { in: weakTopics } },
-                { chapter: { in: weakTopics } },
-              ]
-            : undefined,
+          ...cohortFilter,
+          ...(weakTopics.length
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { topic: { in: weakTopics } },
+                      { chapter: { in: weakTopics } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
         },
         orderBy: { createdAt: 'desc' },
         select: quizSelect,
@@ -679,6 +761,7 @@ export class StudentService {
           where: {
             status: 'ACTIVE',
             id: { notIn: excludedOrPlaceholder },
+            ...cohortFilter,
           },
           orderBy: { createdAt: 'desc' },
           select: quizSelect,

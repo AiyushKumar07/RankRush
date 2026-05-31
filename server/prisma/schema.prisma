@@ -313,6 +313,7 @@ model Quiz {
   topic       String?
   className   String?
   examType    String[]
+  cohort      String[]
 
   questions QuizQuestion[]
 

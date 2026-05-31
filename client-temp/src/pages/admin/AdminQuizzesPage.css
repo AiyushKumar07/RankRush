@@ -359,3 +359,48 @@
 /* Lock / danger row-action — visually distinct from the neutral row-acts. */
 .row-act.danger { color: var(--rr-coral-500); }
 .row-act.danger:hover:not(:disabled) { background: color-mix(in oklab, var(--rr-coral-500) 14%, transparent); }
+
+/* Row Menu */
+.aq-row-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--rr-surface);
+  border: 1px solid var(--rr-border-strong);
+  border-radius: var(--rr-r-md);
+  box-shadow: var(--rr-shadow-md);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 140px;
+}
+.aq-row-menu button {
+  text-align: left;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--rr-fg);
+  border-radius: var(--rr-r-sm);
+  cursor: pointer;
+}
+.aq-row-menu button:hover {
+  background: var(--rr-bg-alt);
+}
+.aq-row-menu button.danger {
+  color: var(--rr-coral-500);
+}
+.aq-row-menu button.danger:hover {
+  background: color-mix(in oklab, var(--rr-coral-500) 10%, transparent);
+}
+.aq-row-menu .aq-divider {
+  height: 1px;
+  background: var(--rr-border);
+  margin: 4px;
+}
+.aq-row-menu.up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}

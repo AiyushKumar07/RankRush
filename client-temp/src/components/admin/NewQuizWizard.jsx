@@ -59,12 +59,12 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
   const [prefilledQuestions, setPrefilledQuestions] = useState([]);
 
   /* Step 1 — Audience */
-  const [examType, setExamType] = useState("Boards");
-  const [classes, setClasses] = useState([]);
+  const [cohorts, setCohorts] = useState([]);
 
   /* Step 2 — Question picker */
   const [allFilters, setAllFilters] = useState(null);
   const [subject, setSubject] = useState("");
+  const [examTypes, setExamTypes] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [pickedChapters, setPickedChapters] = useState([]);
   const [pickedDiffs, setPickedDiffs] = useState([]);
@@ -98,8 +98,8 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
     if (!open) {
       // Hard reset everything on close so the next open is clean.
       setStep(1);
-      setExamType("Boards"); setClasses([]);
-      setSubject(""); setChapters([]); setPickedChapters([]);
+      setCohorts([]);
+      setSubject(""); setExamTypes([]); setChapters([]); setPickedChapters([]);
       setPickedDiffs([]); setPickedTypes([]);
       setTopicFilterOn(false); setSubTopicFilterOn(false);
       setPickedTopics([]); setPickedSubTopics([]);
@@ -116,8 +116,12 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
 
     // Edit mode — pre-fill the form straight from the row data, then fetch
     // the full quiz to populate the question pool with their existing picks.
-    setExamType(quiz.examType?.[0] || "Boards");
-    setClasses((quiz.className || "").split(",").map((s) => s.trim()).filter(Boolean));
+    let initialCohorts = quiz.cohort || [];
+    if (initialCohorts.length === 0 && quiz.className) {
+      initialCohorts = quiz.className.split(",").map(s => s.trim()).filter(Boolean);
+    }
+    setCohorts(initialCohorts);
+    setExamTypes(quiz.examType || []);
     setSubject(quiz.subject || "");
     setTitle(quiz.title || "");
     setDescription(quiz.description || "");
@@ -162,12 +166,24 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
       .catch(() => {});
   }, [open, step]);
 
+  const derivedClasses = useMemo(() => {
+    const set = new Set();
+    if (cohorts.includes("Dropper")) {
+      set.add("11");
+      set.add("12");
+    }
+    ["8", "9", "10", "11", "12"].forEach(c => {
+      if (cohorts.includes(c)) set.add(c);
+    });
+    return Array.from(set);
+  }, [cohorts]);
+
   /* Chapters when cohort/subject changes */
   useEffect(() => {
     if (step !== 2 || !subject) { setChapters([]); return; }
     let cancelled = false;
-    const klass = classes[0];
-    questionsAPI.getDynamicFilters({ examType, class: klass, subject })
+    const klass = derivedClasses[0];
+    questionsAPI.getDynamicFilters({ examType: examTypes[0], class: klass, subject })
       .then((res) => {
         if (cancelled) return;
         const d = unwrap(res) || {};
@@ -177,7 +193,7 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
       })
       .catch(() => { if (!cancelled) setChapters([]); });
     return () => { cancelled = true; };
-  }, [step, subject, examType, classes]);
+  }, [step, subject, examTypes, derivedClasses]);
 
   /* Question pool — fan out (class × chapter), merge, then client-side filter */
   const fetchPool = useCallback(async () => {
@@ -188,14 +204,18 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
     setPoolLoading(true);
     try {
       const tasks = [];
-      for (const klass of classes) {
+      for (const klass of derivedClasses) {
         for (const ch of pickedChapters) {
-          tasks.push(questionsAPI.list({
-            class: klass, chapter: ch, subject, examType,
-            status: "PUBLISHED", limit: 200,
-            ...(pickedDiffs.length === 1 ? { difficulty: pickedDiffs[0] } : {}),
-            ...(pickedTypes.length === 1 ? { questionType: pickedTypes[0] } : {}),
-          }));
+          const eTypes = examTypes.length > 0 ? examTypes : [undefined];
+          for (const et of eTypes) {
+            tasks.push(questionsAPI.list({
+              class: klass, chapter: ch, subject,
+              ...(et ? { examType: et } : {}),
+              status: "PUBLISHED", limit: 200,
+              ...(pickedDiffs.length === 1 ? { difficulty: pickedDiffs[0] } : {}),
+              ...(pickedTypes.length === 1 ? { questionType: pickedTypes[0] } : {}),
+            }));
+          }
         }
       }
       const results = await Promise.all(tasks.map((p) => p.catch(() => null)));
@@ -216,7 +236,7 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
     } finally {
       setPoolLoading(false);
     }
-  }, [subject, pickedChapters, classes, examType, pickedDiffs, pickedTypes, prefilledQuestions]);
+  }, [subject, pickedChapters, derivedClasses, examTypes, pickedDiffs, pickedTypes, prefilledQuestions]);
 
   useEffect(() => { if (step === 2) fetchPool(); }, [fetchPool, step]);
 
@@ -329,10 +349,11 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
     let acc = 0;
     for (const q of shuffled) {
       const t = q.estimatedTimeSeconds ?? 60;
-      if (acc + t > budget * 1.1) continue;
-      picked.push(q.id);
-      acc += t;
-      if (acc >= budget * 0.9 && picked.length >= 3) break;
+      if (acc + t <= budget) {
+        picked.push(q.id);
+        acc += t;
+      }
+      if (acc === budget) break;
     }
     setSelectedIds(picked);
     setAutoPicking(false);
@@ -343,7 +364,7 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
 
   /* Step validity */
   const canAdvance = useMemo(() => {
-    if (step === 1) return classes.length > 0;
+    if (step === 1) return cohorts.length > 0;
     if (step === 2) return selectedIds.length > 0;
     if (step === 3) {
       if (!title.trim() || timeLimitMins <= 0) return false;
@@ -354,7 +375,7 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
       return true;
     }
     return false;
-  }, [step, classes, selectedIds, title, timeLimitMins, rankRewarding, startsAt, endsAt]);
+  }, [step, cohorts, selectedIds, title, timeLimitMins, rankRewarding, startsAt, endsAt]);
 
   /* Submit */
   const submit = async () => {
@@ -366,8 +387,9 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
         title: title.trim(),
         description: description.trim() || undefined,
         subject,
-        examType: [examType],
-        className: classes.join(","),
+        examType: examTypes,
+        cohort: cohorts,
+        className: derivedClasses.join(","),
         difficulty: quizDifficulty || (pickedDiffs.length === 1 ? pickedDiffs[0] : undefined),
         timeLimitMins: Math.max(1, Number(timeLimitMins) || 60),
         negativeMarking,
@@ -468,12 +490,8 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
 
         {step === 1 && (
           <Step1Audience
-            examType={examType}
-            // User-driven cohort changes wipe step-2 picks so a Boards-10
-            // selection doesn't carry over into a NEET 11/12 quiz.
-            setExamType={(t) => { setExamType(t); setClasses([]); resetCohortPicks(); }}
-            classes={classes}
-            setClasses={(next) => { setClasses(next); resetCohortPicks(); }}
+            cohorts={cohorts}
+            setCohorts={(next) => { setCohorts(next); resetCohortPicks(); }}
           />
         )}
 
@@ -481,6 +499,8 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
           <Step2Questions
             subjectOptions={subjectOptions}
             subject={subject} setSubject={setSubject}
+            examTypes={examTypes}
+            toggleExamType={(t) => toggleInList(examTypes, t, setExamTypes)}
             chapters={chapters}
             pickedChapters={pickedChapters}
             togglePickedChapter={(c) => toggleInList(pickedChapters, c, setPickedChapters)}
@@ -527,49 +547,31 @@ export default function NewQuizWizard({ open, onClose, onCreated, quiz }) {
 
 /* ───────────────────────────── Step 1 ───────────────────────────── */
 
-function Step1Audience({ examType, setExamType, classes, setClasses }) {
-  const isEntrance = examType !== "Boards";
-  const classOptions = isEntrance ? ENTRANCE_CLASSES : BOARDS_CLASSES;
+function Step1Audience({ cohorts, setCohorts }) {
+  const options = ["Dropper", "8", "9", "10", "11", "12"];
 
-  const toggleClass = (c) => {
-    if (isEntrance) {
-      setClasses(classes.includes(c) ? classes.filter((x) => x !== c) : [...classes, c]);
-    } else {
-      setClasses([c]);
-    }
+  const toggleCohort = (c) => {
+    setCohorts(cohorts.includes(c) ? cohorts.filter((x) => x !== c) : [...cohorts, c]);
   };
 
   return (
-    <>
-      <div className="nqw-field">
-        <span className="nqw-label">Exam track</span>
-        <div className="nqw-segment">
-          {EXAM_TYPES.map((t) => (
-            <button key={t} type="button" className={examType === t ? "on" : ""} onClick={() => setExamType(t)}>{t}</button>
-          ))}
-        </div>
-        <p className="nqw-help">
-          {isEntrance
-            ? "Entrance-level cohort — questions filtered to JEE/NEET difficulty."
-            : "Boards cohort — single class, syllabus-aligned questions."}
-        </p>
+    <div className="nqw-field">
+      <span className="nqw-label">
+        Cohorts <small>(pick one or more)</small>
+      </span>
+      <div className="nqw-chips">
+        {options.map((c) => (
+          <button
+            key={c} type="button"
+            className={`nqw-chip ${cohorts.includes(c) ? "on" : ""}`}
+            onClick={() => toggleCohort(c)}
+          >{c === "Dropper" ? "Dropper" : `Class ${c}`}</button>
+        ))}
       </div>
-
-      <div className="nqw-field">
-        <span className="nqw-label">
-          {isEntrance ? <>Classes <small>(pick one or both)</small></> : <>Class <small>(pick one)</small></>}
-        </span>
-        <div className="nqw-chips">
-          {classOptions.map((c) => (
-            <button
-              key={c} type="button"
-              className={`nqw-chip ${classes.includes(c) ? "on" : ""}`}
-              onClick={() => toggleClass(c)}
-            >Class {c}</button>
-          ))}
-        </div>
-      </div>
-    </>
+      <p className="nqw-help">
+        Select the target cohorts for this quiz. "Dropper" includes classes 11 and 12.
+      </p>
+    </div>
   );
 }
 
@@ -594,26 +596,48 @@ function Step2Questions(p) {
       </div>
 
       {p.subject && (
-        <div className="nqw-field">
-          <span className="nqw-label">Chapters <small>(multi-select)</small></span>
-          {p.chapters.length === 0 ? (
-            <p className="nqw-help">No chapters indexed for this cohort yet.</p>
-          ) : (
-            <div className="nqw-chips">
-              {p.chapters.map((c) => (
-                <button
-                  key={c} type="button"
-                  className={`nqw-chip ${p.pickedChapters.includes(c) ? "on" : ""}`}
-                  onClick={() => p.togglePickedChapter(c)}
-                >{c}</button>
-              ))}
+        <>
+          <div className="nqw-row" style={{ marginTop: 16 }}>
+            <div className="nqw-field">
+              <span className="nqw-label">Exam Type <small>(any if none)</small></span>
+              <div className="nqw-chips">
+                {EXAM_TYPES.map((t) => (
+                  <button
+                    key={t} type="button"
+                    className={`nqw-chip ${p.examTypes.includes(t) ? "on" : ""}`}
+                    onClick={() => p.toggleExamType(t)}
+                  >{t}</button>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+
+          <div className="nqw-field">
+            <span className="nqw-label">Chapters <small>(multi-select)</small></span>
+            {p.chapters.length === 0 ? (
+              <p className="nqw-help">
+                {p.examTypes.length > 0 
+                  ? "No questions there for this filter."
+                  : "No chapters indexed for this cohort yet."}
+              </p>
+            ) : (
+              <div className="nqw-chips">
+                {p.chapters.map((c) => (
+                  <button
+                    key={c} type="button"
+                    className={`nqw-chip ${p.pickedChapters.includes(c) ? "on" : ""}`}
+                    onClick={() => p.togglePickedChapter(c)}
+                  >{c}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {p.pickedChapters.length > 0 && (
         <>
+
           <div className="nqw-row">
             <div className="nqw-field">
               <span className="nqw-label">Difficulty <small>(any if none)</small></span>

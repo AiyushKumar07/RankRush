@@ -460,6 +460,38 @@ function TodaysPickCard({ pick, loading }) {
     );
   }
 
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!pick.quizStartsAt && !pick.quizEndsAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [pick.quizStartsAt, pick.quizEndsAt]);
+
+  const starts = pick.quizStartsAt ? new Date(pick.quizStartsAt).getTime() : null;
+  const ends = pick.quizEndsAt ? new Date(pick.quizEndsAt).getTime() : null;
+
+  const isUpcoming = starts && starts > now;
+  const isLive = starts && ends && starts <= now && ends > now;
+  const isEnded = ends && ends <= now;
+
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const d = Math.floor(totalSeconds / 86400);
+    const h = Math.floor((totalSeconds % 86400) / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    if (d >= 30) {
+      const months = Math.floor(d / 30);
+      const days = d % 30;
+      return days > 0 ? `${months}mo ${days}d` : `${months}mo`;
+    }
+    if (d > 0) {
+      return `${d}d ${h}h ${m}m`;
+    }
+    return `${h}h ${m}m ${s}s`;
+  };
+
   const cost = pick.attemptCost ?? 1;
   const minutes = pick.timeLimitMins || 0;
   const duration = minutes >= 60 && minutes % 60 === 0
@@ -468,10 +500,15 @@ function TodaysPickCard({ pick, loading }) {
   const diffLevel = DIFF_PILL_MAP[pick.difficulty] ?? 3;
   const topic = [pick.subject, pick.chapter, pick.topic].filter(Boolean).join(" · ");
 
-  const tagLabel = pick.kind === 'resume'   ? 'Resume in progress'
+  let tagLabel = pick.kind === 'resume'   ? 'Resume in progress'
                 : pick.kind === 'live'      ? 'Live · ends soon'
                 : pick.kind === 'upcoming'  ? 'Upcoming contest'
                 : 'Suggested';
+
+  if (isUpcoming) tagLabel = `Upcoming in ${formatTime(starts - now)}`;
+  else if (isLive) tagLabel = `Ending in ${formatTime(ends - now)}`;
+  else if (isEnded) tagLabel = "Ended";
+
   const ctaLabel = pick.kind === 'resume'   ? 'Resume quiz'
                 : pick.kind === 'upcoming'  ? 'View quiz'
                 : 'Start quiz';
@@ -503,9 +540,19 @@ function TodaysPickCard({ pick, loading }) {
           </span>
         </div>
         <div className="tp-cta">
-          <Link to={href} className="btn btn-accent">
-            <Play size={14} />{ctaLabel} · {ctaSuffix}
-          </Link>
+          {isUpcoming ? (
+            <button className="btn btn-accent" disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+              Starts in {formatTime(starts - now)}
+            </button>
+          ) : isEnded ? (
+            <button className="btn btn-accent" disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+              Ended
+            </button>
+          ) : (
+            <Link to={href} className="btn btn-accent">
+              <Play size={14} />{ctaLabel} · {ctaSuffix}
+            </Link>
+          )}
         </div>
       </div>
     </div>

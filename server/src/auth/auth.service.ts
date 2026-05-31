@@ -254,6 +254,37 @@ export class AuthService {
     };
   }
 
+  private async generateUniqueUsername(firstName: string, lastName: string): Promise<string> {
+    const cleanFirst = (firstName || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const cleanLast = (lastName || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    let isUnique = false;
+    let attempt = 0;
+    let username = '';
+
+    while (!isUnique) {
+      const uuidTrimmed = crypto.randomUUID().split('-')[0];
+      if (attempt === 0 && cleanFirst) {
+        username = `${cleanFirst}-${uuidTrimmed}`;
+      } else if (attempt === 1 && cleanLast) {
+        username = `${cleanLast}-${uuidTrimmed}`;
+      } else {
+        username = `user-${crypto.randomUUID().split('-')[0]}`;
+      }
+
+      const existing = await this.prisma.user.findUnique({
+        where: { username },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        isUnique = true;
+      }
+      attempt++;
+    }
+    return username;
+  }
+
   // ─── Student Signup ─────────────────────────────────────────────────
   async studentSignup(dto: StudentSignupDto, req?: any) {
     const existing = await this.prisma.user.findUnique({
@@ -290,8 +321,11 @@ export class AuthService {
       }
     }
 
+    const username = await this.generateUniqueUsername(dto.firstName, dto.lastName);
+
     const user = await this.prisma.user.create({
       data: {
+        username,
         name: `${dto.firstName} ${dto.lastName}`,
         firstName: dto.firstName,
         lastName: dto.lastName,
@@ -413,6 +447,7 @@ export class AuthService {
           profilePicture: user.profilePicture,
           address: user.address,
           referralCode: user.referralCode,
+          username: user.username,
         },
         ...tokens,
       },
@@ -506,6 +541,7 @@ export class AuthService {
           profilePicture: user.profilePicture,
           address: user.address,
           referralCode: user.referralCode,
+          username: user.username,
         },
         ...tokens,
       },
@@ -753,6 +789,7 @@ export class AuthService {
         profilePicture: true,
         address: true,
         referralCode: true,
+        username: true,
         streak: true,
         longestStreak: true,
         createdAt: true,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Download, Plus, Eye, EyeOff, Archive, Copy, Trash2, X,
   Edit, MoreHorizontal, ArrowLeft, ArrowRight, Info, Trophy, Loader2,
@@ -113,6 +114,41 @@ export default function AdminQuizzesPage() {
   const [editingQuiz, setEditingQuiz] = useState(null); // quiz row being edited via NewQuizModal
   const [bulkBusy, setBulkBusy] = useState(null);       // "publish" | "unpublish" | "archive" | "delete"
   const [exporting, setExporting] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState(null);
+
+  useEffect(() => {
+    const handleOutsideClick = () => setMenuOpenId(null);
+    if (menuOpenId) {
+      document.addEventListener("click", handleOutsideClick);
+    }
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [menuOpenId]);
+
+  const handleMenuAction = async (action, q) => {
+    setMenuOpenId(null);
+    try {
+      if (action === 'delete') {
+        if (!confirm(`Delete quiz "${q.title}"? This cannot be undone.`)) return;
+        await quizzesAPI.delete(q.id);
+        setQuizzes((prev) => prev.filter(x => x.id !== q.id));
+        toast.success('Quiz deleted');
+      } else if (action === 'publish') {
+        await quizzesAPI.updateStatus(q.id, { status: 'ACTIVE' });
+        setQuizzes((prev) => prev.map(x => x.id === q.id ? { ...x, status: 'ACTIVE' } : x));
+        toast.success('Quiz published');
+      } else if (action === 'draft') {
+        await quizzesAPI.updateStatus(q.id, { status: 'DRAFT' });
+        setQuizzes((prev) => prev.map(x => x.id === q.id ? { ...x, status: 'DRAFT' } : x));
+        toast.success('Moved to draft');
+      } else if (action === 'archive') {
+        await quizzesAPI.updateStatus(q.id, { status: 'ARCHIVED' });
+        setQuizzes((prev) => prev.map(x => x.id === q.id ? { ...x, status: 'ARCHIVED' } : x));
+        toast.success('Quiz archived');
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update quiz');
+    }
+  };
 
   const params = useMemo(() => {
     const p = { page, limit: 20 };
@@ -378,7 +414,7 @@ export default function AdminQuizzesPage() {
               </tr>
             </thead>
             <tbody>
-              {quizzes.map((q) => {
+              {quizzes.map((q, idx) => {
                 const color = SUBJECT_COLOR[q.subject] || "var(--rr-fg-muted)";
                 const diffClass = SUBJECT_DIFF_CLASS[q.subject] || "";
                 const subTitle = [
@@ -387,6 +423,11 @@ export default function AdminQuizzesPage() {
                   `${q.totalQuestions} Qs`,
                   `${q.timeLimitMins} min`,
                 ].filter(Boolean).join(" · ");
+                
+                // If it's one of the last two rows, make the menu pop up so it doesn't get clipped
+                // by the table's overflow container.
+                const isNearBottom = idx >= quizzes.length - 3 && quizzes.length > 3;
+
                 return (
                   <tr key={q.id}>
                     <td>
@@ -448,9 +489,37 @@ export default function AdminQuizzesPage() {
                             {closingId === q.id ? <Loader2 size={14} className="aq-spin" /> : <Lock size={14} />}
                           </button>
                         )}
-                        <button className="row-act" title="Preview — coming soon" disabled><Eye size={14} /></button>
+                        <Link 
+                          to={`/app/quizzes/${q.id}/instructions`} 
+                          target="_blank" 
+                          className="row-act" 
+                          title="Preview quiz"
+                          style={{ display: "grid", placeItems: "center" }}
+                        >
+                          <Eye size={14} />
+                        </Link>
                         <button className="row-act" title="Edit" onClick={() => setEditingQuiz(q)}><Edit size={14} /></button>
-                        <button className="row-act" title="More — coming soon" disabled><MoreHorizontal size={14} /></button>
+                        <div style={{ position: "relative" }}>
+                          <button 
+                            className="row-act" 
+                            title="More" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(menuOpenId === q.id ? null : q.id);
+                            }}
+                          >
+                            <MoreHorizontal size={14} />
+                          </button>
+                          {menuOpenId === q.id && (
+                            <div className={`aq-row-menu ${isNearBottom ? 'up' : ''}`}>
+                              {q.status !== 'ACTIVE' && <button onClick={() => handleMenuAction('publish', q)}>Publish</button>}
+                              {q.status !== 'DRAFT' && <button onClick={() => handleMenuAction('draft', q)}>Move to Draft</button>}
+                              {q.status !== 'ARCHIVED' && <button onClick={() => handleMenuAction('archive', q)}>Archive</button>}
+                              <div className="aq-divider" />
+                              <button className="danger" onClick={() => handleMenuAction('delete', q)}>Delete</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>

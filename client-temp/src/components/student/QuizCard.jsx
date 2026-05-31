@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Clock, CircleCheck, Users, ArrowRight, Lock, Crown,
@@ -48,16 +49,55 @@ export default function QuizCard({
   saved = false,
   onToggleSave,
   saving = false,
+  quizStartsAt,
+  quizEndsAt,
 }) {
   const isLocked = locked || !!lockMessage;
   const isDone = status === "done";
   const isProgress = status === "progress";
+
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!quizStartsAt && !quizEndsAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [quizStartsAt, quizEndsAt]);
+
+  const starts = quizStartsAt ? new Date(quizStartsAt).getTime() : null;
+  const ends = quizEndsAt ? new Date(quizEndsAt).getTime() : null;
+
+  const isUpcoming = starts && starts > now;
+  const isLive = starts && ends && starts <= now && ends > now;
+  const isEnded = ends && ends <= now;
+
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const d = Math.floor(totalSeconds / 86400);
+    const h = Math.floor((totalSeconds % 86400) / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    if (d >= 30) {
+      const months = Math.floor(d / 30);
+      const days = d % 30;
+      return days > 0 ? `${months}mo ${days}d` : `${months}mo`;
+    }
+    if (d > 0) {
+      return `${d}d ${h}h ${m}m`;
+    }
+    return `${h}h ${m}m ${s}s`;
+  };
 
   const defaultStatusText = isDone
     ? `✓ Completed`
     : isProgress
       ? `↻ In progress`
       : "New";
+
+  let computedStatusText = defaultStatusText;
+  if (isUpcoming) computedStatusText = `Upcoming in ${formatTime(starts - now)}`;
+  else if (isLive) computedStatusText = `Ending in ${formatTime(ends - now)}`;
+  else if (isEnded && !isDone) computedStatusText = "Ended";
 
   const displayLabel =
     subjectLabel ||
@@ -105,9 +145,10 @@ export default function QuizCard({
             {displayLabel}
           </span>
           <span
-            className={`status${isDone ? " done" : isProgress ? " progress" : ""}`}
+            className={`status${isDone ? " done" : isProgress ? " progress" : isUpcoming ? " upcoming" : isEnded ? " ended" : isLive ? " live" : ""}`}
+            style={isUpcoming || isLive ? { color: "var(--rr-amber-500)", borderColor: "var(--rr-amber-500)", background: "color-mix(in oklab, var(--rr-amber-500) 14%, transparent)" } : {}}
           >
-            {statusText || defaultStatusText}
+            {statusText || computedStatusText}
           </span>
         </div>
         <div className="topic-meta">{topic}</div>
@@ -177,6 +218,14 @@ export default function QuizCard({
             <Lock size={12} />Unlock
             <ArrowRight size={14} />
           </Link>
+        ) : isUpcoming ? (
+          <button className="btn btn-secondary btn-sm" disabled>
+            Starts in {formatTime(starts - now)}
+          </button>
+        ) : isEnded ? (
+          <button className="btn btn-secondary btn-sm" disabled>
+            Ended
+          </button>
         ) : (
           <Link
             to={`/app/quizzes/${quizId}/${isProgress ? "session" : "instructions"}`}
