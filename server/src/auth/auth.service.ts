@@ -410,6 +410,8 @@ export class AuthService {
 
     await this.updateLoginStreak(userId);
 
+    await this.provisionFreePlan(userId);
+
     const tokens = await this.createSession(userId, req);
 
     await this.audit.log({
@@ -1079,4 +1081,64 @@ export class AuthService {
     }
     // If diffDays === 0, they already logged in today, so do nothing!
   }
+
+  // ─── Free Plan Provisioning ─────────────────────────────────────────
+  private async provisionFreePlan(userId: string) {
+    try {
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: { isFree: true, isActive: true },
+        include: { pricings: true },
+      });
+
+      if (!freePlan) {
+        this.logger.warn(`No active Free plan found to provision for user ${userId}`);
+        return;
+      }
+
+      const pricing = freePlan.pricings.find(p => p.cadence === 'MONTHLY');
+      if (!pricing) {
+        this.logger.warn(`Free plan ${freePlan.id} has no MONTHLY pricing. Cannot provision.`);
+        return;
+      }
+
+      // Check if they already have any active subscription (shouldn't happen on fresh signup)
+      const existing = await this.prisma.studentSubscription.findFirst({
+        where: { userId, status: 'ACTIVE' },
+      });
+      if (existing) return;
+
+      const now = new Date();
+      const nextRefresh = new Date(now);
+      nextRefresh.setMonth(nextRefresh.getMonth() + 1);
+
+      const sub = await this.prisma.studentSubscription.create({
+        data: {
+          userId,
+          planId: freePlan.id,
+          pricingId: pricing.id,
+          cadence: 'MONTHLY',
+          status: 'ACTIVE',
+          startDate: now,
+          endDate: null,
+          nextRefreshDate: nextRefresh,
+          isAutoRenewEnabled: true,
+        },
+      });
+
+      if (pricing.tokenCount > 0) {
+        await this.tokensService.creditTokens(
+          userId,
+          pricing.tokenCount,
+          'SUBSCRIPTION_REFRESH',
+          sub.id,
+          `Initial Free plan tokens`,
+        );
+      }
+
+      this.logger.log(`Provisioned Free plan for user ${userId} with ${pricing.tokenCount} tokens.`);
+    } catch (err) {
+      this.logger.error(`Failed to provision Free plan for user ${userId}: ${err.message}`, err.stack);
+    }
+  }
 }
+
