@@ -1,5 +1,6 @@
-import * as dns from 'node:dns';
-dns.setDefaultResultOrder('ipv4first');
+// MUST be the first import — sets IPv4-first DNS resolution before any other
+// module (e.g. secure-auth-helper) is evaluated and makes network calls.
+import './preload-dns.js';
 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
