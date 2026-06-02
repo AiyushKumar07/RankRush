@@ -1,3 +1,6 @@
+import * as dns from 'node:dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
@@ -6,6 +9,7 @@ import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 
+// Main
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = process.env.ALLOWED_ORIGINS
