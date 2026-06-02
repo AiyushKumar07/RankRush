@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Plus, Image as ImageIcon, Trash2 } from 'lucide-react';
+import Select from '../ui/Select';
+import Combobox from '../ui/Combobox';
 import { questionsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -47,7 +49,17 @@ function TagInput({ label, value = [], onChange, placeholder }) {
 export default function QuestionEditor({ question, onSave, onCancel }) {
   const [data, setData] = useState({ ...question });
   const [uploading, setUploading] = useState(false);
+  const [filters, setFilters] = useState({});
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    questionsAPI.getFilters().then(res => {
+      const payload = res?.data ?? res ?? {};
+      setFilters(payload);
+    }).catch(() => {});
+  }, []);
+
+  const toOptions = (arr = []) => arr.filter(Boolean).map(x => ({ label: x, value: x }));
 
   const set = (field, value) => setData((prev) => ({ ...prev, [field]: value }));
 
@@ -165,11 +177,12 @@ export default function QuestionEditor({ question, onSave, onCancel }) {
         return (
           <div>
             <label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Correct Answer</label>
-            <select value={data.correctAnswer?.[0] || ''} onChange={(e) => set('correctAnswer', [e.target.value])} style={{ ...inputStyle, appearance: 'auto' }}>
-              <option value="">Select</option>
-              <option value="True">True</option>
-              <option value="False">False</option>
-            </select>
+            <Select 
+              value={data.correctAnswer?.[0] || ''} 
+              onChange={(v) => set('correctAnswer', [v])} 
+              options={[{value: 'True', label: 'True'}, {value: 'False', label: 'False'}]} 
+              placeholder="Select" 
+            />
           </div>
         );
       case 'DIAGRAM_BASED':
@@ -189,26 +202,22 @@ export default function QuestionEditor({ question, onSave, onCancel }) {
         <div style={legendCls}>Classification</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Question Type</label>
-            <select value={data.questionType || ''} onChange={(e) => set('questionType', e.target.value)} style={{ ...inputStyle, appearance: 'auto' }}>
-              {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            <Select value={data.questionType || ''} onChange={(v) => set('questionType', v)} options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
           </div>
           <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Difficulty</label>
-            <select value={data.difficulty || ''} onChange={(e) => set('difficulty', e.target.value)} style={{ ...inputStyle, appearance: 'auto' }}>
-              {['Easy', 'Medium', 'Hard', 'Expert'].map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Select value={data.difficulty || ''} onChange={(v) => set('difficulty', v)} options={['Easy', 'Medium', 'Hard', 'Expert'].map(d => ({ value: d, label: d }))} />
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Class</label><input type="text" value={data.class || ''} onChange={(e) => set('class', e.target.value)} style={inputStyle} /></div>
-          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Subject</label><input type="text" value={data.subject || ''} onChange={(e) => set('subject', e.target.value)} style={inputStyle} /></div>
+          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Class</label><Combobox value={data.class || ''} onChange={(v) => set('class', v)} options={toOptions(filters.classes)} placeholder="e.g. 12" /></div>
+          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Subject</label><Combobox value={data.subject || ''} onChange={(v) => set('subject', v)} options={toOptions(filters.subjects)} placeholder="e.g. Biology" /></div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Unit</label><input type="text" value={data.unit || ''} onChange={(e) => set('unit', e.target.value)} style={inputStyle} /></div>
-          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Chapter</label><input type="text" value={data.chapter || ''} onChange={(e) => set('chapter', e.target.value)} style={inputStyle} /></div>
-          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Topic</label><input type="text" value={data.topic || ''} onChange={(e) => set('topic', e.target.value)} style={inputStyle} /></div>
+          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Unit</label><Combobox value={data.unit || ''} onChange={(v) => set('unit', v)} options={[]} placeholder="e.g. Ecology" /></div>
+          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Chapter</label><Combobox value={data.chapter || ''} onChange={(v) => set('chapter', v)} options={toOptions(filters.chapters)} placeholder="e.g. Genetics" /></div>
+          <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Topic</label><Combobox value={data.topic || ''} onChange={(v) => set('topic', v)} options={toOptions(filters.topics)} placeholder="e.g. Cell Division" /></div>
         </div>
-        <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Sub-Topic</label><input type="text" value={data.subTopic || ''} onChange={(e) => set('subTopic', e.target.value)} style={inputStyle} /></div>
+        <div><label className={labelCls} style={{ color: 'var(--rr-fg-muted)' }}>Sub-Topic</label><Combobox value={data.subTopic || ''} onChange={(v) => set('subTopic', v)} options={[]} placeholder="e.g. Meiosis" /></div>
         <TagInput label="Exam Types" value={data.examType || []} onChange={(v) => set('examType', v)} placeholder="e.g. NEET, JEE" />
       </div>
 
