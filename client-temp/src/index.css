@@ -227,7 +227,6 @@
 .btn i { font-size: 16px; }
 
 .btn-primary { background: var(--rr-ink-900); color: var(--rr-bg); box-shadow: var(--rr-shadow-sm); }
-[data-theme="dark"] .btn-primary { background: var(--rr-paper); color: #0E0E13; }
 .btn-accent { background: var(--rr-violet-500); color: white; box-shadow: var(--rr-shadow-sm), var(--rr-shadow-glow); }
 .btn-accent:hover { background: var(--rr-violet-600); color: white; }
 .btn-secondary { background: var(--rr-surface); color: var(--rr-fg); border-color: var(--rr-border-strong); }
