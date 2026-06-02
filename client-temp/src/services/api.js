@@ -207,11 +207,32 @@ export const quizzesAPI = {
 export const questionsAPI = {
   list: (params) => api.get('/questions', { params }),
   getById: (id) => api.get(`/questions/${id}`),
+  update: (id, data) => api.put(`/questions/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/questions/${id}/status`, data),
+  bulkUpdateStatus: (data) => api.post('/questions/bulk-status', data),
+  bulkDelete: (data) => api.post('/questions/bulk-delete', data),
+  delete: (id) => api.delete(`/questions/${id}`),
+  upload: (data) => api.post('/questions/upload', data),
+  uploadImage: (formData) =>
+    api.post('/questions/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   // All distinct values across the bank, no scoping. Cheap, cached.
   getFilters: () => api.get('/questions/filters'),
   // Facets scoped to (examType, class, subject). Returns chapters/topics
   // that actually have questions inside the cohort.
   getDynamicFilters: (params) => api.get('/questions/filters/dynamic', { params }),
+};
+
+export const aiGenerateAPI = {
+  generate: (data) => api.post('/ai-generate', data),
+  retry: (jobId, encryptedApiKey) => api.post('/ai-generate/retry', { jobId, encryptedApiKey }),
+  getProviders: () => api.get('/ai-generate/providers'),
+  getJobs: (params) => api.get('/ai-generate/jobs', { params }),
+  getJob: (jobId) => api.get(`/ai-generate/jobs/${jobId}`),
+  verifyKey: (provider, apiKey) => api.post('/ai-generate/verify-key', { provider, apiKey }),
+  encryptKey: (apiKey) => api.post('/ai-generate/encrypt-key', { apiKey }),
+  listModels: (provider, apiKey) => api.post('/ai-generate/models', { provider, apiKey }),
 };
 
 export const subscriptionPlansAPI = {

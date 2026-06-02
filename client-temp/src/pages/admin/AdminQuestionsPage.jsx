@@ -3,12 +3,17 @@ import toast from "react-hot-toast";
 import {
   Search, HelpCircle, CheckCircle2, FileText, Clock,
   ChevronLeft, ChevronRight, X, Eye, Edit,
+  Plus, Upload, Sparkles
 } from "lucide-react";
 import BrandLoader from "../../components/brand/BrandLoader";
 import { questionsAPI } from "../../services/api";
 import "./AdminQuestionsPage.css";
 import "./AdminTransactionsPage.css";
 import "./AdminCodesPage.css";
+import UploadModal from "../../components/admin/UploadModal";
+import AiGenerateModal from "../../components/admin/AiGenerateModal";
+import QuestionEditor from "../../components/admin/QuestionEditor";
+import Modal from "../../components/ui/Modal";
 
 const STATUS_TABS = [
   { key: "ALL",            label: "All" },
@@ -74,6 +79,44 @@ export default function AdminQuestionsPage() {
   const [statusCounts, setStatusCounts] = useState({ total: 0, published: 0, draft: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
+
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [aiGenerateOpen, setAiGenerateOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+
+  const handleSaveQuestion = async (data) => {
+    try {
+      if (data._id || data.id) {
+        await questionsAPI.update(data._id || data.id, data);
+        toast.success("Question updated");
+      } else {
+        await questionsAPI.upload({ quizBank: [data], fileName: 'manual-create' });
+        toast.success("Question created");
+      }
+      setEditorOpen(false);
+      setEditingQuestion(null);
+      load();
+    } catch (err) {
+      toast.error(err?.message || "Failed to save question");
+    }
+  };
+
+  const openEdit = (q) => {
+    setEditingQuestion(q);
+    setEditorOpen(true);
+  };
+  const openCreate = () => {
+    setEditingQuestion({
+      questionType: 'MCQ',
+      difficulty: 'Medium',
+      options: [{ id: 'A', text: '' }, { id: 'B', text: '' }, { id: 'C', text: '' }, { id: 'D', text: '' }],
+      correctAnswer: [],
+      marks: 1,
+      estimatedTimeSeconds: 60,
+    });
+    setEditorOpen(true);
+  };
 
   /* Filter facets (subjects/classes/etc) — fetched once. */
   useEffect(() => {
@@ -200,6 +243,17 @@ export default function AdminQuestionsPage() {
             {pagination.total > 0 && <> Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, pagination.total)} of {pagination.total.toLocaleString("en-IN")}.</>}
           </p>
         </div>
+        <div className="head-actions">
+          <button className="btn btn-secondary btn-sm" onClick={() => setAiGenerateOpen(true)}>
+            <Sparkles size={12} /> AI Generate
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setUploadOpen(true)}>
+            <Upload size={12} /> Upload JSON
+          </button>
+          <button className="btn btn-accent btn-sm" onClick={openCreate}>
+            <Plus size={12} /> Create Question
+          </button>
+        </div>
       </div>
 
       <div className="tx-summary">
@@ -323,8 +377,7 @@ export default function AdminQuestionsPage() {
                     <td className="right"><span className="q-num">{q.estimatedTimeSeconds ?? 60}s</span></td>
                     <td className="right">
                       <div className="row-actions">
-                        <button className="row-act" title="Preview — coming soon" disabled><Eye size={14} /></button>
-                        <button className="row-act" title="Edit — coming soon" disabled><Edit size={14} /></button>
+                        <button className="row-act" title="Edit" onClick={() => openEdit(q)}><Edit size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -355,6 +408,30 @@ export default function AdminQuestionsPage() {
           </div>
         )}
       </div>
+
+      {uploadOpen && (
+        <UploadModal 
+          isOpen={uploadOpen} 
+          onClose={() => setUploadOpen(false)} 
+          onSuccess={load} 
+        />
+      )}
+      {aiGenerateOpen && (
+        <AiGenerateModal 
+          isOpen={aiGenerateOpen} 
+          onClose={() => setAiGenerateOpen(false)} 
+          onSuccess={load} 
+        />
+      )}
+      {editorOpen && (
+        <Modal open={editorOpen} onClose={() => setEditorOpen(false)} title={editingQuestion?._id || editingQuestion?.id ? 'Edit Question' : 'Create Question'} size="xl">
+          <QuestionEditor 
+            question={editingQuestion} 
+            onSave={handleSaveQuestion} 
+            onCancel={() => setEditorOpen(false)} 
+          />
+        </Modal>
+      )}
     </div>
   );
 }
