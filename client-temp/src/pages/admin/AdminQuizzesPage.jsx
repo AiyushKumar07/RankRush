@@ -115,6 +115,7 @@ export default function AdminQuizzesPage() {
   const [bulkBusy, setBulkBusy] = useState(null);       // "publish" | "unpublish" | "archive" | "delete"
   const [exporting, setExporting] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: "", message: "", onConfirm: null, inFlight: false });
 
   useEffect(() => {
     const handleOutsideClick = () => setMenuOpenId(null);
@@ -126,13 +127,29 @@ export default function AdminQuizzesPage() {
 
   const handleMenuAction = async (action, q) => {
     setMenuOpenId(null);
+    if (action === 'delete') {
+      setConfirmModal({
+        open: true,
+        title: "Delete Quiz",
+        message: `Delete quiz "${q.title}"? This cannot be undone.`,
+        onConfirm: async () => {
+          setConfirmModal(prev => ({ ...prev, inFlight: true }));
+          try {
+            await quizzesAPI.delete(q.id);
+            setQuizzes((prev) => prev.filter(x => x.id !== q.id));
+            toast.success('Quiz deleted');
+          } catch (err) {
+            toast.error(err?.message || 'Failed to delete quiz');
+          } finally {
+            setConfirmModal({ open: false, title: "", message: "", onConfirm: null, inFlight: false });
+          }
+        }
+      });
+      return;
+    }
+
     try {
-      if (action === 'delete') {
-        if (!confirm(`Delete quiz "${q.title}"? This cannot be undone.`)) return;
-        await quizzesAPI.delete(q.id);
-        setQuizzes((prev) => prev.filter(x => x.id !== q.id));
-        toast.success('Quiz deleted');
-      } else if (action === 'publish') {
+      if (action === 'publish') {
         await quizzesAPI.updateStatus(q.id, { status: 'ACTIVE' });
         setQuizzes((prev) => prev.map(x => x.id === q.id ? { ...x, status: 'ACTIVE' } : x));
         toast.success('Quiz published');
@@ -198,19 +215,27 @@ export default function AdminQuizzesPage() {
   };
 
   const handleClose = async (quiz) => {
-    if (!confirm(`Close the "${quiz.title}" leaderboard now? This is irreversible — ranks will be locked.`)) return;
-    setClosingId(quiz.id);
-    try {
-      await quizzesAPI.closeLeaderboard(quiz.id);
-      setQuizzes((prev) => prev.map((q) => (
-        q.id === quiz.id ? { ...q, isClosed: true, closedAt: new Date().toISOString() } : q
-      )));
-      toast.success("Leaderboard closed · global ranks recomputing");
-    } catch (err) {
-      toast.error(err?.message || "Close failed");
-    } finally {
-      setClosingId(null);
-    }
+    setConfirmModal({
+      open: true,
+      title: "Close Leaderboard",
+      message: `Close the "${quiz.title}" leaderboard now? This is irreversible — ranks will be locked.`,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, inFlight: true }));
+        setClosingId(quiz.id);
+        try {
+          await quizzesAPI.closeLeaderboard(quiz.id);
+          setQuizzes((prev) => prev.map((q) => (
+            q.id === quiz.id ? { ...q, isClosed: true, closedAt: new Date().toISOString() } : q
+          )));
+          toast.success("Leaderboard closed · global ranks recomputing");
+        } catch (err) {
+          toast.error(err?.message || "Close failed");
+        } finally {
+          setClosingId(null);
+          setConfirmModal({ open: false, title: "", message: "", onConfirm: null, inFlight: false });
+        }
+      }
+    });
   };
 
   const handleToggleRank = async (quiz) => {
@@ -237,17 +262,31 @@ export default function AdminQuizzesPage() {
   // calls so the button never fires on an empty set.
   const runBulk = useCallback(async (kind, fn, opts = {}) => {
     if (selected.size === 0) return;
-    if (opts.confirm && !confirm(opts.confirm.replace("{n}", selected.size))) return;
-    setBulkBusy(kind);
-    const ids = Array.from(selected);
-    const results = await Promise.allSettled(ids.map((id) => fn(id)));
-    const failed = results.filter((r) => r.status === "rejected").length;
-    const ok = results.length - failed;
-    if (ok > 0) toast.success(`${opts.successVerb || "Updated"} ${ok} quiz${ok === 1 ? "" : "zes"}`);
-    if (failed > 0) toast.error(`${failed} ${failed === 1 ? "operation" : "operations"} failed`);
-    setSelected(new Set());
-    setBulkBusy(null);
-    await load();
+
+    const execBulk = async () => {
+      setBulkBusy(kind);
+      setConfirmModal({ open: false, title: "", message: "", onConfirm: null, inFlight: false });
+      const ids = Array.from(selected);
+      const results = await Promise.allSettled(ids.map((id) => fn(id)));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const ok = results.length - failed;
+      if (ok > 0) toast.success(`${opts.successVerb || "Updated"} ${ok} quiz${ok === 1 ? "" : "zes"}`);
+      if (failed > 0) toast.error(`${failed} ${failed === 1 ? "operation" : "operations"} failed`);
+      setSelected(new Set());
+      setBulkBusy(null);
+      await load();
+    };
+
+    if (opts.confirm) {
+      setConfirmModal({
+        open: true,
+        title: "Confirm Action",
+        message: opts.confirm.replace("{n}", selected.size),
+        onConfirm: execBulk,
+      });
+    } else {
+      execBulk();
+    }
   }, [selected, load]);
 
   const bulkPublish   = () => runBulk("publish",   (id) => quizzesAPI.updateStatus(id, { status: "ACTIVE" }),   { successVerb: "Published" });
@@ -583,6 +622,23 @@ export default function AdminQuizzesPage() {
         onClose={() => setEditingQuiz(null)}
         onCreated={() => { setEditingQuiz(null); load(); }}
       />
+
+      {confirmModal.open && (
+        <Modal open={confirmModal.open} onClose={() => !confirmModal.inFlight && setConfirmModal({ open: false, title: "", message: "", onConfirm: null, inFlight: false })} title={confirmModal.title} size="sm">
+          <div style={{ padding: "20px" }}>
+            <p style={{ margin: "0 0 24px 0", color: "var(--rr-fg)", lineHeight: 1.5 }}>{confirmModal.message}</p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button className="btn btn-secondary" disabled={confirmModal.inFlight} onClick={() => setConfirmModal({ open: false, title: "", message: "", onConfirm: null, inFlight: false })}>
+                Cancel
+              </button>
+              <button className="btn" disabled={confirmModal.inFlight} onClick={confirmModal.onConfirm} style={{ background: "var(--rr-danger, #ef4444)", color: "#fff", border: "none" }}>
+                {confirmModal.inFlight ? <Loader2 size={14} className="aq-spin" /> : null}
+                Confirm
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
