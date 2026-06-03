@@ -13,6 +13,12 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 // Main
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Tell Express to trust the reverse proxy (like Nginx, Vercel, Render, AWS, etc.)
+  // This is required so `req.ip` returns the real user's IP instead of '::1' (localhost).
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
     : ['http://localhost:5173'];
