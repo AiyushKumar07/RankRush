@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
       </div>
 
       <div className="below-card">
-        v0.1 · <a>Status</a> · <a>Privacy</a> · <a>Terms</a>
+        v0.1 · <a>Status</a> · <Link to="/privacy">Privacy</Link> · <Link to="/terms">Terms</Link>
       </div>
     </div>
   )

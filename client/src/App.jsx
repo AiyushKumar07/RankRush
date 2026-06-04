@@ -6,6 +6,8 @@ import AdminLayout from './components/layouts/AdminLayout'
 import BrandLoader from './components/brand/BrandLoader'
 import {
   LandingPage,
+  PrivacyPolicyPage,
+  TermsPage,
   LoginPage,
   SignupPage,
   ForgotPasswordPage,
@@ -61,6 +63,8 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
         <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
         <Route path="/forgot-password" element={<RedirectIfAuth><ForgotPasswordPage /></RedirectIfAuth>} />

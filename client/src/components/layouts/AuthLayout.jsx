@@ -18,7 +18,7 @@ export default function AuthLayout({ children, rightPanel }) {
 
         <div className="auth-foot">
           <span>© 2026 RankRush · v0.1</span>
-          <span><a>Privacy</a> · <a>Terms</a></span>
+          <span><Link to="/privacy">Privacy</Link> · <Link to="/terms">Terms</Link></span>
         </div>
       </div>
 

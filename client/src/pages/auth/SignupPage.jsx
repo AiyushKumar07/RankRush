@@ -288,7 +288,7 @@ export default function SignupPage() {
               {checkingEmail ? 'Checking…' : 'Continue'}<ArrowRight size={16} />
             </button>
           </form>
-          <p className="terms">By continuing you agree to RankRush's <a>Terms</a> and <a>Privacy Policy</a>.</p>
+          <p className="terms">By continuing you agree to RankRush's <Link to="/terms" target="_blank" rel="noopener noreferrer">Terms</Link> and <Link to="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.</p>
         </div>
 
         {/* STEP 2 */}

@@ -450,8 +450,8 @@ export default function LandingPage() {
         <div className="footer-bottom">
           <span className="copy">© 2026 RANKRUSH. ALL RIGHTS RESERVED.</span>
           <div className="links">
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
             <a href="#">Cookies</a>
             <a href="#">Status</a>
           </div>
