@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext'
 import StudentLayout from './components/layouts/StudentLayout'
 import AdminLayout from './components/layouts/AdminLayout'
 import BrandLoader from './components/brand/BrandLoader'
+import ScrollToTop from './components/ScrollToTop'
 import {
   LandingPage,
   PrivacyPolicyPage,
@@ -60,6 +61,7 @@ function RedirectIfAuth({ children }) {
 export default function App() {
   return (
     <Suspense fallback={<Loader />}>
+      <ScrollToTop />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
