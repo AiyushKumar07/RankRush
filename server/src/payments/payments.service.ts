@@ -323,42 +323,66 @@ export class PaymentsService {
 
       if (plan && pricing) {
         const cadence = transaction.cadence;
+
+        // Lifecycle dates by cadence:
+        //   ONE_TIME = pay once, Pro forever — no expiry, no monthly refresh, no renewal.
+        //   MONTHLY  = 1 batch of tokens, expires after 1 month.
+        //   ANNUAL   = monthly refreshes for 12 months, then expires.
+        const startDate = new Date();
+        let endDate: Date | null = null;
+        let nextRefreshDate: Date | null = null;
+        let isAutoRenewEnabled = false;
+
         if (cadence !== Cadence.ONE_TIME) {
-          // One-cycle model: card is charged once. MONTHLY = 1 batch of tokens, expires after 1 month.
-          // ANNUAL = monthly refreshes for 12 months, then expires.
-          const startDate = new Date();
-          const nextRefreshDate = new Date(startDate);
+          nextRefreshDate = new Date(startDate);
           nextRefreshDate.setMonth(nextRefreshDate.getMonth() + 1);
 
-          const endDate = new Date(startDate);
+          endDate = new Date(startDate);
           if (cadence === Cadence.ANNUAL) {
             endDate.setFullYear(endDate.getFullYear() + 1);
           } else {
             endDate.setMonth(endDate.getMonth() + 1);
           }
+          isAutoRenewEnabled = true;
+        }
 
+        // A non-expiring ONE_TIME purchase grants lifetime Pro — the top tier.
+        // Never downgrade or replace it: if the user already holds one, leave it
+        // active and just credit the newly purchased tokens. This also stops a
+        // later lower-tier (MONTHLY/ANNUAL) purchase from silently superseding it.
+        const lifetime = await this.prisma.studentSubscription.findFirst({
+          where: { userId, status: 'ACTIVE', cadence: Cadence.ONE_TIME, endDate: null },
+          select: { id: true },
+        });
+
+        let subscriptionId = lifetime?.id ?? null;
+
+        if (!lifetime) {
           // Cancel any previous active subscription for this user — only one active at a time.
           await this.prisma.studentSubscription.updateMany({
             where: { userId, status: 'ACTIVE' },
             data: { status: 'CANCELLED', endDate: startDate },
           });
 
-          await this.prisma.studentSubscription.create({
+          // create() returns the new row, so we read its id directly for the
+          // event payload — no separate refetch needed.
+          const created = await this.prisma.studentSubscription.create({
             data: {
               userId,
               planId: plan.id,
               pricingId: pricing.id,
               cadence,
               status: 'ACTIVE',
-              isAutoRenewEnabled: true,
+              isAutoRenewEnabled,
               startDate,
               endDate,
               nextRefreshDate,
             },
           });
+          subscriptionId = created.id;
         }
 
-        const credit = await this.tokensService.creditTokens(
+        await this.tokensService.creditTokens(
           userId,
           pricing.tokenCount,
           'PURCHASE',
@@ -366,48 +390,21 @@ export class PaymentsService {
           `Purchased ${plan.name}`,
         );
 
-        if (cadence !== Cadence.ONE_TIME) {
-          // Pull the just-created subscription so the payload carries a
-          // stable subscriptionId for activity linking + downstream
-          // billing-page deep-links.
-          const subscription = await this.prisma.studentSubscription.findFirst({
-            where: { userId, planId: plan.id, status: 'ACTIVE' },
-            orderBy: { createdAt: 'desc' },
-            select: { id: true },
-          });
-          if (subscription) {
-            this.eventBus.emit({
-              type: 'PLAN_PURCHASED',
-              userId,
-              refType: 'StudentSubscription',
-              refId: subscription.id,
-              payload: {
-                subscriptionId: subscription.id,
-                planId: plan.id,
-                planName: plan.name,
-                pricingId: pricing.id,
-                cadence: String(cadence),
-                amountPaid: transaction.amount,
-                currency: transaction.currency,
-                tokensCredited: pricing.tokenCount,
-              },
-            });
-          }
-        } else {
-          // ONE_TIME purchase = just tokens, no subscription. Emit as a
-          // pure TOKEN_PURCHASED so the timeline tells the right story.
+        if (subscriptionId) {
           this.eventBus.emit({
-            type: 'TOKEN_PURCHASED',
+            type: 'PLAN_PURCHASED',
             userId,
-            refType: 'PaymentTransaction',
-            refId: transaction.id,
+            refType: 'StudentSubscription',
+            refId: subscriptionId,
             payload: {
-              amount: pricing.tokenCount,
-              pricePaid: transaction.amount,
-              currency: transaction.currency,
-              balanceAfter: credit.balance,
+              subscriptionId,
               planId: plan.id,
               planName: plan.name,
+              pricingId: pricing.id,
+              cadence: String(cadence),
+              amountPaid: transaction.amount,
+              currency: transaction.currency,
+              tokensCredited: pricing.tokenCount,
             },
           });
         }

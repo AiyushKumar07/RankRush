@@ -147,9 +147,10 @@ export class ActivityEventProjector {
       }
       case 'PLAN_PURCHASED': {
         const p = event.payload;
+        const isOneTime = p.cadence === 'ONE_TIME';
         return {
-          title: `Upgraded to ${p.planName}`,
-          meta: `${p.currency} ${p.amountPaid} · ${p.cadence.toLowerCase()} · +${p.tokensCredited} tokens`,
+          title: isOneTime ? `Unlocked ${p.planName} (lifetime)` : `Upgraded to ${p.planName}`,
+          meta: `${p.currency} ${p.amountPaid} · ${isOneTime ? 'lifetime' : p.cadence.toLowerCase()} · +${p.tokensCredited} tokens`,
           amount: p.tokensCredited,
         };
       }

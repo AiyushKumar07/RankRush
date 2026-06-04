@@ -109,8 +109,11 @@ export class NotificationProjector {
       case 'PLAN_PURCHASED':
       case 'PLAN_CANCELLED':
       case 'PLAN_REFRESHED': {
+        const isOneTime = p.cadence === 'ONE_TIME';
         const map = {
-          PLAN_PURCHASED: { title: 'Subscription activated', body: p.planName ? `${p.planName} is now active.` : undefined },
+          PLAN_PURCHASED: isOneTime
+            ? { title: 'Plan unlocked', body: p.planName ? `${p.planName} is now active (lifetime).` : undefined }
+            : { title: 'Subscription activated', body: p.planName ? `${p.planName} is now active.` : undefined },
           PLAN_CANCELLED: { title: 'Subscription cancelled', body: 'You can resubscribe any time from the Pricing page.' },
           PLAN_REFRESHED: { title: 'Subscription renewed', body: p.planName ? `${p.planName} renewed for the next cycle.` : undefined },
         } as const;
