@@ -6,8 +6,12 @@ import {
   MinLength,
   MaxLength,
   IsEnum,
+  IsArray,
+  IsIn,
 } from 'class-validator';
 import { Role } from '@prisma/client';
+
+const VALID_TARGETS = ['Boards', 'NEET', 'JEE', 'Other'] as const;
 
 export class RegisterDto {
   @IsString()
@@ -48,6 +52,26 @@ export class StudentSignupDto {
   @IsString()
   @IsOptional()
   referralCode?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  class?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  board?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  school?: string;
+
+  @IsArray()
+  @IsOptional()
+  @IsIn(VALID_TARGETS, { each: true })
+  target?: (typeof VALID_TARGETS)[number][];
 }
 
 export class LoginDto {

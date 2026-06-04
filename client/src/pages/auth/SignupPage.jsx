@@ -55,6 +55,10 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [referralCode, setReferralCode] = useState('')
 
+  const [studentClass, setStudentClass] = useState('Class 12')
+  const [board, setBoard] = useState('CBSE')
+  const [school, setSchool] = useState('')
+
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const otpRefs = useRef([])
 
@@ -96,9 +100,23 @@ export default function SignupPage() {
       toast.error('Password must be at least 8 characters')
       return
     }
+    // Map the goal chips to the backend's target enum (Boards | NEET | JEE | Other), deduped.
+    const GOAL_TO_TARGET = { 'jee-main': 'JEE', 'jee-adv': 'JEE', neet: 'NEET', boards: 'Boards' }
+    const target = [...new Set(selectedGoals.map((g) => GOAL_TO_TARGET[g]).filter(Boolean))]
+
     setSubmitting(true)
     try {
-      await studentSignup({ firstName, lastName, email, password, referralCode: referralCode || undefined })
+      await studentSignup({
+        firstName,
+        lastName,
+        email,
+        password,
+        referralCode: referralCode || undefined,
+        class: studentClass,
+        board,
+        school: school || undefined,
+        target: target.length ? target : undefined,
+      })
       toast.success('Account created! Check your email for the OTP.')
       setStep(3)
     } catch (err) {
@@ -282,14 +300,14 @@ export default function SignupPage() {
           <div className="two-col">
             <div className="form-field">
               <label>Class / Standard</label>
-              <select defaultValue="Class 12">
+              <select value={studentClass} onChange={(e) => setStudentClass(e.target.value)}>
                 <option>Class 9</option><option>Class 10</option><option>Class 11</option>
                 <option>Class 12</option><option>Dropper</option>
               </select>
             </div>
             <div className="form-field">
               <label>Board</label>
-              <select defaultValue="CBSE">
+              <select value={board} onChange={(e) => setBoard(e.target.value)}>
                 <option>CBSE</option><option>ICSE</option><option>State board</option><option>IB</option>
               </select>
             </div>
@@ -326,7 +344,7 @@ export default function SignupPage() {
 
           <div className="form-field">
             <label>School or coaching centre <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--rr-fg-dim)', fontFamily: 'var(--rr-font-sans)' }}>(optional)</span></label>
-            <div className="input-shell"><School size={16} className="left" /><input placeholder="e.g. Allen Career Institute, Kota" /></div>
+            <div className="input-shell"><School size={16} className="left" /><input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Allen Career Institute, Kota" /></div>
           </div>
 
           <div className="step2-actions">

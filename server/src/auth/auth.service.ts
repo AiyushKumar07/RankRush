@@ -335,6 +335,10 @@ export class AuthService {
         isVerified: false,
         referralCode,
         referredBy: referredById,
+        class: dto.class,
+        board: dto.board,
+        school: dto.school,
+        target: dto.target ?? [],
       },
     });
 
@@ -785,6 +789,7 @@ export class AuthService {
         lastName: true,
         dob: true,
         class: true,
+        board: true,
         school: true,
         target: true,
         contactNumber: true,
