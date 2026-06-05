@@ -8,6 +8,7 @@ import {
   Matches,
   MaxLength,
   IsBoolean,
+  ValidateIf,
 } from 'class-validator';
 
 const VALID_TARGETS = ['Boards', 'NEET', 'JEE', 'Other'] as const;
@@ -57,12 +58,12 @@ export class CompleteProfileDto {
   @IsIn(VALID_TARGETS, { each: true })
   target: (typeof VALID_TARGETS)[number][];
 
+  @ValidateIf((o) => o.contactNumber !== undefined && o.contactNumber !== '')
   @IsString()
-  @IsNotEmpty()
   @Matches(/^\+?[1-9]\d{6,14}$/, {
     message: 'Contact number must be a valid phone number',
   })
-  contactNumber: string;
+  contactNumber?: string;
 
   @IsString()
   @IsOptional()
@@ -115,8 +116,8 @@ export class UpdateProfileDto {
   @IsIn(VALID_TARGETS, { each: true })
   target?: (typeof VALID_TARGETS)[number][];
 
+  @ValidateIf((o) => o.contactNumber !== undefined && o.contactNumber !== '')
   @IsString()
-  @IsOptional()
   @Matches(/^\+?[1-9]\d{6,14}$/, {
     message: 'Contact number must be a valid phone number',
   })
