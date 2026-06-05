@@ -829,7 +829,7 @@ export class AuthService {
   }
 
   // ─── Get Active Sessions ──────────────────────────────────────────
-  async getActiveSessions(userId: string) {
+  async getActiveSessions(userId: string, currentSessionId?: string) {
     const sessions = await this.prisma.session.findMany({
       where: {
         userId,
@@ -869,6 +869,7 @@ export class AuthService {
         userAgent: friendlyName,
         rawUserAgent: session.userAgent,
         location,
+        isCurrent: session.id === currentSessionId,
       };
     });
 

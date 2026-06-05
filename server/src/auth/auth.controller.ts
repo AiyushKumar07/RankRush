@@ -141,8 +141,11 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
-  getSessions(@CurrentUser('id') userId: string) {
-    return this.authService.getActiveSessions(userId);
+  getSessions(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('sessionId') sessionId: string,
+  ) {
+    return this.authService.getActiveSessions(userId, sessionId);
   }
 
   @UseGuards(JwtAuthGuard)

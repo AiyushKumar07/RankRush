@@ -864,8 +864,8 @@ export default function ProfilePage() {
             <button className="btn btn-secondary btn-sm" onClick={handleLogoutAll}><LogOut size={14} />Sign out of all</button>
           </div>
           <div className="body">
-            {sessions.map((s, idx) => {
-              const isCurrent = idx === 0
+            {sessions.map((s) => {
+              const isCurrent = !!s.isCurrent
               const ua = (s.userAgent || s.rawUserAgent || '').toString()
               const isMobile = /mobile|iphone|android|ipad/i.test(ua)
               const Icon = isMobile ? Smartphone : Laptop

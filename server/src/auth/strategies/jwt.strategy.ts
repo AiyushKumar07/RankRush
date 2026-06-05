@@ -55,6 +55,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Session revoked or expired');
     }
 
-    return user;
+    return { ...user, sessionId: payload.jti };
   }
 }
