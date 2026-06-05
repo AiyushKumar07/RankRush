@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { AuthCronService } from './auth-cron.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { PermissionsGuard } from './guards/permissions.guard.js';
@@ -29,7 +30,7 @@ import { TokensModule } from '../tokens/tokens.module.js';
     TokensModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RolesGuard, PermissionsGuard],
+  providers: [AuthService, AuthCronService, JwtStrategy, RolesGuard, PermissionsGuard],
   exports: [AuthService, JwtStrategy, RolesGuard, PermissionsGuard],
 })
 export class AuthModule {}
