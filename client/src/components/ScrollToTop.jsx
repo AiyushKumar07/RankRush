@@ -20,7 +20,9 @@ export default function ScrollToTop() {
 
   useEffect(() => {
     if (!hash) {
-      window.scrollTo(0, 0)
+      // Instant, not smooth — a page change shouldn't animate a long scroll
+      // up from the previous page's position (html has scroll-behavior: smooth).
+      window.scrollTo({ top: 0, behavior: 'instant' })
       return
     }
 
@@ -35,11 +37,11 @@ export default function ScrollToTop() {
     const tryScroll = () => {
       const el = document.getElementById(id)
       if (el) {
-        el.scrollIntoView()
+        el.scrollIntoView({ behavior: 'smooth' })
       } else if (frames++ < 60) {
         raf = requestAnimationFrame(tryScroll)
       } else {
-        window.scrollTo(0, 0)
+        window.scrollTo({ top: 0, behavior: 'instant' })
       }
     }
     tryScroll()

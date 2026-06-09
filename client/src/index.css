@@ -165,6 +165,14 @@
 @layer base {
   * { box-sizing: border-box; }
   html, body { margin: 0; overflow-x: hidden; }
+  html {
+    scroll-behavior: smooth;
+    /* Keep anchored sections clear of the sticky nav (~64px tall). */
+    scroll-padding-top: 80px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
   body {
     background: var(--rr-bg);
     color: var(--rr-fg);
