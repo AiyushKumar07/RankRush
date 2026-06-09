@@ -452,8 +452,8 @@ export default function LandingPage() {
           <div className="links">
             <Link to="/privacy">Privacy</Link>
             <Link to="/terms">Terms</Link>
-            <a href="#">Cookies</a>
-            <a href="#">Status</a>
+            <Link to="/privacy#cookies">Cookies</Link>
+            <Link to="/coming-soon">Status</Link>
           </div>
         </div>
       </footer>
