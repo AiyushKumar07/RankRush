@@ -422,28 +422,28 @@ export default function LandingPage() {
           <div className="footer-col">
             <h5>Product</h5>
             <ul>
-              <li><a href="#">Features</a></li>
-              <li><a href="#">Pricing</a></li>
-              <li><a href="#">Leaderboard</a></li>
-              <li><a href="#">For coaching centers</a></li>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#pricing">Pricing</a></li>
+              <li><Link to="/login">Leaderboard</Link></li>
+              <li><Link to="/coming-soon">For coaching centers</Link></li>
             </ul>
           </div>
           <div className="footer-col">
             <h5>Learn</h5>
             <ul>
-              <li><a href="#">JEE prep</a></li>
-              <li><a href="#">NEET prep</a></li>
-              <li><a href="#">Board exams</a></li>
-              <li><a href="#">Study guides</a></li>
+              <li><Link to="/coming-soon">JEE prep</Link></li>
+              <li><Link to="/coming-soon">NEET prep</Link></li>
+              <li><Link to="/coming-soon">Board exams</Link></li>
+              <li><Link to="/coming-soon">Study guides</Link></li>
             </ul>
           </div>
           <div className="footer-col">
             <h5>Company</h5>
             <ul>
-              <li><a href="#">About</a></li>
-              <li><a href="#">Careers</a></li>
-              <li><a href="#">Press</a></li>
-              <li><a href="#">Contact</a></li>
+              <li><Link to="/coming-soon">About</Link></li>
+              <li><Link to="/coming-soon">Careers</Link></li>
+              <li><Link to="/coming-soon">Press</Link></li>
+              <li><a href="mailto:support@rankrush.co.in">Contact</a></li>
             </ul>
           </div>
         </div>

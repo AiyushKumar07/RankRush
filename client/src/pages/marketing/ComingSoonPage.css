@@ -1,0 +1,94 @@
+/* ComingSoonPage.css
+   Self-contained layout built on the global --rr-* tokens (index.css).
+   Mirrors the chrome of LegalPage.css. Light is default; dark via
+   [data-theme="dark"] on <html>. */
+
+.cs-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--rr-bg);
+  color: var(--rr-fg);
+}
+
+/* ---------- Nav ---------- */
+.cs-nav {
+  position: sticky; top: 0; z-index: 40;
+  backdrop-filter: blur(16px) saturate(1.4);
+  background: color-mix(in oklab, var(--rr-bg) 75%, transparent);
+  border-bottom: 1px solid var(--rr-border);
+}
+.cs-nav-inner {
+  max-width: 1080px; margin: 0 auto;
+  padding: 14px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+}
+@media (max-width: 720px) { .cs-nav-inner { padding: 12px 20px; } }
+.cs-nav-right { display: flex; gap: 12px; align-items: center; }
+@media (max-width: 540px) { .cs-nav-right .cs-nav-signin { display: none; } }
+
+/* ---------- Hero ---------- */
+.cs-main {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 96px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+@media (max-width: 720px) { .cs-main { padding: 64px 20px 56px; } }
+
+.cs-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--rr-violet-500);
+  margin-bottom: 18px;
+}
+.cs-eyebrow::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--rr-violet-500); opacity: 0.5;
+}
+
+.cs-main h1 {
+  font-family: var(--rr-font-display);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 18px;
+}
+.cs-lead {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--rr-fg-2);
+  max-width: 560px;
+  margin: 0 0 32px;
+}
+
+.cs-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* ---------- Footer ---------- */
+.cs-footer {
+  border-top: 1px solid var(--rr-border);
+  padding: 28px 0;
+}
+.cs-footer-inner {
+  max-width: 1080px; margin: 0 auto;
+  padding: 0 32px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
+}
+@media (max-width: 720px) { .cs-footer-inner { padding: 0 20px; } }
+.cs-footer .copy {
+  font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-dim);
+}
+.cs-footer .links { display: flex; gap: 16px; }
+.cs-footer .links a {
+  font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-muted);
+  transition: color var(--rr-dur-fast);
+}
+.cs-footer .links a:hover { color: var(--rr-violet-500); }
