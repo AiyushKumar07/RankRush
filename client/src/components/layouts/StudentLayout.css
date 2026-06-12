@@ -124,7 +124,9 @@
   display: grid; place-items: center;
   font-family: var(--rr-font-display); font-weight: 700; font-size: 13px;
   flex-shrink: 0;
+  overflow: hidden;
 }
+.sidebar-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .sidebar-user-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--rr-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-user-plan {

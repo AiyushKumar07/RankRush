@@ -7,6 +7,7 @@ const ComingSoonPage = lazy(() => import('./pages/marketing/ComingSoonPage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const SignupPage = lazy(() => import('./pages/auth/SignupPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
+const OnboardingPage = lazy(() => import('./pages/auth/OnboardingPage'))
 const AdminLoginPage = lazy(() => import('./pages/auth/AdminLoginPage'))
 
 const DashboardPage = lazy(() => import('./pages/student/DashboardPage'))
@@ -41,6 +42,7 @@ export {
   LoginPage,
   SignupPage,
   ForgotPasswordPage,
+  OnboardingPage,
   AdminLoginPage,
   DashboardPage,
   QuizzesPage,

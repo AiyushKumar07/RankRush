@@ -140,6 +140,7 @@ function StudentLayoutInner() {
       ? `${user.firstName} ${user.lastName?.[0] || ""}.`
       : user?.name || "Student",
     initial: user?.firstName?.[0] || user?.name?.[0] || "S",
+    photo: user?.profilePicture || user?.avatar || null,
   };
 
   useEffect(() => {
@@ -193,7 +194,13 @@ function StudentLayoutInner() {
 
           <div className="sidebar-footer-wrap">
             <Link to="/app/profile" className="sidebar-footer">
-              <div className="sidebar-avatar">{displayUser.initial}</div>
+              <div className="sidebar-avatar">
+                {displayUser.photo ? (
+                  <img src={displayUser.photo} alt="" className="sidebar-avatar-img" />
+                ) : (
+                  displayUser.initial
+                )}
+              </div>
               <div className="sidebar-user-meta">
                 <div className="sidebar-user-name">{displayUser.name}</div>
                 <div className="sidebar-user-plan">

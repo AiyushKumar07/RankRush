@@ -24,6 +24,7 @@ import {
   ResetPasswordDto,
   RefreshTokenDto,
   ChangePasswordDto,
+  SetPasswordDto,
 } from './dto/auth.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
@@ -131,6 +132,17 @@ export class AuthController {
     @Req() req: any,
   ) {
     return this.authService.changePassword(userId, dto, req);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  setPassword(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SetPasswordDto,
+    @Req() req: any,
+  ) {
+    return this.authService.setPassword(userId, dto, req);
   }
 
   @UseGuards(JwtAuthGuard)

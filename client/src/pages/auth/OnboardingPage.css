@@ -1,0 +1,34 @@
+/* "Set a password" opt-in row. Resets the inherited `.signup-page .form-field
+   input` styling (44px height, left padding, border, focus glow) that would
+   otherwise stretch the checkbox into a tall blinking box. */
+.signup-page .form-field label.pw-optin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: var(--rr-font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-2);
+}
+
+.signup-page .form-field label.pw-optin input[type='checkbox'] {
+  height: 16px;
+  width: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--rr-r-sm);
+  accent-color: var(--rr-violet-500);
+  cursor: pointer;
+}
+
+.signup-page .form-field label.pw-optin input[type='checkbox']:focus {
+  outline: none;
+  box-shadow: none;
+}

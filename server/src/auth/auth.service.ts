@@ -35,6 +35,7 @@ import {
   ResetPasswordDto,
   RefreshTokenDto,
   ChangePasswordDto,
+  SetPasswordDto,
 } from './dto/auth.dto.js';
 
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
@@ -351,6 +352,10 @@ export class AuthService {
         board: dto.board,
         school: dto.school,
         target: dto.target ?? [],
+        // Email signup collects the full profile up front, so these accounts
+        // are onboarded immediately — only Google SSO accounts need the extra
+        // onboarding step (they start with isOnboarded=false).
+        isOnboarded: true,
       },
     });
 
@@ -458,6 +463,7 @@ export class AuthService {
           avatar: user.avatar,
           isVerified: true,
           isOnboarded: user.isOnboarded,
+          hasPassword: !!user.password,
           class: user.class,
           school: user.school,
           target: user.target,
@@ -559,6 +565,7 @@ export class AuthService {
           avatar: user.avatar,
           isVerified: user.isVerified,
           isOnboarded: user.isOnboarded,
+          hasPassword: !!user.password,
           class: user.class,
           school: user.school,
           target: user.target,
@@ -730,6 +737,7 @@ export class AuthService {
           avatar: user.avatar,
           isVerified: user.isVerified,
           isOnboarded: user.isOnboarded,
+          hasPassword: !!user.password,
           class: user.class,
           school: user.school,
           target: user.target,
@@ -967,6 +975,43 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
+  // ─── Set Initial Password (Google-only accounts) ──────────────────
+  // For accounts created via Google SSO that have no password yet. Lets the
+  // user add an email+password login during onboarding. Rejects accounts that
+  // already have a password — those must use changePassword (needs the old one).
+  async setPassword(userId: string, dto: SetPasswordDto, req?: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.password) {
+      throw new BadRequestException(
+        'This account already has a password. Use change password instead.',
+      );
+    }
+
+    await this.validatePasswordStrength(dto.newPassword);
+
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed, passwordChangedAt: new Date() },
+    });
+
+    await this.audit.log({
+      action: 'PASSWORD_SET',
+      entityType: 'User',
+      entityId: userId,
+      performedBy: userId,
+      details: { method: 'set_initial_password' },
+      req,
+    });
+
+    this.logger.log(`Initial password set for user ${userId}`);
+
+    return { message: 'Password set successfully' };
+  }
+
   // ─── Get Profile (legacy compat) ──────────────────────────────────
   async getProfile(userId: string) {
     await this.updateLoginStreak(userId);
@@ -981,6 +1026,8 @@ export class AuthService {
         avatar: true,
         isVerified: true,
         isOnboarded: true,
+        // Selected only to derive `hasPassword` below — never returned raw.
+        password: true,
         firstName: true,
         lastName: true,
         dob: true,
@@ -1000,7 +1047,10 @@ export class AuthService {
       },
     });
 
-    return { data: { user } };
+    if (!user) return { data: { user: null } };
+
+    const { password, ...safeUser } = user;
+    return { data: { user: { ...safeUser, hasPassword: !!password } } };
   }
 
   // ─── Get Users (admin) ────────────────────────────────────────────

@@ -143,3 +143,13 @@ export class ChangePasswordDto {
   @MaxLength(64, { message: 'Password must not exceed 64 characters' })
   newPassword: string;
 }
+
+// Sets an initial password for accounts that have none (e.g. Google SSO users
+// during onboarding). Distinct from ChangePasswordDto, which requires the
+// current password — these accounts don't have one yet.
+export class SetPasswordDto {
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(64, { message: 'Password must not exceed 64 characters' })
+  newPassword: string;
+}

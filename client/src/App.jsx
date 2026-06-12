@@ -13,6 +13,7 @@ import {
   LoginPage,
   SignupPage,
   ForgotPasswordPage,
+  OnboardingPage,
   AdminLoginPage,
   DashboardPage,
   QuizzesPage,
@@ -47,6 +48,23 @@ function RequireAuth({ children, role }) {
   if (loading) return <Loader />
   if (!user) return <Navigate to="/login" replace />
   if (role && user.role !== role) return <Navigate to="/" replace />
+  // Students must finish profile setup before entering the app. (Email signups
+  // are onboarded at signup; this gates first-time Google SSO accounts.)
+  if (user.role === 'STUDENT' && !user.isOnboarded) {
+    return <Navigate to="/onboarding" replace />
+  }
+  return children
+}
+
+// Guards the /onboarding route: logged-in students who still need setup. Anyone
+// already onboarded (or non-student) is bounced to their home, so there's no
+// loop against RequireAuth's redirect into here.
+function RequireOnboarding({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Loader />
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'STUDENT') return <Navigate to="/admin" replace />
+  if (user.isOnboarded) return <Navigate to="/app" replace />
   return children
 }
 
@@ -54,7 +72,9 @@ function RedirectIfAuth({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <Loader />
   if (user) {
-    return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/app'} replace />
+    const dest =
+      user.role === 'ADMIN' ? '/admin' : user.isOnboarded ? '/app' : '/onboarding'
+    return <Navigate to={dest} replace />
   }
   return children
 }
@@ -73,6 +93,9 @@ export default function App() {
         <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
         <Route path="/forgot-password" element={<RedirectIfAuth><ForgotPasswordPage /></RedirectIfAuth>} />
         <Route path="/admin/login" element={<RedirectIfAuth><AdminLoginPage /></RedirectIfAuth>} />
+
+        {/* First-time profile setup (gated: logged-in students who aren't onboarded) */}
+        <Route path="/onboarding" element={<RequireOnboarding><OnboardingPage /></RequireOnboarding>} />
 
         {/* Student — wrapped in StudentLayout */}
         <Route element={<RequireAuth role="STUDENT"><StudentLayout /></RequireAuth>}>

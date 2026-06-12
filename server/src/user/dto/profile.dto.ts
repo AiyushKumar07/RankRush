@@ -34,9 +34,9 @@ export class CompleteProfileDto {
   class: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(100)
-  school: string;
+  school?: string;
 
   @IsString()
   @IsOptional()

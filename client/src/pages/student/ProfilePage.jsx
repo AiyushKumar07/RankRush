@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { userAPI, authAPI, subscriptionPlansAPI } from '../../services/api'
 import Modal from '../../components/ui/Modal'
+import AvatarCropModal from '../../components/profile/AvatarCropModal'
 import Badge, { ComingSoonChip } from '../../components/ui/Badge'
 import Select from '../../components/ui/Select'
 import { useAuth } from '../../context/AuthContext'
@@ -224,8 +225,9 @@ export default function ProfilePage() {
     address: '',
     target: ['JEE']
   })
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const navigate = useNavigate()
-  const { checkAuth, logout } = useAuth()
+  const { checkAuth, logout, user, updateUser } = useAuth()
   const { planName, isFreeTier } = useEntitlements()
   const [subscription, setSubscription] = useState(null)
 
@@ -468,8 +470,19 @@ export default function ProfilePage() {
       <div className="profile-card">
         <div className="profile-cover">
           <div className="profile-cover-inner">
-            <div className="profile-avatar">
-              {(profileData?.firstName?.[0] || 'A').toUpperCase()}
+            <div
+              className="profile-avatar"
+              onClick={() => setPhotoModalOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhotoModalOpen(true) } }}
+              title="Change profile photo"
+            >
+              {profileData?.profilePicture || profileData?.avatar ? (
+                <img src={profileData.profilePicture || profileData.avatar} alt="Profile" className="profile-avatar-img" />
+              ) : (
+                (profileData?.firstName?.[0] || 'A').toUpperCase()
+              )}
               <div className="avatar-edit"><Camera size={14} /></div>
             </div>
             <div className="profile-identity">
@@ -974,6 +987,18 @@ export default function ProfilePage() {
           </p>
         )}
       </Modal>
+
+      <AvatarCropModal
+        open={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+        onUploaded={(url) => {
+          if (!url) return
+          // Reflect the new photo locally and in the global auth user so the
+          // sidebar/header avatar updates without a full reload.
+          setProfileData((prev) => (prev ? { ...prev, profilePicture: url, avatar: url } : prev))
+          if (user) updateUser({ ...user, profilePicture: url, avatar: url })
+        }}
+      />
 
     </div>
   )

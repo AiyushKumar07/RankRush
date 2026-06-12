@@ -56,6 +56,13 @@
   z-index: 2;
 }
 .profile-avatar:hover { transform: translateY(50%) scale(1.02); }
+.profile-avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
 @media (max-width: 720px) { .profile-avatar { margin: 0 auto; } }
 .avatar-edit {
   position: absolute;
