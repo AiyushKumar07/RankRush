@@ -425,9 +425,9 @@
      .shell`), pulling their content out of alignment with the rest. */
   padding-block: 64px;
   position: relative;
-  /* Offset for the sticky nav (~65px) when scrolled to via #anchors, so the
-     section heading lands just below the nav instead of far down the page. */
-  scroll-margin-top: 28px;
+  /* Offset for the sticky nav (~65px) when scrolled to via #anchors.
+     Note: scroll-margin-top was removed because index.css provides a global
+     scroll-padding-top: 80px which handles the sticky nav. */
 }
 @media (max-width: 720px) { .section { padding-block: 44px; } }
 

@@ -133,7 +133,7 @@
 /* ---------- Content ---------- */
 .legal-content { max-width: 720px; min-width: 0; }
 
-.legal-section { scroll-margin-top: 92px; }
+/* Note: scroll-margin-top removed because index.css provides scroll-padding-top: 80px */
 .legal-section + .legal-section { margin-top: 44px; }
 
 .legal-section h2 {

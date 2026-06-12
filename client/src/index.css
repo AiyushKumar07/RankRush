@@ -164,7 +164,7 @@
    ===================================================================== */
 @layer base {
   * { box-sizing: border-box; }
-  html, body { margin: 0; overflow-x: hidden; }
+  html, body { margin: 0; overflow-x: clip; }
   html {
     scroll-behavior: smooth;
     /* Keep anchored sections clear of the sticky nav (~64px tall). */
