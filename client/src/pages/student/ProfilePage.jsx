@@ -13,6 +13,7 @@ import { userAPI, authAPI, subscriptionPlansAPI } from '../../services/api'
 import Modal from '../../components/ui/Modal'
 import AvatarCropModal from '../../components/profile/AvatarCropModal'
 import Badge, { ComingSoonChip } from '../../components/ui/Badge'
+import BrandLoader from '../../components/brand/BrandLoader'
 import Select from '../../components/ui/Select'
 import { useAuth } from '../../context/AuthContext'
 import { useEntitlements } from '../../hooks/useEntitlements'
@@ -207,6 +208,12 @@ export default function ProfilePage() {
   const { preference: themeCard, setPreference: setThemePreference } = useTheme()
   const [sessions, setSessions] = useState([])
   const [dangerModal, setDangerModal] = useState(null)
+  // GitHub-style confirmation: the user must type their exact username to
+  // arm a destructive action. Pasting is blocked so it's a deliberate act.
+  const [dangerConfirm, setDangerConfirm] = useState('')
+  // Drives the full-screen "we're resetting you" loader during a reset /
+  // class change so the wipe doesn't feel instantaneous-then-jarring.
+  const [dangerBusy, setDangerBusy] = useState(null)
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' })
   const [pwStrength, setPwStrength] = useState({ score: 0, verdict: 'weak', suggestions: [], ok: false })
   const [pwVisible, setPwVisible] = useState({ current: false, new: false, confirm: false })
@@ -227,7 +234,7 @@ export default function ProfilePage() {
   })
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const navigate = useNavigate()
-  const { checkAuth, logout, user, updateUser } = useAuth()
+  const { logout, user, updateUser } = useAuth()
   const { planName, isFreeTier } = useEntitlements()
   const [subscription, setSubscription] = useState(null)
 
@@ -242,6 +249,12 @@ export default function ProfilePage() {
     reduceMotion: false,
     compactLayout: false,
   })
+
+  // Clear the typed-username confirmation whenever the danger modal opens,
+  // switches action, or closes — so a prior entry can't pre-arm a new one.
+  useEffect(() => {
+    setDangerConfirm('')
+  }, [dangerModal])
 
   useEffect(() => {
     loadProfile()
@@ -271,22 +284,25 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     try {
       const res = await userAPI.getProfile()
-      const user = res.data.user
-      setProfileData(user)
-      const { iso, number } = splitContactNumber(user.contactNumber)
+      const profileUser = res.data.user
+      setProfileData(profileUser)
+      // Keep auth state (and the rest of the app) in sync with the
+      // freshly-loaded profile without dropping auth-only fields.
+      updateUser({ ...user, ...profileUser })
+      const { iso, number } = splitContactNumber(profileUser.contactNumber)
       setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        dob: user.dob || '',
+        firstName: profileUser.firstName || '',
+        lastName: profileUser.lastName || '',
+        dob: profileUser.dob || '',
         phoneIso: iso,
         contactNumber: number,
-        class: user.class || 'Class 12',
-        board: user.board || 'CBSE',
-        stream: user.stream || 'PCM (Physics, Chemistry, Maths)',
-        school: user.school || '',
-        city: user.city || '',
-        address: user.address || '',
-        target: Array.isArray(user.target) && user.target.length ? user.target : ['JEE'],
+        class: profileUser.class || 'Class 12',
+        board: profileUser.board || 'CBSE',
+        stream: profileUser.stream || 'PCM (Physics, Chemistry, Maths)',
+        school: profileUser.school || '',
+        city: profileUser.city || '',
+        address: profileUser.address || '',
+        target: Array.isArray(profileUser.target) && profileUser.target.length ? profileUser.target : ['JEE'],
       })
     } catch (err) {
       console.error(err)
@@ -428,37 +444,74 @@ export default function ProfilePage() {
   const [classChangeTarget, setClassChangeTarget] = useState('Class 12')
 
   const handleDangerAction = async () => {
+    const action = dangerModal
+    const username = profileData?.username || ''
+
+    // GitHub-style safety gate: the typed (never pasted) username must match
+    // exactly before any destructive action is allowed through.
+    if (!username || dangerConfirm.trim() !== username) {
+      toast.error('Type your username exactly to confirm')
+      return
+    }
+
+    // change-class pre-checks that shouldn't trigger the wipe loader.
+    if (action === 'change-class') {
+      if (!classChangeTarget) {
+        toast.error('Pick a class first')
+        return
+      }
+      if (classChangeTarget === profileData?.class) {
+        toast('Already on this class — nothing to change.', { icon: 'ℹ️' })
+        setDangerModal(null)
+        return
+      }
+    }
+
+    const isWipe = action === 'reset' || action === 'change-class'
+    // Swap the confirm dialog for a full-screen branded loader during a wipe.
+    setDangerModal(null)
+    if (isWipe) {
+      setDangerBusy(
+        action === 'reset' ? 'Resetting your progress…' : 'Switching class & resetting…',
+      )
+    }
+
+    const startedAt = Date.now()
     try {
-      if (dangerModal === 'reset') {
+      if (action === 'reset') {
         await userAPI.resetProgress()
-        toast.success('Progress reset successfully')
-        checkAuth()
-      } else if (dangerModal === 'change-class') {
-        if (!classChangeTarget) {
-          toast.error('Pick a class first')
-          return
-        }
-        if (classChangeTarget === profileData?.class) {
-          toast('Already on this class — nothing to change.', { icon: 'ℹ️' })
-          setDangerModal(null)
-          return
-        }
+      } else if (action === 'change-class') {
         await userAPI.changeClass(classChangeTarget)
-        toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
-        checkAuth()
-        loadProfile()
-      } else if (dangerModal === 'delete') {
+      } else if (action === 'delete') {
         await userAPI.deleteAccount()
+      }
+
+      // Hold the reset loader for a brief beat so the wipe reads as a
+      // deliberate, weighty action rather than an instant flash.
+      if (isWipe) {
+        const MIN_MS = 1800
+        const elapsed = Date.now() - startedAt
+        if (elapsed < MIN_MS) await new Promise((r) => setTimeout(r, MIN_MS - elapsed))
+      }
+
+      if (action === 'reset') {
+        toast.success('Progress reset successfully')
+        await loadProfile()
+      } else if (action === 'change-class') {
+        toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
+        await loadProfile()
+      } else if (action === 'delete') {
         toast.success('Account deleted')
         navigate('/auth/login')
       }
-      setDangerModal(null)
     } catch (err) {
       const label =
-        dangerModal === 'reset' ? 'reset progress'
-          : dangerModal === 'change-class' ? 'change class'
+        action === 'reset' ? 'reset progress'
+          : action === 'change-class' ? 'change class'
           : 'delete account'
       toast.error(`Failed to ${label}`)
+    } finally {
+      setDangerBusy(null)
     }
   }
 
@@ -950,7 +1003,11 @@ export default function ProfilePage() {
         footer={
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%' }}>
             <button className="btn btn-secondary" onClick={() => setDangerModal(null)}>Cancel</button>
-            <button className="btn btn-danger" onClick={handleDangerAction}>
+            <button
+              className="btn btn-danger"
+              onClick={handleDangerAction}
+              disabled={dangerConfirm.trim() !== (profileData?.username || '')}
+            >
               {dangerModal === 'reset' ? 'Reset Progress'
                 : dangerModal === 'change-class' ? 'Change class & reset'
                 : 'Delete Account'}
@@ -958,34 +1015,60 @@ export default function ProfilePage() {
           </div>
         }
       >
-        {dangerModal === 'change-class' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {dangerModal === 'change-class' ? (
+            <>
+              <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+                Picking a different class will <b>wipe your streak, accuracy, rank history, and quiz attempts</b> the same way a reset does — then move you onto the new class's leaderboard. This can't be undone.
+              </p>
+              <div className="field">
+                <label>New class</label>
+                <Select
+                  value={classChangeTarget}
+                  onChange={(v) => setClassChangeTarget(v)}
+                  ariaLabel="New class"
+                  options={[
+                    { value: 'Class 9',  label: 'Class 9'  },
+                    { value: 'Class 10', label: 'Class 10' },
+                    { value: 'Class 11', label: 'Class 11' },
+                    { value: 'Class 12', label: 'Class 12' },
+                    { value: 'Dropper',  label: 'Dropper'  },
+                  ]}
+                />
+              </div>
+            </>
+          ) : (
             <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-              Picking a different class will <b>wipe your streak, accuracy, rank history, and quiz attempts</b> the same way a reset does — then move you onto the new class's leaderboard. This can't be undone.
+              {dangerModal === 'reset'
+                ? 'Are you absolutely sure you want to reset all your progress? This action will wipe your streak, xp, accuracy, and badges. This cannot be undone.'
+                : "We're sad to see you go. Are you sure you want to delete your account? This permanently removes all your data, progress, and active subscriptions — it can't be undone."}
             </p>
-            <div className="field">
-              <label>New class</label>
-              <Select
-                value={classChangeTarget}
-                onChange={(v) => setClassChangeTarget(v)}
-                ariaLabel="New class"
-                options={[
-                  { value: 'Class 9',  label: 'Class 9'  },
-                  { value: 'Class 10', label: 'Class 10' },
-                  { value: 'Class 11', label: 'Class 11' },
-                  { value: 'Class 12', label: 'Class 12' },
-                  { value: 'Dropper',  label: 'Dropper'  },
-                ]}
-              />
-            </div>
+          )}
+
+          {/* GitHub-style confirmation: type the exact username, no pasting. */}
+          <div className="field">
+            <label>
+              To confirm, type your username{' '}
+              <code className="danger-confirm-username">{profileData?.username || '—'}</code>
+            </label>
+            <input
+              type="text"
+              value={dangerConfirm}
+              onChange={(e) => setDangerConfirm(e.target.value)}
+              onPaste={(e) => {
+                e.preventDefault()
+                toast('Pasting is disabled — please type your username.', { icon: '✋' })
+              }}
+              onDrop={(e) => e.preventDefault()}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder="your username"
+              aria-label="Type your username to confirm"
+            />
           </div>
-        ) : (
-          <p style={{ color: 'var(--rr-fg-2)', fontSize: 14, lineHeight: 1.5 }}>
-            {dangerModal === 'reset'
-              ? 'Are you absolutely sure you want to reset all your progress? This action will wipe your streak, xp, accuracy, and badges. This cannot be undone.'
-              : 'Are you absolutely sure you want to delete your account? This action permanently removes all your data, progress, and active subscriptions. This cannot be undone.'}
-          </p>
-        )}
+        </div>
       </Modal>
 
       <AvatarCropModal
@@ -999,6 +1082,23 @@ export default function ProfilePage() {
           if (user) updateUser({ ...user, profilePicture: url, avatar: url })
         }}
       />
+
+      {dangerBusy && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'var(--rr-bg)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <BrandLoader label={dangerBusy} fullscreen={false} />
+        </div>
+      )}
 
     </div>
   )

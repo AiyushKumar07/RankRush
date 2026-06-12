@@ -378,13 +378,18 @@ export class UserService {
       where: { studentId: userId },
     });
 
-    // Reset user gamification stats
+    // Reset user gamification stats. The user is necessarily logged in
+    // (and therefore "active today") to trigger a reset, so we mirror the
+    // brand-new "first daily login" state rather than zeroing out — a
+    // streak of 0 alongside lastActive=today is contradictory and would
+    // only correct itself on the next day's login.
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        streak: 0,
-        longestStreak: 0,
-        loginXp: 0,
+        streak: 1,
+        longestStreak: 1,
+        loginXp: 15,
+        lastActive: new Date(),
       },
     });
 
@@ -444,9 +449,11 @@ export class UserService {
       where: { id: userId },
       data: {
         class: trimmed,
-        streak: 0,
-        longestStreak: 0,
-        loginXp: 0,
+        // Same "fresh active day" reset as resetProgress — see note there.
+        streak: 1,
+        longestStreak: 1,
+        loginXp: 15,
+        lastActive: new Date(),
       },
     });
 
@@ -474,25 +481,28 @@ export class UserService {
   }
 
   async deleteAccount(userId: string, req?: any) {
-    // Relying on Prisma's onDelete: Cascade where applicable.
     // Ensure the user actually exists.
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+
+    // Most of the user's relations cascade on delete, but two reference the
+    // user through a *required*, non-cascading relation — AuditLog.performedBy
+    // and UploadBatch.uploadedBy — so Prisma refuses to delete the user while
+    // any of these rows exist. Clear them first. (Self-deletion means "remove
+    // all my data", so dropping the user's own audit/upload rows is correct.)
+    //
+    // This is also why we don't write a DELETE audit log here: its required
+    // performedBy would point at the user we're deleting, so it could neither
+    // be created after the delete nor survive the cleanup above. The server
+    // log below is the durable record of the deletion.
+    await this.prisma.auditLog.deleteMany({ where: { performedBy: userId } });
+    await this.prisma.uploadBatch.deleteMany({ where: { uploadedBy: userId } });
 
     await this.prisma.user.delete({
       where: { id: userId },
     });
 
-    await this.audit.log({
-      action: 'DELETE',
-      entityType: 'User',
-      entityId: userId,
-      performedBy: userId,
-      details: { event: 'account_deleted', email: user.email },
-      req,
-    });
-
-    this.logger.log(`Account deleted for user ${userId}`);
+    this.logger.log(`Account deleted for user ${userId} (${user.email})`);
 
     return { message: 'Account permanently deleted' };
   }

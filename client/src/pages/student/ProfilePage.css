@@ -613,6 +613,32 @@
 }
 .btn-danger:hover { background: var(--rr-coral-500); color: white; border-color: var(--rr-coral-500); }
 .btn-danger svg { width: 14px; height: 14px; }
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--rr-surface);
+  color: var(--rr-coral-500);
+  border-color: color-mix(in oklab, var(--rr-coral-500) 40%, transparent);
+}
+
+/* Typed-to-confirm username — shown in its TRUE case (the surrounding
+   label is uppercased, which would otherwise make users type the wrong
+   thing) and styled as a standout coral chip. */
+.danger-confirm-username {
+  display: inline-block;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--rr-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rr-coral-500);
+  background: color-mix(in oklab, var(--rr-coral-500) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--rr-coral-500) 38%, transparent);
+  padding: 1px 7px;
+  border-radius: 6px;
+  user-select: none;
+  white-space: nowrap;
+}
 
 /* Session card */
 .session-row {
