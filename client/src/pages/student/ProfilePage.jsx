@@ -501,8 +501,10 @@ export default function ProfilePage() {
         toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
         await loadProfile()
       } else if (action === 'delete') {
-        toast.success('Account deleted')
-        navigate('/auth/login')
+        // Clear the now-orphaned local auth state, then send them off to
+        // the farewell page instead of a cold redirect to login.
+        await logout()
+        navigate('/goodbye', { replace: true })
       }
     } catch (err) {
       const label =

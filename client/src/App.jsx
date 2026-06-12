@@ -10,6 +10,7 @@ import {
   PrivacyPolicyPage,
   TermsPage,
   ComingSoonPage,
+  GoodbyePage,
   LoginPage,
   SignupPage,
   ForgotPasswordPage,
@@ -89,6 +90,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/coming-soon" element={<ComingSoonPage />} />
+        <Route path="/goodbye" element={<GoodbyePage />} />
         <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
         <Route path="/signup" element={<RedirectIfAuth><SignupPage /></RedirectIfAuth>} />
         <Route path="/forgot-password" element={<RedirectIfAuth><ForgotPasswordPage /></RedirectIfAuth>} />

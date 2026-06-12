@@ -1,0 +1,171 @@
+/* GoodbyePage.css
+   Self-contained farewell layout built on the global --rr-* tokens
+   (index.css). Light is default; dark via [data-theme="dark"] on <html>.
+   Mirrors the chrome of ComingSoonPage.css but centered + playful. */
+
+.gb-root {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--rr-bg);
+  color: var(--rr-fg);
+  overflow: hidden;
+}
+
+/* ---------- Floating emoji backdrop ---------- */
+.gb-floaties {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.gb-floatie {
+  position: absolute;
+  font-size: 26px;
+  opacity: 0.16;
+  animation: gb-float 14s ease-in-out infinite;
+  user-select: none;
+}
+.gb-floatie-0 { left: 6%;  top: 18%; font-size: 34px; animation-delay: 0s;    }
+.gb-floatie-1 { left: 88%; top: 22%; font-size: 28px; animation-delay: -2s;   }
+.gb-floatie-2 { left: 14%; top: 68%; font-size: 40px; animation-delay: -4s;   }
+.gb-floatie-3 { left: 80%; top: 70%; font-size: 30px; animation-delay: -6s;   }
+.gb-floatie-4 { left: 50%; top: 12%; font-size: 24px; animation-delay: -8s;   }
+.gb-floatie-5 { left: 30%; top: 30%; font-size: 22px; animation-delay: -10s;  }
+.gb-floatie-6 { left: 70%; top: 45%; font-size: 36px; animation-delay: -1s;   }
+.gb-floatie-7 { left: 92%; top: 55%; font-size: 26px; animation-delay: -5s;   }
+.gb-floatie-8 { left: 4%;  top: 45%; font-size: 22px; animation-delay: -7s;   }
+.gb-floatie-9 { left: 58%; top: 78%; font-size: 30px; animation-delay: -3s;   }
+
+@keyframes gb-float {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50%      { transform: translateY(-26px) rotate(6deg); }
+}
+
+/* ---------- Nav ---------- */
+.gb-nav {
+  position: sticky; top: 0; z-index: 40;
+  backdrop-filter: blur(16px) saturate(1.4);
+  background: color-mix(in oklab, var(--rr-bg) 75%, transparent);
+  border-bottom: 1px solid var(--rr-border);
+}
+.gb-nav-inner {
+  max-width: 1080px; margin: 0 auto;
+  padding: 14px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+}
+@media (max-width: 720px) { .gb-nav-inner { padding: 12px 20px; } }
+
+/* ---------- Hero ---------- */
+.gb-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 72px 32px 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+@media (max-width: 720px) { .gb-main { padding: 48px 20px 48px; } }
+
+.gb-emoji {
+  font-size: clamp(4rem, 14vw, 6.5rem);
+  line-height: 1;
+  margin-bottom: 18px;
+  animation: gb-wave 2.4s ease-in-out infinite;
+  transform-origin: 70% 80%;
+  filter: drop-shadow(0 12px 28px color-mix(in oklab, var(--rr-violet-500) 30%, transparent));
+}
+@keyframes gb-wave {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50%      { transform: rotate(10deg) scale(1.06); }
+}
+
+.gb-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--rr-coral-500);
+  margin-bottom: 14px;
+}
+
+.gb-main h1 {
+  font-family: var(--rr-font-display);
+  font-size: clamp(2rem, 5.5vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+
+.gb-meme {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--rr-fg);
+  max-width: 520px;
+  margin: 0 0 18px;
+  min-height: 2.6em;
+  animation: gb-fade-in 0.5s ease;
+}
+@keyframes gb-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gb-lead {
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--rr-fg-2);
+  max-width: 500px;
+  margin: 0 0 30px;
+}
+
+.gb-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+.gb-signoff {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin: 34px 0 0;
+  font-family: var(--rr-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rr-fg-muted);
+}
+.gb-signoff svg { color: var(--rr-coral-500); }
+
+/* ---------- Footer ---------- */
+.gb-footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--rr-border);
+  padding: 28px 0;
+}
+.gb-footer-inner {
+  max-width: 1080px; margin: 0 auto;
+  padding: 0 32px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
+}
+@media (max-width: 720px) { .gb-footer-inner { padding: 0 20px; } }
+.gb-footer .copy {
+  font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-dim);
+}
+.gb-footer .links { display: flex; gap: 16px; }
+.gb-footer .links a {
+  font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-muted);
+  transition: color var(--rr-dur-fast);
+}
+.gb-footer .links a:hover { color: var(--rr-violet-500); }
+
+/* Respect reduced-motion: kill the loops, keep everything legible. */
+@media (prefers-reduced-motion: reduce) {
+  .gb-floatie, .gb-emoji, .gb-meme { animation: none !important; }
+  .gb-floatie { opacity: 0.12; }
+}

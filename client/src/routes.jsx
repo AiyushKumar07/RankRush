@@ -4,6 +4,7 @@ const LandingPage = lazy(() => import('./pages/marketing/LandingPage'))
 const PrivacyPolicyPage = lazy(() => import('./pages/marketing/PrivacyPolicyPage'))
 const TermsPage = lazy(() => import('./pages/marketing/TermsPage'))
 const ComingSoonPage = lazy(() => import('./pages/marketing/ComingSoonPage'))
+const GoodbyePage = lazy(() => import('./pages/marketing/GoodbyePage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const SignupPage = lazy(() => import('./pages/auth/SignupPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
@@ -39,6 +40,7 @@ export {
   PrivacyPolicyPage,
   TermsPage,
   ComingSoonPage,
+  GoodbyePage,
   LoginPage,
   SignupPage,
   ForgotPasswordPage,
