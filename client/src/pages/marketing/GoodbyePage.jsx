@@ -6,10 +6,11 @@
  * built on the global --rr-* tokens.
  */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft, RotateCcw, Heart } from 'lucide-react'
 import RRBrand from '../../components/brand/RRBrand'
 import ThemeToggle from '../../components/ui/ThemeToggle'
+import { useAuth } from '../../context/AuthContext'
 import './GoodbyePage.css'
 
 // Each "meme" is an emoji + a one-liner. We rotate through them so the
@@ -26,6 +27,16 @@ const MEMES = [
 
 export default function GoodbyePage() {
   const [i, setI] = useState(0)
+  const { clearSession } = useAuth()
+  const location = useLocation()
+
+  // When we land here straight from an account deletion, tear down the now
+  // dead local session. We do it HERE (a public route) rather than in the
+  // ProfilePage handler so clearing `user` can't make the still-mounted
+  // protected route redirect to /login before we navigate away.
+  useEffect(() => {
+    if (location.state?.accountDeleted) clearSession()
+  }, [location.state, clearSession])
 
   useEffect(() => {
     const t = setInterval(() => setI((n) => (n + 1) % MEMES.length), 3200)

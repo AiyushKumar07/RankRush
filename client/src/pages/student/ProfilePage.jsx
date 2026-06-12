@@ -234,7 +234,7 @@ export default function ProfilePage() {
   })
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const navigate = useNavigate()
-  const { logout, clearSession, user, updateUser } = useAuth()
+  const { logout, user, updateUser } = useAuth()
   const { planName, isFreeTier } = useEntitlements()
   const [subscription, setSubscription] = useState(null)
 
@@ -501,12 +501,14 @@ export default function ProfilePage() {
         toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
         await loadProfile()
       } else if (action === 'delete') {
-        // Clear local auth state WITHOUT calling the logout API — the account
-        // (and its server session) is already gone, so a logout/refresh call
-        // would 401 and trip the interceptor's hard-redirect to /login,
-        // clobbering our navigation to the farewell page.
-        clearSession()
-        navigate('/goodbye', { replace: true })
+        // Navigate to the farewell page FIRST, while still authenticated, so we
+        // leave the <RequireAuth> subtree before tearing down the session — if
+        // we cleared `user` here, this still-mounted protected route would
+        // redirect to /login and win the race. GoodbyePage clears the (now
+        // dead) session itself on mount. We also skip the logout API call: the
+        // account is already gone, so it would 401 and trip the interceptor's
+        // hard-redirect to /login.
+        navigate('/goodbye', { replace: true, state: { accountDeleted: true } })
       }
     } catch (err) {
       const label =
