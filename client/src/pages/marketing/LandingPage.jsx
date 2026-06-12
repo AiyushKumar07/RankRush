@@ -75,7 +75,7 @@ export default function LandingPage() {
               </div>
               <div className="hero-trust">
                 <span><CircleCheck size={14} />Free forever plan</span>
-                <span><CircleCheck size={14} />1-token welcome bonus</span>
+                <span><CircleCheck size={14} />2-token welcome bonus</span>
                 <span><CircleCheck size={14} />No credit card</span>
               </div>
             </div>
@@ -318,7 +318,7 @@ export default function LandingPage() {
           <div className="step">
             <div className="num">01</div>
             <h4>Sign up with your email.</h4>
-            <p>One field, one click. Your free token is waiting.</p>
+            <p>One field, one click. Your free tokens are waiting.</p>
             <div className="step-illus">
               <div className="illus-signup" style={{ width: '100%' }}>
                 <div className="field f"></div>
@@ -419,7 +419,7 @@ export default function LandingPage() {
           <div className="big-cta-content">
             <span className="badge live" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#FAFAF7', padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500 }}><Radio size={14} />247 students joined this hour</span>
             <h2 style={{ marginTop: 20 }}>Your move. <span className="accent">Make tomorrow count.</span></h2>
-            <p>Sign up free. The first token is on the house. The first rank is yours to earn.</p>
+            <p>Sign up free. Your first two tokens are on the house. The first rank is yours to earn.</p>
             <div className="row">
               <Link to="/signup" className="btn btn-lime btn-lg">Get started free<ArrowRight size={16} /></Link>
             </div>

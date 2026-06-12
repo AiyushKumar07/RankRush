@@ -22,7 +22,7 @@ function SignupRightPanel() {
       <div className="perk-list">
         <div className="perk">
           <div className="ico"><Coins size={18} /></div>
-          <div><h4>1 free token, instantly</h4><p>Enough to take your first calibration quiz. No card required, no trial countdown.</p></div>
+          <div><h4>2 free tokens, instantly</h4><p>Enough to take your first two quizzes. No card required, no trial countdown.</p></div>
         </div>
         <div className="perk">
           <div className="ico"><TrendingUp size={18} /></div>
@@ -359,9 +359,9 @@ export default function SignupPage() {
         {/* STEP 3 */}
         <div className={`step-screen${step === 3 ? ' on' : ''}`}>
           <div className="welcome-card">
-            <div className="coin">+1</div>
+            <div className="coin">+2</div>
             <h2>Welcome{firstName ? `, ${firstName}` : ''}.</h2>
-            <p>Your first token is on us. Take your first quiz today to start a streak.</p>
+            <p>Your first two tokens are on us. Take your first quiz today to start a streak.</p>
           </div>
           <span className="eyebrow">Step 03 · Almost there</span>
           <h1>Verify your <em>email.</em></h1>

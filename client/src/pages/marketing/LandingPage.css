@@ -1044,7 +1044,7 @@
 
 /* ---------- Footer ---------- */
 .footer {
-  padding: 64px 0 32px;
+  padding-block: 64px 32px;
   border-top: 1px solid var(--rr-border);
 }
 .footer-grid {
@@ -1053,7 +1053,11 @@
   gap: 48px;
   margin-bottom: 48px;
 }
-@media (max-width: 720px) { .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; } }
+@media (max-width: 720px) {
+  /* Brand on its own row, then Product | Learn side-by-side, then Company below. */
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
+  .footer-col:first-child { grid-column: 1 / -1; }
+}
 .footer-col h5 {
   font-family: var(--rr-font-mono);
   font-size: 11px;
@@ -1076,5 +1080,10 @@
   flex-wrap: wrap; gap: 16px;
 }
 .footer-bottom .copy { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-dim); }
-.footer-bottom .links { display: flex; gap: 16px; }
+.footer-bottom .links { display: flex; gap: 16px; flex-wrap: wrap; }
 .footer-bottom .links a { font-family: var(--rr-font-mono); font-size: 11px; color: var(--rr-fg-muted); }
+@media (max-width: 540px) {
+  /* Centered copyright bar reads cleaner than space-between on phones. */
+  .footer-bottom { flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .footer-bottom .links { justify-content: center; }
+}
