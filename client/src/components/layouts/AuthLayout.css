@@ -73,6 +73,10 @@
 .oauth-btn:hover { border-color: var(--rr-ink-300); background: var(--rr-bg-alt); }
 .oauth-btn svg { width: 18px; height: 18px; }
 
+/* Google Identity Services button — span the full oauth row and center it */
+.google-auth-btn { grid-column: 1 / -1; display: flex; justify-content: center; width: 100%; }
+.google-auth-btn > div { width: 100%; display: flex; justify-content: center; }
+
 .or-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; margin: 12px 0 18px; }
 .or-row hr { border: 0; border-top: 1px solid var(--rr-border); margin: 0; }
 .or-row span { font-family: var(--rr-font-mono); font-size: 10px; color: var(--rr-fg-dim); text-transform: uppercase; letter-spacing: 0.12em; }

@@ -85,6 +85,20 @@ export function AuthProvider({ children }) {
     return userData;
   }, []);
 
+  const googleLogin = useCallback(async (idToken, expectedRole, referralCode) => {
+    const res = await authAPI.googleAuth({ idToken, referralCode });
+    const { user: userData, accessToken, refreshToken } = res.data;
+
+    if (expectedRole && userData.role !== expectedRole) {
+      throw new Error(`Access denied: this Google account is not a ${expectedRole.toLowerCase()} account.`);
+    }
+
+    setTokens(accessToken, refreshToken);
+    setUser(userData);
+    localStorage.setItem('rankrush_user', JSON.stringify(userData));
+    return userData;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem('rankrush_refresh_token');
@@ -119,6 +133,7 @@ export function AuthProvider({ children }) {
         studentSignup,
         verifyEmail,
         login,
+        googleLogin,
         logout,
         updateUser,
         clearPendingVerification,

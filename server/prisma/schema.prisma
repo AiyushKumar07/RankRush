@@ -18,7 +18,8 @@ model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   email        String   @unique
-  password     String
+  password     String?  // Optional: null for users who signed up via Google SSO
+  googleId     String?  @unique // Google account subject ("sub") for SSO accounts
   role         Role     @default(STUDENT)
   avatar       String?
   isActive     Boolean  @default(true)

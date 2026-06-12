@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import {
   checkPasswordStrength,
   validateEmail as secureValidateEmail,
@@ -28,6 +29,7 @@ import {
   RegisterDto,
   LoginDto,
   StudentSignupDto,
+  GoogleAuthDto,
   VerifyOtpDto,
   ForgotPasswordDto,
   ResetPasswordDto,
@@ -41,6 +43,7 @@ const ACCESS_TOKEN_EXPIRY = '15m';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly googleClient: OAuth2Client;
 
   constructor(
     private prisma: PrismaService,
@@ -51,7 +54,11 @@ export class AuthService {
     private mail: MailService,
     private tokensService: TokensService,
     private eventBus: EventBusService,
-  ) {}
+  ) {
+    this.googleClient = new OAuth2Client(
+      this.config.get<string>('GOOGLE_CLIENT_ID'),
+    );
+  }
 
   private generateRefreshToken(): string {
     return crypto.randomBytes(64).toString('hex');
@@ -285,6 +292,19 @@ export class AuthService {
     return username;
   }
 
+  private async generateUniqueReferralCode(): Promise<string> {
+    let referralCode = '';
+    let isUnique = false;
+    while (!isUnique) {
+      referralCode = `RR${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const existingCode = await this.prisma.user.findFirst({
+        where: { referralCode },
+      });
+      if (!existingCode) isUnique = true;
+    }
+    return referralCode;
+  }
+
   // ─── Student Signup ─────────────────────────────────────────────────
   async studentSignup(dto: StudentSignupDto, req?: any) {
     const existing = await this.prisma.user.findUnique({
@@ -298,15 +318,7 @@ export class AuthService {
     const hashed = await bcrypt.hash(dto.password, 12);
 
     // Generate unique branded referral code
-    let referralCode = '';
-    let isUnique = false;
-    while (!isUnique) {
-      referralCode = `RR${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-      const existingCode = await this.prisma.user.findFirst({
-        where: { referralCode },
-      });
-      if (!existingCode) isUnique = true;
-    }
+    const referralCode = await this.generateUniqueReferralCode();
 
     let referredById: string | null = null;
     if (dto.referralCode && dto.referralCode.trim() !== '') {
@@ -487,6 +499,13 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException('Email not registered. Please sign up.');
 
+    // Google-only accounts have no password set.
+    if (!user.password) {
+      throw new UnauthorizedException(
+        'This account uses Google sign-in. Please continue with Google.',
+      );
+    }
+
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Incorrect password');
 
@@ -527,6 +546,177 @@ export class AuthService {
     });
 
     this.logger.log(`Login: ${user.email}`);
+
+    return {
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar,
+          isVerified: user.isVerified,
+          isOnboarded: user.isOnboarded,
+          class: user.class,
+          school: user.school,
+          target: user.target,
+          contactNumber: user.contactNumber,
+          profilePicture: user.profilePicture,
+          address: user.address,
+          referralCode: user.referralCode,
+          username: user.username,
+        },
+        ...tokens,
+      },
+    };
+  }
+
+  // ─── Google SSO ──────────────────────────────────────────────────────
+  // Verifies the Google ID token (issued by Google Identity Services on the
+  // client) against Google's public certs, then finds-or-creates a STUDENT
+  // account and returns the same { user, accessToken, refreshToken } shape as
+  // a normal login so the client flow is identical.
+  async googleAuth(dto: GoogleAuthDto, req?: any) {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId) {
+      this.logger.error('GOOGLE_CLIENT_ID is not configured');
+      throw new BadRequestException('Google sign-in is not available');
+    }
+
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: dto.idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      this.logger.warn(`Google ID token verification failed: ${err}`);
+      throw new UnauthorizedException('Invalid Google credential');
+    }
+
+    if (!payload || !payload.sub || !payload.email) {
+      throw new UnauthorizedException('Google account is missing required information');
+    }
+
+    if (!payload.email_verified) {
+      throw new UnauthorizedException('Your Google email is not verified');
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email.toLowerCase();
+
+    // 1) Match an existing SSO account by Google subject id.
+    let user = await this.prisma.user.findUnique({ where: { googleId } });
+
+    // 2) Otherwise match by email and link the Google id to that account.
+    if (!user) {
+      const byEmail = await this.prisma.user.findUnique({ where: { email } });
+      if (byEmail) {
+        user = await this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: {
+            googleId,
+            // A Google login proves email ownership — verify if not already.
+            isVerified: true,
+            avatar: byEmail.avatar ?? payload.picture ?? null,
+          },
+        });
+      }
+    }
+
+    // 3) No account at all → provision a fresh STUDENT account.
+    let isNewUser = false;
+    if (!user) {
+      isNewUser = true;
+      const firstName = payload.given_name || payload.name?.split(' ')[0] || '';
+      const lastName =
+        payload.family_name ||
+        payload.name?.split(' ').slice(1).join(' ') ||
+        '';
+
+      const username = await this.generateUniqueUsername(firstName, lastName);
+      const referralCode = await this.generateUniqueReferralCode();
+
+      let referredById: string | null = null;
+      if (dto.referralCode && dto.referralCode.trim() !== '') {
+        const normalizedCode = dto.referralCode
+          .trim()
+          .replace(/-/g, '')
+          .toUpperCase();
+        const referrer = await this.prisma.user.findFirst({
+          where: { referralCode: normalizedCode },
+        });
+        if (referrer) referredById = referrer.id;
+      }
+
+      user = await this.prisma.user.create({
+        data: {
+          googleId,
+          email,
+          username,
+          name: payload.name || `${firstName} ${lastName}`.trim() || email,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          avatar: payload.picture ?? null,
+          role: 'STUDENT',
+          isVerified: true,
+          referralCode,
+          referredBy: referredById,
+        },
+      });
+
+      if (referredById) {
+        await this.prisma.referral.create({
+          data: {
+            referrerId: referredById,
+            referredId: user.id,
+            status: 'PENDING',
+          },
+        });
+      }
+
+      await this.provisionFreePlan(user.id);
+
+      this.eventBus.emit({
+        type: 'ACCOUNT_CREATED',
+        userId: user.id,
+        refType: 'User',
+        refId: user.id,
+        payload: {
+          source: referredById ? 'REFERRAL' : 'GOOGLE',
+          referredBy: referredById ?? undefined,
+        },
+      });
+
+      await this.mail
+        .sendWelcome({ to: user.email, name: user.firstName || user.name })
+        .catch((e) => this.logger.warn(`Welcome email failed: ${e}`));
+    }
+
+    if (!user.isActive) throw new ForbiddenException('Account deactivated');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
+    await this.updateLoginStreak(user.id);
+
+    const tokens = await this.createSession(user.id, req);
+
+    await this.audit.log({
+      action: isNewUser ? 'SIGNUP' : 'LOGIN',
+      entityType: 'User',
+      entityId: user.id,
+      performedBy: user.id,
+      details: { method: 'google_sso', isNewUser },
+      req,
+    });
+
+    this.logger.log(`Google ${isNewUser ? 'signup' : 'login'}: ${user.email}`);
 
     return {
       data: {
@@ -739,6 +929,12 @@ export class AuthService {
       where: { id: userId },
     });
     if (!user) throw new UnauthorizedException('User not found');
+
+    if (!user.password) {
+      throw new BadRequestException(
+        'This account uses Google sign-in and has no password to change.',
+      );
+    }
 
     const valid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!valid)

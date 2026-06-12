@@ -17,6 +17,7 @@ import {
   RegisterDto,
   LoginDto,
   StudentSignupDto,
+  GoogleAuthDto,
   VerifyOtpDto,
   ResendOtpDto,
   ForgotPasswordDto,
@@ -58,6 +59,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto, @Req() req: any) {
     return this.authService.login(dto, req);
+  }
+
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  googleAuth(@Body() dto: GoogleAuthDto, @Req() req: any) {
+    return this.authService.googleAuth(dto, req);
   }
 
   @Throttle({ default: { ttl: 60000, limit: 5 } })

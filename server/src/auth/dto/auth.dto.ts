@@ -83,6 +83,20 @@ export class LoginDto {
   password: string;
 }
 
+export class GoogleAuthDto {
+  // The Google ID token (JWT credential) returned by Google Identity Services
+  // on the client. Verified server-side against Google's certs.
+  @IsString()
+  @IsNotEmpty()
+  idToken: string;
+
+  // Optional referral code carried through from the signup form for new
+  // Google accounts. Ignored for users who already exist.
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
+}
+
 export class VerifyOtpDto {
   @IsString()
   @IsNotEmpty()
