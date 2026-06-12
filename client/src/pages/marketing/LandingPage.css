@@ -420,12 +420,46 @@
 
 /* ---------- Section ---------- */
 .section {
-  padding: 100px 0;
+  /* Vertical only — using the `padding` shorthand here would reset the
+     horizontal padding inherited from `.shell` (these sections are `.section
+     .shell`), pulling their content out of alignment with the rest. */
+  padding-block: 64px;
   position: relative;
+  /* Offset for the sticky nav (~65px) when scrolled to via #anchors, so the
+     section heading lands just below the nav instead of far down the page. */
+  scroll-margin-top: 28px;
 }
-@media (max-width: 720px) { .section { padding: 64px 0; } }
+@media (max-width: 720px) { .section { padding-block: 44px; } }
+
+/* "Getting started" inset card. Lives inside `.shell` so its edges line up
+   with the side padding of every other section (rather than overhanging when
+   the styling was on the full-width section element). */
+.how-card {
+  background: var(--rr-bg-alt);
+  border-radius: var(--rr-r-2xl);
+  padding: 80px 56px;
+}
+@media (max-width: 720px) { .how-card { padding: 48px 24px; } }
 
 .section-head { margin-bottom: 56px; max-width: 720px; }
+.section-head .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--rr-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--rr-violet-500);
+  margin-bottom: 18px;
+}
+.section-head .eyebrow.line::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: var(--rr-violet-500);
+}
 .section-head h2 {
   font-family: var(--rr-font-display);
   font-weight: 600;

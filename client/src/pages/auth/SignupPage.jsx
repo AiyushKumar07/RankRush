@@ -80,6 +80,13 @@ export default function SignupPage() {
     if (rid && !referralCode) setReferralCode(rid.toUpperCase())
   }, [searchParams, referralCode])
 
+  // Prefill the email carried over from the landing page's "Start free" box.
+  useEffect(() => {
+    const emailParam = searchParams.get('email')
+    if (emailParam) setEmail(emailParam)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const goTo = useCallback((n) => { setEmailError(''); setEmailErrorAllowLogin(false); setStep(n); }, [])
 
   const pwStrength = (() => {

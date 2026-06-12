@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   CircleCheck,
@@ -15,6 +16,16 @@ import './LandingPage.css'
 const STREAK_PATTERN = [0,1,2,3,4,3,2,1,0,1,2,3,4,4,3,2,3,4,4,4,4,4,3,4,4,4,4,4]
 
 export default function LandingPage() {
+  const navigate = useNavigate()
+  const [heroEmail, setHeroEmail] = useState('')
+
+  // Carry the typed email into the signup flow so it's prefilled there.
+  const handleHeroStart = (e) => {
+    e.preventDefault()
+    const email = heroEmail.trim()
+    navigate(email ? `/signup?email=${encodeURIComponent(email)}` : '/signup')
+  }
+
   return (
     <>
       {/* =========== NAV =========== */}
@@ -52,10 +63,15 @@ export default function LandingPage() {
                 Daily streak, live leaderboard, and the same dopamine loop Duolingo borrowed from slot machines — pointed at your syllabus.
               </p>
               <div className="hero-cta">
-                <div className="email-row">
-                  <input placeholder="your@university.edu" />
-                  <button className="btn btn-accent">Start free<ArrowRight size={16} /></button>
-                </div>
+                <form className="email-row" onSubmit={handleHeroStart}>
+                  <input
+                    type="email"
+                    placeholder="your@university.edu"
+                    value={heroEmail}
+                    onChange={(e) => setHeroEmail(e.target.value)}
+                  />
+                  <button type="submit" className="btn btn-accent">Start free<ArrowRight size={16} /></button>
+                </form>
               </div>
               <div className="hero-trust">
                 <span><CircleCheck size={14} />Free forever plan</span>
@@ -150,7 +166,7 @@ export default function LandingPage() {
       {/* =========== FEATURES =========== */}
       <section className="section shell" id="features">
         <div className="section-head">
-          <span className="eyebrow line">§01 — Everything in one loop</span>
+          <span className="eyebrow line">01 — Everything in one loop</span>
           <h2>Six things that hook you. <span className="accent">All built around tomorrow.</span></h2>
           <p>Open the app, take one quiz, climb the rank bar, save your streak. That's it. Everything else exists to make that loop tighter.</p>
         </div>
@@ -290,9 +306,10 @@ export default function LandingPage() {
       </section>
 
       {/* =========== HOW IT WORKS =========== */}
-      <section className="section shell" id="how" style={{ background: 'var(--rr-bg-alt)', borderRadius: 'var(--rr-r-2xl)', padding: '80px 56px' }}>
+      <section className="section shell" id="how">
+        <div className="how-card">
         <div className="section-head">
-          <span className="eyebrow line">§02 — Getting started</span>
+          <span className="eyebrow line">02 — Getting started</span>
           <h2>From signup to first rank, <span className="accent">three minutes.</span></h2>
           <p>No onboarding gauntlet. No 12-question survey. Tell us your class and what you're prepping for, then start.</p>
         </div>
@@ -338,12 +355,13 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* =========== PRICING =========== */}
       <section className="section shell" id="pricing">
         <div className="section-head">
-          <span className="eyebrow line">§03 — Pricing</span>
+          <span className="eyebrow line">03 — Pricing</span>
           <h2>Free works. <span className="accent">Pro removes the limits.</span></h2>
           <p>One token equals one quiz. The full pricing page has a third plan and add-on token packs — this is the snapshot for the landing.</p>
         </div>
@@ -399,12 +417,11 @@ export default function LandingPage() {
       <section className="shell">
         <div className="big-cta">
           <div className="big-cta-content">
-            <span className="badge live" style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: '#FAFAF7' }}>247 students joined this hour</span>
+            <span className="badge live" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#FAFAF7', padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500 }}><Radio size={14} />247 students joined this hour</span>
             <h2 style={{ marginTop: 20 }}>Your move. <span className="accent">Make tomorrow count.</span></h2>
             <p>Sign up free. The first token is on the house. The first rank is yours to earn.</p>
             <div className="row">
               <Link to="/signup" className="btn btn-lime btn-lg">Get started free<ArrowRight size={16} /></Link>
-              <a href="#" className="btn btn-ghost btn-lg" style={{ color: '#FAFAF7', border: '1px solid rgba(255,255,255,0.15)' }}>See it live</a>
             </div>
           </div>
         </div>
