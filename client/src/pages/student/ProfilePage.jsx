@@ -234,7 +234,7 @@ export default function ProfilePage() {
   })
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const navigate = useNavigate()
-  const { logout, user, updateUser } = useAuth()
+  const { logout, clearSession, user, updateUser } = useAuth()
   const { planName, isFreeTier } = useEntitlements()
   const [subscription, setSubscription] = useState(null)
 
@@ -501,9 +501,11 @@ export default function ProfilePage() {
         toast.success(`Class updated to ${classChangeTarget}. Progress reset.`)
         await loadProfile()
       } else if (action === 'delete') {
-        // Clear the now-orphaned local auth state, then send them off to
-        // the farewell page instead of a cold redirect to login.
-        await logout()
+        // Clear local auth state WITHOUT calling the logout API — the account
+        // (and its server session) is already gone, so a logout/refresh call
+        // would 401 and trip the interceptor's hard-redirect to /login,
+        // clobbering our navigation to the farewell page.
+        clearSession()
         navigate('/goodbye', { replace: true })
       }
     } catch (err) {

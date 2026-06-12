@@ -119,6 +119,17 @@ export function AuthProvider({ children }) {
     localStorage.setItem('rankrush_user', JSON.stringify(userData));
   }, []);
 
+  // Local-only teardown — clears auth state WITHOUT calling the logout API.
+  // Used after account deletion: the server session is already gone, so
+  // hitting /auth/logout would just 401 and trip the global interceptor's
+  // hard-redirect to /login (clobbering wherever we're trying to navigate).
+  const clearSession = useCallback(() => {
+    clearTokens();
+    setUser(null);
+    setPendingVerification(null);
+    localStorage.removeItem('rankrush_pending_verification');
+  }, []);
+
   const clearPendingVerification = useCallback(() => {
     setPendingVerification(null);
     localStorage.removeItem('rankrush_pending_verification');
@@ -135,6 +146,7 @@ export function AuthProvider({ children }) {
         login,
         googleLogin,
         logout,
+        clearSession,
         updateUser,
         clearPendingVerification,
       }}

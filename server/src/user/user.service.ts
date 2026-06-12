@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { CompleteProfileDto, UpdateProfileDto, UpdatePreferenceDto } from './dto/profile.dto.js';
 import { BloomFilterService } from './bloom-filter.service.js';
+import { EventBusService } from '../events/event-bus.service.js';
 
 @Injectable()
 export class UserService {
@@ -19,6 +20,7 @@ export class UserService {
     private prisma: PrismaService,
     private audit: AuditService,
     private bloomFilter: BloomFilterService,
+    private eventBus: EventBusService,
   ) {}
 
   async getProfile(userId: string) {
@@ -367,16 +369,82 @@ export class UserService {
     return { message: 'Preferences updated', data: prefs };
   }
 
-  async resetProgress(userId: string, req?: any) {
-    // Delete all quiz attempts
-    await this.prisma.quizAttempt.deleteMany({
-      where: { studentId: userId },
+  /**
+   * Wipe every per-user progress read-model in one place, so "reset" and
+   * "change class" actually clear what the UI surfaces. It's easy for these
+   * to drift: the Activity timeline reads ActivityEvent, the heatmap/streak
+   * garden reads DailyActivity, ranks read RankingScore/RankingSnapshot,
+   * accuracy reads UserPeriodStats, etc. Deleting only quizAttempts +
+   * studentActivities (the old behaviour) left all of those behind, so a
+   * "reset" user still saw their old streak history, badges and ranks.
+   *
+   * Financial/identity records (token transactions, subscriptions, payments,
+   * referrals) are intentionally NOT touched — a progress reset isn't a
+   * refund or an account wipe.
+   */
+  private async wipeStudentProgress(userId: string) {
+    await Promise.all([
+      this.prisma.quizAttempt.deleteMany({ where: { studentId: userId } }),
+      this.prisma.quizAttemptEvidence.deleteMany({ where: { studentId: userId } }),
+      this.prisma.studentActivity.deleteMany({ where: { studentId: userId } }),
+      // Keep the one-time ACCOUNT_CREATED ("Welcome to RankRush") event — it's
+      // account history, not progress, so it should survive a reset.
+      this.prisma.activityEvent.deleteMany({
+        where: { userId, type: { not: 'ACCOUNT_CREATED' } },
+      }),
+      this.prisma.dailyActivity.deleteMany({ where: { userId } }),
+      this.prisma.rankingScore.deleteMany({ where: { userId } }),
+      this.prisma.rankingSnapshot.deleteMany({ where: { userId } }),
+      this.prisma.userPeriodStats.deleteMany({ where: { userId } }),
+      this.prisma.userBadge.deleteMany({ where: { userId } }),
+      // Only clear progress-driven notifications — token/subscription/system
+      // notices aren't "progress" and must survive a reset.
+      this.prisma.notification.deleteMany({
+        where: {
+          userId,
+          type: {
+            in: ['QUIZ_RESULT', 'STREAK_MILESTONE', 'RANK_MOVEMENT', 'BADGE_EARNED'],
+          },
+        },
+      }),
+    ]);
+
+    // Re-seed today's activity rollup so the heatmap + streak counter agree:
+    // the user is active right now, so their fresh streak is 1 day, anchored
+    // to today. (Mirrors the upsert in AuthService.updateLoginStreak.)
+    const now = new Date();
+    const utcDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    await this.prisma.dailyActivity.create({
+      data: { userId, date: utcDay, loggedIn: true, loginCount: 1 },
     });
 
-    // Delete all student activities
-    await this.prisma.studentActivity.deleteMany({
-      where: { studentId: userId },
+    // Regenerate today's "Daily login · 1-day streak" entry so the timeline
+    // isn't blank after a reset — the user IS active today, so a fresh 1-day
+    // streak event is the truthful starting point. Mirrors the first-login
+    // branch of AuthService.updateLoginStreak: a StudentActivity row plus a
+    // STREAK_DAY domain event (which the projector turns into an
+    // ActivityEvent for the timeline feed).
+    await this.prisma.studentActivity.create({
+      data: {
+        studentId: userId,
+        type: 'streak',
+        title: 'Daily Login!',
+        meta: 'Streak: 1 day · +15 XP',
+        icon: 'Flame',
+        tone: 'orange',
+      },
     });
+    this.eventBus.emit({
+      type: 'STREAK_DAY',
+      userId,
+      payload: { newStreak: 1, xpGained: 15 },
+    });
+  }
+
+  async resetProgress(userId: string, req?: any) {
+    await this.wipeStudentProgress(userId);
 
     // Reset user gamification stats. The user is necessarily logged in
     // (and therefore "active today") to trigger a reset, so we mirror the
@@ -440,10 +508,7 @@ export class UserService {
       };
     }
 
-    await this.prisma.quizAttempt.deleteMany({ where: { studentId: userId } });
-    await this.prisma.studentActivity.deleteMany({
-      where: { studentId: userId },
-    });
+    await this.wipeStudentProgress(userId);
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
