@@ -1,0 +1,36 @@
+/* ChurningLoader — full-screen overlay with a rotating status caption.
+   Built on the global --rr-* tokens; sits above everything else. */
+
+.churn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--rr-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+.churn-msg {
+  margin: 0;
+  max-width: 420px;
+  padding: 0 24px;
+  text-align: center;
+  font-family: var(--rr-font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rr-fg);
+  animation: churn-msg-in 0.5s ease;
+}
+
+@keyframes churn-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .churn-msg { animation: none; }
+}

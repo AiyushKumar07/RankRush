@@ -3,6 +3,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
+import ChurningLoader from '../brand/ChurningLoader'
 
 /**
  * Theme-matched "Continue with Google" button.
@@ -21,6 +22,10 @@ export default function GoogleAuthButton({ redirectTo = '/app', referralCode }) 
   const { googleLogin } = useAuth()
   const navigate = useNavigate()
   const wrapRef = useRef(null)
+  // Covers the (slow) Google verify → account-creation round-trip with a
+  // churning status overlay so the screen doesn't appear frozen. Stays up
+  // through the navigation that follows a success; only cleared on failure.
+  const [verifying, setVerifying] = useState(false)
   // GSI's `width` must be a pixel number (Google caps it at 400). Track the
   // wrapper's width so the transparent button always covers our themed one.
   const [gsiWidth, setGsiWidth] = useState(360)
@@ -41,10 +46,12 @@ export default function GoogleAuthButton({ redirectTo = '/app', referralCode }) 
       toast.error('Google sign-in failed. Please try again.')
       return
     }
+    setVerifying(true)
     try {
       const userData = await googleLogin(idToken, 'STUDENT', referralCode)
       // First-time Google accounts aren't onboarded yet — send them to profile
-      // setup; returning users go straight where they intended.
+      // setup; returning users go straight where they intended. We leave the
+      // overlay up across the navigation (the destination mounts over it).
       if (userData && !userData.isOnboarded) {
         navigate('/onboarding')
       } else {
@@ -52,12 +59,15 @@ export default function GoogleAuthButton({ redirectTo = '/app', referralCode }) 
         navigate(redirectTo)
       }
     } catch (err) {
+      setVerifying(false)
       toast.error(err?.message || 'Could not sign in with Google')
     }
   }
 
   return (
     <div className="google-auth-btn" ref={wrapRef}>
+      {verifying && <ChurningLoader />}
+
       {/* Visible, theme-matched button (decorative — the GSI button handles input) */}
       <button type="button" className="google-btn-themed" tabIndex={-1} aria-hidden="true">
         <GoogleIcon />
