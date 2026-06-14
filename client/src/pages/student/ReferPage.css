@@ -315,6 +315,15 @@
 }
 .tabs-mini button.on { background: var(--rr-surface); color: var(--rr-fg); box-shadow: var(--rr-shadow-xs); }
 
+@media (max-width: 640px) {
+  .friends-head { flex-direction: column; align-items: stretch; gap: 14px; }
+  .friends-head .right { flex-wrap: wrap; }
+  .tabs-mini { flex: 1 1 100%; }
+  .tabs-mini button { flex: 1; text-align: center; }
+  .friends-head .right .btn { flex: 1 1 100%; justify-content: center; }
+  .friends-foot { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
 .friends-table { width: 100%; border-collapse: collapse; }
 .friends-table thead th {
   text-align: left;

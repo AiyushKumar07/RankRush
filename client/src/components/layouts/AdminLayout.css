@@ -31,6 +31,9 @@
 .admin-app > main {
   height: 100vh;
   overflow-y: auto;
+  /* Reserve the scrollbar gutter so content doesn't shift when the
+     scrollbar appears after async data loads. */
+  scrollbar-gutter: stable;
 }
 
 .admin-brand-row {

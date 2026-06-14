@@ -292,7 +292,7 @@ export default function DashboardPage() {
           )
         )}
       </div>
-      <div className="row-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+      <div className="row-2" style={{ "--row-2-cols": "1fr 1fr" }}>
         <TopicInsightCard
           tone="weak"
           title="Needs work"
@@ -316,7 +316,7 @@ export default function DashboardPage() {
           View full activity →
         </Link>
       </div>
-      <div className="row-2" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
+      <div className="row-2" style={{ "--row-2-cols": "1.6fr 1fr" }}>
         <WeeklyChartCard
           chart={weeklyChart}
           activeTab={chartTab}
@@ -329,7 +329,7 @@ export default function DashboardPage() {
       <div className="sec-title">
         <h2>Recent activity</h2>
       </div>
-      <div className="row-2" style={{ gridTemplateColumns: "1fr 1.2fr" }}>
+      <div className="row-2" style={{ "--row-2-cols": "1fr 1.2fr" }}>
         <RecentActivityCard items={recentFeed} />
         <AchievementsCard badges={badges} />
       </div>

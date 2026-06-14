@@ -139,6 +139,9 @@
 .student-main {
   min-width: 0;
   overflow-y: auto;
+  /* Always reserve the scrollbar gutter so content doesn't shift sideways
+     when the scrollbar appears after async data loads (e.g. on refresh). */
+  scrollbar-gutter: stable;
 }
 
 /* TOPBAR */
