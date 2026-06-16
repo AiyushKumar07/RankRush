@@ -144,6 +144,20 @@
   scrollbar-gutter: stable;
 }
 
+/* Canonical page content wrapper. Defined ONCE here (always loaded by the
+   layout) so every student page renders at the same width. Do NOT redefine
+   `.main` in per-page stylesheets — they share this global class, and the
+   last one injected would otherwise win for every page and make the side
+   margins jump as you navigate between routes. */
+.main {
+  padding: 32px;
+  padding-bottom: 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+@media (max-width: 720px) { .main { padding: 24px 16px 64px; } }
+
 /* TOPBAR */
 .student-topbar {
   background: var(--rr-bg);

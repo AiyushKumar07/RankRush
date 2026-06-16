@@ -1,6 +1,4 @@
 /* Activity content */
-.main { padding: 32px; max-width: 1200px; margin: 0 auto; width: 100%; padding-bottom: 80px; }
-@media (max-width: 720px) { .main { padding: 24px 16px 64px; } }
 
 /* Inline spinner — local to this page so we don't introduce a global util. */
 .spin { animation: ap-spin 0.8s linear infinite; }

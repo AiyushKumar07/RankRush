@@ -3,14 +3,6 @@
    (Sidebar/topbar/app-shell handled by StudentLayout)
    ===================================================================== */
 
-/* ---------- Main content ---------- */
-.main {
-  padding: 24px 32px 80px;
-  max-width: 1280px;
-  margin: 0 auto;
-  width: 100%;
-}
-@media (max-width: 720px) { .main { padding: 20px 16px 80px; } }
 
 /* ---------- Greeting ---------- */
 .greeting {
